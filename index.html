@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Constant Ambient</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      background: #0a0a0f;
+      color: #c8c8d4;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+    }
+
+    #app {
+      text-align: center;
+      padding: 2rem;
+    }
+
+    h1 {
+      font-size: 1.4rem;
+      font-weight: 300;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      margin-bottom: 2.5rem;
+      color: #8888aa;
+    }
+
+    #controls {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1.5rem;
+    }
+
+    #play-btn {
+      width: 100px;
+      height: 100px;
+      border-radius: 50%;
+      border: 2px solid #444466;
+      background: transparent;
+      color: #aaaacc;
+      font-size: 0.85rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: all 0.4s ease;
+    }
+
+    #play-btn:hover {
+      border-color: #6666aa;
+      color: #ccccee;
+      box-shadow: 0 0 30px rgba(100, 100, 180, 0.15);
+    }
+
+    #play-btn.active {
+      border-color: #7777bb;
+      box-shadow: 0 0 40px rgba(100, 100, 200, 0.2);
+      color: #ddddff;
+    }
+
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    label {
+      font-size: 0.7rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: #666688;
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 180px;
+      height: 2px;
+      background: #333355;
+      outline: none;
+      border-radius: 1px;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #7777aa;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    input[type="range"]::-webkit-slider-thumb:hover {
+      background: #9999cc;
+    }
+
+    select {
+      background: #12121a;
+      color: #aaaacc;
+      border: 1px solid #333355;
+      padding: 0.4rem 1rem;
+      font-size: 0.8rem;
+      border-radius: 4px;
+      cursor: pointer;
+      outline: none;
+      letter-spacing: 0.1em;
+    }
+
+    select:hover {
+      border-color: #555577;
+    }
+
+    /* Debug Panel */
+    #debug-toggle {
+      position: fixed;
+      top: 12px;
+      right: 12px;
+      background: #16161e;
+      color: #666688;
+      border: 1px solid #333355;
+      padding: 0.3rem 0.7rem;
+      font-size: 0.65rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      border-radius: 3px;
+      cursor: pointer;
+      z-index: 100;
+    }
+
+    #debug-toggle:hover {
+      border-color: #555577;
+      color: #8888aa;
+    }
+
+    #debug-panel {
+      position: fixed;
+      top: 0;
+      right: -340px;
+      width: 320px;
+      height: 100vh;
+      background: #0e0e16;
+      border-left: 1px solid #222244;
+      padding: 50px 16px 16px;
+      overflow-y: auto;
+      transition: right 0.3s ease;
+      z-index: 90;
+      font-size: 0.75rem;
+    }
+
+    #debug-panel.open {
+      right: 0;
+    }
+
+    .debug-section {
+      margin-bottom: 18px;
+    }
+
+    .debug-section-label {
+      font-size: 0.6rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: #555577;
+      margin-bottom: 8px;
+      border-bottom: 1px solid #1a1a2e;
+      padding-bottom: 4px;
+    }
+
+    #spectrum-canvas {
+      width: 100%;
+      height: 120px;
+      border-radius: 3px;
+      background: #0a0a0f;
+    }
+
+    .meter-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+
+    .meter-label {
+      width: 52px;
+      font-size: 0.65rem;
+      color: #666688;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+
+    .meter-bg {
+      flex: 1;
+      height: 6px;
+      background: #1a1a2e;
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .meter-fill {
+      height: 100%;
+      width: 0%;
+      background: #4488aa;
+      border-radius: 3px;
+      transition: width 0.1s ease;
+    }
+
+    .meter-value {
+      width: 60px;
+      font-size: 0.6rem;
+      color: #555577;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .param-row {
+      margin-bottom: 10px;
+    }
+
+    .param-row label {
+      display: block;
+      font-size: 0.6rem;
+      color: #666688;
+      margin-bottom: 3px;
+    }
+
+    .param-row input[type="range"] {
+      width: 100%;
+      height: 2px;
+    }
+
+    .param-value {
+      font-size: 0.6rem;
+      color: #7777aa;
+      margin-left: 6px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    #archive-status {
+      font-size: 0.7rem;
+      color: #666688;
+      padding: 4px 0;
+      white-space: pre-line;
+      line-height: 1.5;
+      word-break: break-word;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <h1>Constant Ambient</h1>
+    <div id="controls"></div>
+  </div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
