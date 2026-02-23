@@ -79,9 +79,9 @@ function generateLoopProgression() {
   const opts = { octave: loopOctave };
 
   if (lastChord) {
-    // Chain: the previous progression's last chord becomes this one's first
+    // Pass the last chord root — generateProgression will decide whether
+    // to stay in this key or modulate to a related one via pivot chords
     opts.startChordRoot = lastChord.root;
-    opts.startChordQuality = lastChord.quality;
   } else {
     maybeChangeRoot();
     opts.key = config.rootNote;

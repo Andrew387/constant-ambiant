@@ -160,6 +160,131 @@ const PROGRESSION_PATTERNS = [
       { degree: 'i',    quality: 'min', role: 'tonic' },
     ],
   },
+
+  // --- PLAGAL / HYMN ---
+
+  // i – iv – i (amen cadence, very choral)
+  {
+    mood: 'sad',
+    degrees: [
+      { degree: 'i',  quality: 'min', role: 'tonic' },
+      { degree: 'iv', quality: 'min', role: 'predominant' },
+      { degree: 'i',  quality: 'min', role: 'tonic' },
+    ],
+  },
+
+  // i – iv – bVI – iv – i (gospel / hymn-like)
+  {
+    mood: 'hopeful',
+    degrees: [
+      { degree: 'i',   quality: 'min', role: 'tonic' },
+      { degree: 'iv',  quality: 'min', role: 'predominant' },
+      { degree: 'bVI', quality: 'maj', role: 'predominant' },
+      { degree: 'iv',  quality: 'min', role: 'predominant' },
+      { degree: 'i',   quality: 'min', role: 'tonic' },
+    ],
+  },
+
+  // --- DESCENDING ---
+
+  // i – bVII – bVI – v – i (cinematic choral descent)
+  {
+    mood: 'dramatic',
+    degrees: [
+      { degree: 'i',    quality: 'min', role: 'tonic' },
+      { degree: 'bVII', quality: 'maj', role: 'predominant' },
+      { degree: 'bVI',  quality: 'maj', role: 'predominant' },
+      { degree: 'v',    quality: 'min', role: 'predominant' },
+      { degree: 'i',    quality: 'min', role: 'tonic' },
+    ],
+  },
+
+  // i – bVII – bVI – bVII – i (swaying descent and return)
+  {
+    mood: 'circular',
+    degrees: [
+      { degree: 'i',    quality: 'min', role: 'tonic' },
+      { degree: 'bVII', quality: 'maj', role: 'predominant' },
+      { degree: 'bVI',  quality: 'maj', role: 'predominant' },
+      { degree: 'bVII', quality: 'maj', role: 'predominant' },
+      { degree: 'i',    quality: 'min', role: 'tonic' },
+    ],
+  },
+
+  // --- LONGER JOURNEYS ---
+
+  // i – bIII – bVII – iv – bVI – i (wide arc)
+  {
+    mood: 'hopeful',
+    degrees: [
+      { degree: 'i',    quality: 'min', role: 'tonic' },
+      { degree: 'bIII', quality: 'maj', role: 'tonicLike' },
+      { degree: 'bVII', quality: 'maj', role: 'predominant' },
+      { degree: 'iv',   quality: 'min', role: 'predominant' },
+      { degree: 'bVI',  quality: 'maj', role: 'predominant' },
+      { degree: 'i',    quality: 'min', role: 'tonic' },
+    ],
+  },
+
+  // i – bVI – iv – bVII – bIII – i (winding return)
+  {
+    mood: 'circular',
+    degrees: [
+      { degree: 'i',    quality: 'min', role: 'tonic' },
+      { degree: 'bVI',  quality: 'maj', role: 'predominant' },
+      { degree: 'iv',   quality: 'min', role: 'predominant' },
+      { degree: 'bVII', quality: 'maj', role: 'predominant' },
+      { degree: 'bIII', quality: 'maj', role: 'tonicLike' },
+      { degree: 'i',    quality: 'min', role: 'tonic' },
+    ],
+  },
+
+  // --- PHRYGIAN / DARK ---
+
+  // i – bII – bIII – i (dark Eastern-choir feel)
+  {
+    mood: 'dramatic',
+    degrees: [
+      { degree: 'i',    quality: 'min', role: 'tonic' },
+      { degree: 'bII',  quality: 'maj', role: 'predominant' },
+      { degree: 'bIII', quality: 'maj', role: 'tonicLike' },
+      { degree: 'i',    quality: 'min', role: 'tonic' },
+    ],
+  },
+
+  // i – bII – bVII – bVI – i (phrygian processional)
+  {
+    mood: 'dramatic',
+    degrees: [
+      { degree: 'i',    quality: 'min', role: 'tonic' },
+      { degree: 'bII',  quality: 'maj', role: 'predominant' },
+      { degree: 'bVII', quality: 'maj', role: 'predominant' },
+      { degree: 'bVI',  quality: 'maj', role: 'predominant' },
+      { degree: 'i',    quality: 'min', role: 'tonic' },
+    ],
+  },
+
+  // --- SPACIOUS / MEDITATIVE ---
+
+  // i – bVI – i (wide, open)
+  {
+    mood: 'sad',
+    degrees: [
+      { degree: 'i',   quality: 'min', role: 'tonic' },
+      { degree: 'bVI', quality: 'maj', role: 'predominant' },
+      { degree: 'i',   quality: 'min', role: 'tonic' },
+    ],
+  },
+
+  // i – bVII – i (bright, breathing)
+  {
+    mood: 'hopeful',
+    degrees: [
+      { degree: 'i',    quality: 'min', role: 'tonic' },
+      { degree: 'bVII', quality: 'maj', role: 'predominant' },
+      { degree: 'i',    quality: 'min', role: 'tonic' },
+    ],
+  },
 ];
 
 // --------------------------------------
@@ -303,12 +428,13 @@ const TICKS_PER_UNIT = 4;
 const ALLOWED_TICKS  = [1, 2, 4, 5, 6, 8, 10, 12];
 
 function generateRhythm(chordCount) {
-  const TOTAL   = 4 * TICKS_PER_UNIT; // always 16 ticks
+  // Scale total ticks so longer progressions don't get compressed
+  const TOTAL   = Math.max(4, chordCount) * TICKS_PER_UNIT;
   const BASE    = TICKS_PER_UNIT;     // 4 ticks = ×1, always
   const allowed = new Set(ALLOWED_TICKS);
   const nonBase = ALLOWED_TICKS.filter(t => t !== BASE);
 
-  // ~40 % chance: perfectly even (only possible for 2 and 4 chords)
+  // ~40 % chance: perfectly even (only possible when TOTAL divides evenly)
   if (BASE * chordCount === TOTAL && Math.random() < 0.4) {
     return Array(chordCount).fill(BASE);
   }
@@ -352,6 +478,43 @@ function generateRhythm(chordCount) {
 }
 
 // --------------------------------------
+// KEY MODULATION
+// --------------------------------------
+
+/**
+ * Pivot relationships: given a chord root interpreted as degree X,
+ * the new key root is found by transposing DOWN by that degree's offset.
+ *
+ * E.g. if lastChord root is C and we pick 'iv', the new key root is
+ * C transposed down 5 semitones = G → we're now in G minor, where C is iv.
+ */
+const PIVOT_DEGREES = [
+  { degree: 'i',    offset: 0 },   // stay in same key
+  { degree: 'iv',   offset: 5 },   // last chord becomes iv of new key
+  { degree: 'bIII', offset: 3 },   // last chord becomes bIII of new key
+  { degree: 'bVI',  offset: 8 },   // last chord becomes bVI of new key
+  { degree: 'bVII', offset: 10 },  // last chord becomes bVII of new key
+];
+
+/**
+ * Given the last chord's root, decide whether to modulate to a related key
+ * or stay put. Returns the new key root note.
+ *
+ * ~50% chance to stay, ~50% to modulate via a pivot reinterpretation.
+ */
+function modulateFromChord(lastRoot) {
+  // 50% stay in current key
+  if (chance(0.5)) return lastRoot;
+
+  // Pick a modulation pivot (excluding 'i' which means stay)
+  const modulations = PIVOT_DEGREES.filter(p => p.degree !== 'i');
+  const pivot = modulations[Math.floor(Math.random() * modulations.length)];
+
+  // New key root = last root transposed DOWN by the pivot offset
+  return transpose(lastRoot, -pivot.offset);
+}
+
+// --------------------------------------
 // PATTERN SELECTION
 // --------------------------------------
 
@@ -383,7 +546,8 @@ export function generateProgression(options = {}) {
   let keyRoot;
 
   if (options.startChordRoot) {
-    keyRoot = options.startChordRoot;
+    // Modulate: sometimes reinterpret the last chord as a degree in a new key
+    keyRoot = modulateFromChord(options.startChordRoot);
   } else {
     keyRoot = options.key || MINOR_KEYS[Math.floor(Math.random() * MINOR_KEYS.length)];
   }
@@ -393,15 +557,6 @@ export function generateProgression(options = {}) {
   const pattern = pickRandomPattern(mood);
 
   const chords = pattern.degrees.map((ch, idx) => {
-    if (idx === 0 && options.startChordRoot) {
-      const forcedChord = buildChord(
-        options.startChordRoot,
-        { quality: options.startChordQuality || ch.quality, role: ch.role },
-        octave,
-        pattern.mood,
-      );
-      return maybeAddInversion(forcedChord);
-    }
     const degreeRoot = degreeToNote(keyRoot, ch.degree);
     const chord = buildChord(degreeRoot, ch, octave, pattern.mood);
     return maybeAddInversion(chord);
