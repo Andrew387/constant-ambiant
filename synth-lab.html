@@ -1,0 +1,848 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Synth Lab — Constant Ambient</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #0a0a0f;
+      color: #d0d0d8;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      padding: 20px;
+      min-height: 100vh;
+    }
+    h1 { color: #8888cc; font-size: 18px; margin-bottom: 4px; letter-spacing: 2px; text-transform: uppercase; }
+    h2 { color: #6a6a9a; font-size: 13px; margin-bottom: 12px; font-weight: normal; }
+    h3 { color: #9999bb; font-size: 12px; margin: 16px 0 8px; text-transform: uppercase; letter-spacing: 1px; }
+
+    .layout { display: flex; gap: 20px; flex-wrap: wrap; }
+    .panel {
+      background: #12121a;
+      border: 1px solid #222233;
+      border-radius: 8px;
+      padding: 16px;
+      flex: 1;
+      min-width: 300px;
+    }
+    .panel-wide { min-width: 100%; }
+
+    /* Synth selector */
+    .synth-selector { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+    .synth-btn {
+      background: #1a1a2a;
+      border: 1px solid #333355;
+      color: #8888bb;
+      padding: 6px 14px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 12px;
+      transition: all 0.15s;
+    }
+    .synth-btn:hover { border-color: #5555aa; color: #aaaadd; }
+    .synth-btn.active { background: #2a2a4a; border-color: #7777cc; color: #ccccff; }
+
+    /* Note/chord buttons */
+    .note-grid { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 8px; }
+    .note-btn {
+      background: #1a1a28;
+      border: 1px solid #2a2a44;
+      color: #7777aa;
+      width: 44px;
+      height: 36px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 11px;
+      transition: all 0.1s;
+    }
+    .note-btn:hover { background: #252540; border-color: #5555aa; color: #bbbbee; }
+    .note-btn:active, .note-btn.held { background: #3a3a5a; border-color: #8888cc; color: #fff; }
+    .note-btn.black { background: #0e0e18; border-color: #222238; }
+    .note-btn.black:hover { background: #1a1a30; }
+
+    .chord-grid { display: flex; gap: 6px; flex-wrap: wrap; }
+    .chord-btn {
+      background: #1a1a28;
+      border: 1px solid #2a2a44;
+      color: #7799aa;
+      padding: 8px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 12px;
+      transition: all 0.1s;
+    }
+    .chord-btn:hover { background: #252540; border-color: #5588aa; color: #bbddee; }
+    .chord-btn:active, .chord-btn.held { background: #2a3a4a; border-color: #77aacc; color: #fff; }
+
+    /* Sliders */
+    .slider-group { margin-bottom: 10px; }
+    .slider-label {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 3px;
+      font-size: 11px;
+      color: #666688;
+    }
+    .slider-label .val { color: #8888bb; }
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 4px;
+      background: #222233;
+      border-radius: 2px;
+      outline: none;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      background: #6666aa;
+      border-radius: 50%;
+      cursor: pointer;
+    }
+    input[type="range"]::-webkit-slider-thumb:hover { background: #8888cc; }
+
+    /* Select */
+    select {
+      background: #1a1a2a;
+      border: 1px solid #333355;
+      color: #9999bb;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-family: inherit;
+      font-size: 12px;
+      outline: none;
+      cursor: pointer;
+    }
+
+    /* Config output */
+    #config-output {
+      background: #0e0e16;
+      border: 1px solid #222233;
+      border-radius: 4px;
+      color: #88aa88;
+      font-family: 'Courier New', monospace;
+      font-size: 11px;
+      width: 100%;
+      height: 260px;
+      padding: 10px;
+      resize: vertical;
+      outline: none;
+    }
+    .copy-btn {
+      background: #1a2a1a;
+      border: 1px solid #336633;
+      color: #77bb77;
+      padding: 6px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 12px;
+      margin-top: 8px;
+      transition: all 0.15s;
+    }
+    .copy-btn:hover { background: #2a3a2a; border-color: #55aa55; }
+
+    .row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+    .status { color: #555577; font-size: 11px; margin-top: 8px; }
+    .oct-btn {
+      background: #1a1a2a;
+      border: 1px solid #333355;
+      color: #8888bb;
+      width: 28px;
+      height: 28px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 14px;
+    }
+    .oct-btn:hover { border-color: #5555aa; }
+  </style>
+</head>
+<body>
+
+<h1>Synth Lab</h1>
+<h2>sound design playground for constant ambient</h2>
+
+<div class="layout">
+
+  <!-- LEFT: Synth + Controls -->
+  <div class="panel" style="flex: 2;">
+
+    <h3>Synth Type</h3>
+    <div class="synth-selector" id="synth-selector">
+      <button class="synth-btn active" data-synth="PolySynth">PolySynth</button>
+      <button class="synth-btn" data-synth="FMSynth">FMSynth</button>
+      <button class="synth-btn" data-synth="AMSynth">AMSynth</button>
+      <button class="synth-btn" data-synth="MonoSynth">MonoSynth</button>
+      <button class="synth-btn" data-synth="DuoSynth">DuoSynth</button>
+      <button class="synth-btn" data-synth="MetalSynth">MetalSynth</button>
+      <button class="synth-btn" data-synth="MembraneSynth">MembraneSynth</button>
+      <button class="synth-btn" data-synth="PluckSynth">PluckSynth</button>
+    </div>
+
+    <h3>Oscillator</h3>
+    <div class="row">
+      <span style="color:#666688;width:70px">Wave:</span>
+      <select id="osc-type">
+        <option value="sine">sine</option>
+        <option value="triangle" selected>triangle</option>
+        <option value="sawtooth">sawtooth</option>
+        <option value="square">square</option>
+        <option value="fatsine">fatsine</option>
+        <option value="fattriangle">fattriangle</option>
+        <option value="fatsawtooth">fatsawtooth</option>
+        <option value="fmsine">fmsine</option>
+        <option value="fmtriangle">fmtriangle</option>
+        <option value="amsine">amsine</option>
+        <option value="amtriangle">amtriangle</option>
+        <option value="pwm">pwm</option>
+        <option value="pulse">pulse</option>
+      </select>
+    </div>
+    <div class="slider-group">
+      <div class="slider-label"><span>Detune</span><span class="val" id="detune-val">0 ct</span></div>
+      <input type="range" id="detune" min="-50" max="50" value="0" step="1">
+    </div>
+
+    <h3>Envelope</h3>
+    <div class="slider-group">
+      <div class="slider-label"><span>Attack</span><span class="val" id="attack-val">0.5s</span></div>
+      <input type="range" id="attack" min="0.001" max="12" value="0.5" step="0.01">
+    </div>
+    <div class="slider-group">
+      <div class="slider-label"><span>Decay</span><span class="val" id="decay-val">1.0s</span></div>
+      <input type="range" id="decay" min="0.01" max="8" value="1.0" step="0.01">
+    </div>
+    <div class="slider-group">
+      <div class="slider-label"><span>Sustain</span><span class="val" id="sustain-val">0.60</span></div>
+      <input type="range" id="sustain" min="0" max="1" value="0.6" step="0.01">
+    </div>
+    <div class="slider-group">
+      <div class="slider-label"><span>Release</span><span class="val" id="release-val">3.0s</span></div>
+      <input type="range" id="release" min="0.01" max="20" value="3.0" step="0.01">
+    </div>
+
+    <h3>FM Parameters <span style="color:#444466">(FMSynth / AMSynth)</span></h3>
+    <div class="slider-group">
+      <div class="slider-label"><span>Harmonicity</span><span class="val" id="harmonicity-val">3.00</span></div>
+      <input type="range" id="harmonicity" min="0.1" max="20" value="3.0" step="0.01">
+    </div>
+    <div class="slider-group">
+      <div class="slider-label"><span>Modulation Index</span><span class="val" id="modindex-val">10</span></div>
+      <input type="range" id="modindex" min="0" max="40" value="10" step="0.1">
+    </div>
+
+    <h3>Filter</h3>
+    <div class="row">
+      <span style="color:#6666888;width:70px">Type:</span>
+      <select id="filter-type">
+        <option value="lowpass" selected>lowpass</option>
+        <option value="highpass">highpass</option>
+        <option value="bandpass">bandpass</option>
+        <option value="notch">notch</option>
+      </select>
+    </div>
+    <div class="slider-group">
+      <div class="slider-label"><span>Frequency</span><span class="val" id="filter-freq-val">2000 Hz</span></div>
+      <input type="range" id="filter-freq" min="20" max="18000" value="2000" step="1">
+    </div>
+    <div class="slider-group">
+      <div class="slider-label"><span>Q</span><span class="val" id="filter-q-val">1.0</span></div>
+      <input type="range" id="filter-q" min="0.1" max="18" value="1.0" step="0.1">
+    </div>
+    <div class="slider-group">
+      <div class="slider-label"><span>Filter Envelope (base freq)</span><span class="val" id="filter-env-val">350 Hz</span></div>
+      <input type="range" id="filter-env" min="20" max="10000" value="350" step="1">
+    </div>
+
+    <h3>Effects</h3>
+    <div class="slider-group">
+      <div class="slider-label"><span>Reverb (decay)</span><span class="val" id="reverb-val">4.0s</span></div>
+      <input type="range" id="reverb" min="0.1" max="30" value="4.0" step="0.1">
+    </div>
+    <div class="slider-group">
+      <div class="slider-label"><span>Reverb Wet</span><span class="val" id="reverb-wet-val">0.40</span></div>
+      <input type="range" id="reverb-wet" min="0" max="1" value="0.4" step="0.01">
+    </div>
+    <div class="slider-group">
+      <div class="slider-label"><span>Delay Time</span><span class="val" id="delay-time-val">0.30s</span></div>
+      <input type="range" id="delay-time" min="0.01" max="2" value="0.3" step="0.01">
+    </div>
+    <div class="slider-group">
+      <div class="slider-label"><span>Delay Feedback</span><span class="val" id="delay-fb-val">0.30</span></div>
+      <input type="range" id="delay-fb" min="0" max="0.9" value="0.3" step="0.01">
+    </div>
+    <div class="slider-group">
+      <div class="slider-label"><span>Delay Wet</span><span class="val" id="delay-wet-val">0.20</span></div>
+      <input type="range" id="delay-wet" min="0" max="1" value="0.2" step="0.01">
+    </div>
+    <div class="slider-group">
+      <div class="slider-label"><span>Chorus Depth</span><span class="val" id="chorus-depth-val">0.50</span></div>
+      <input type="range" id="chorus-depth" min="0" max="1" value="0.5" step="0.01">
+    </div>
+    <div class="slider-group">
+      <div class="slider-label"><span>Chorus Wet</span><span class="val" id="chorus-wet-val">0.00</span></div>
+      <input type="range" id="chorus-wet" min="0" max="1" value="0.0" step="0.01">
+    </div>
+
+    <h3>Master</h3>
+    <div class="slider-group">
+      <div class="slider-label"><span>Volume</span><span class="val" id="volume-val">-12 dB</span></div>
+      <input type="range" id="volume" min="-40" max="0" value="-12" step="1">
+    </div>
+  </div>
+
+  <!-- RIGHT: Play + Config -->
+  <div class="panel" style="flex: 1; min-width: 320px;">
+
+    <h3>Octave <span id="octave-display" style="color:#aaaadd">4</span></h3>
+    <div class="row">
+      <button class="oct-btn" id="oct-down">-</button>
+      <button class="oct-btn" id="oct-up">+</button>
+    </div>
+
+    <h3>Single Notes</h3>
+    <div class="note-grid" id="note-grid"></div>
+
+    <h3>Chords — Natural Minor (Aeolian)</h3>
+    <div class="chord-grid" id="chord-grid"></div>
+    <p class="status" style="margin-top:6px">Hold to sustain, release to stop</p>
+
+    <h3>Common Progressions</h3>
+    <div class="chord-grid" id="prog-grid"></div>
+
+    <h3 style="margin-top: 20px;">Current Setup</h3>
+    <textarea id="config-output" readonly></textarea>
+    <button class="copy-btn" id="copy-btn">Copy to Clipboard</button>
+    <p class="status" id="copy-status"></p>
+  </div>
+
+</div>
+
+<script src="https://unpkg.com/tone@14.7.77/build/Tone.js"></script>
+<script>
+// ---- State ----
+let currentSynthType = 'PolySynth';
+let octave = 4;
+let synth = null;
+let filter = null;
+let reverb = null;
+let delay = null;
+let chorus = null;
+let audioStarted = false;
+let heldNotes = new Set();
+
+// ---- Chord definitions (Aeolian / natural minor) ----
+const DEGREES = {
+  'i':    { semi: 0,  qual: 'min', label: 'i' },
+  'ii°':  { semi: 2,  qual: 'dim', label: 'ii°' },
+  'bIII': { semi: 3,  qual: 'maj', label: 'bIII' },
+  'iv':   { semi: 5,  qual: 'min', label: 'iv' },
+  'v':    { semi: 7,  qual: 'min', label: 'v' },
+  'bVI':  { semi: 8,  qual: 'maj', label: 'bVI' },
+  'bVII': { semi: 10, qual: 'maj', label: 'bVII' },
+  'bII':  { semi: 1,  qual: 'maj', label: 'bII' },
+};
+
+const QUALITIES = {
+  min: [0, 3, 7],
+  maj: [0, 4, 7],
+  dim: [0, 3, 6],
+  min7: [0, 3, 7, 10],
+  maj7: [0, 4, 7, 11],
+  sus2: [0, 2, 7],
+  sus4: [0, 5, 7],
+  add9: [0, 4, 7, 14],
+};
+
+const NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+const ROOT = 0; // C
+
+function midiToNote(midi) {
+  const name = NOTE_NAMES[midi % 12];
+  const oct = Math.floor(midi / 12) - 1;
+  return name + oct;
+}
+
+function buildChord(degreeName, oct) {
+  const deg = DEGREES[degreeName];
+  if (!deg) return [];
+  const base = ROOT + deg.semi + (oct + 1) * 12;
+  return QUALITIES[deg.qual].map(s => midiToNote(base + s));
+}
+
+// Some extra chord qualities to try
+function buildChordQual(degreeName, qualName, oct) {
+  const deg = DEGREES[degreeName];
+  if (!deg) return [];
+  const base = ROOT + deg.semi + (oct + 1) * 12;
+  const q = QUALITIES[qualName] || QUALITIES[deg.qual];
+  return q.map(s => midiToNote(base + s));
+}
+
+// ---- Audio init ----
+async function ensureAudio() {
+  if (!audioStarted) {
+    await Tone.start();
+    audioStarted = true;
+  }
+}
+
+function getEnvelopeParams() {
+  return {
+    attack: parseFloat(document.getElementById('attack').value),
+    decay: parseFloat(document.getElementById('decay').value),
+    sustain: parseFloat(document.getElementById('sustain').value),
+    release: parseFloat(document.getElementById('release').value),
+  };
+}
+
+function createSynth() {
+  // Dispose old chain
+  if (synth) { try { synth.dispose(); } catch(e){} }
+  if (filter) { try { filter.dispose(); } catch(e){} }
+  if (reverb) { try { reverb.dispose(); } catch(e){} }
+  if (delay) { try { delay.dispose(); } catch(e){} }
+  if (chorus) { try { chorus.dispose(); } catch(e){} }
+
+  const env = getEnvelopeParams();
+  const oscType = document.getElementById('osc-type').value;
+  const det = parseFloat(document.getElementById('detune').value);
+  const harm = parseFloat(document.getElementById('harmonicity').value);
+  const modIdx = parseFloat(document.getElementById('modindex').value);
+  const vol = parseFloat(document.getElementById('volume').value);
+
+  const opts = { envelope: env, volume: vol };
+
+  switch (currentSynthType) {
+    case 'PolySynth':
+      synth = new Tone.PolySynth(Tone.Synth, {
+        maxPolyphony: 16,
+        oscillator: { type: oscType, detune: det },
+        envelope: env,
+        volume: vol,
+      });
+      break;
+    case 'FMSynth':
+      synth = new Tone.PolySynth(Tone.FMSynth, {
+        maxPolyphony: 8,
+        harmonicity: harm,
+        modulationIndex: modIdx,
+        oscillator: { type: oscType, detune: det },
+        envelope: env,
+        volume: vol,
+      });
+      break;
+    case 'AMSynth':
+      synth = new Tone.PolySynth(Tone.AMSynth, {
+        maxPolyphony: 8,
+        harmonicity: harm,
+        oscillator: { type: oscType, detune: det },
+        envelope: env,
+        volume: vol,
+      });
+      break;
+    case 'MonoSynth':
+      synth = new Tone.MonoSynth({
+        oscillator: { type: oscType, detune: det },
+        envelope: env,
+        filterEnvelope: {
+          attack: env.attack,
+          decay: env.decay,
+          sustain: env.sustain,
+          release: env.release,
+          baseFrequency: parseFloat(document.getElementById('filter-env').value),
+        },
+        volume: vol,
+      });
+      break;
+    case 'DuoSynth':
+      synth = new Tone.DuoSynth({
+        harmonicity: harm,
+        voice0: { oscillator: { type: oscType }, envelope: env },
+        voice1: { oscillator: { type: oscType }, envelope: env },
+        volume: vol,
+      });
+      break;
+    case 'MetalSynth':
+      synth = new Tone.MetalSynth({
+        harmonicity: harm,
+        modulationIndex: modIdx,
+        resonance: 800,
+        envelope: { attack: env.attack, decay: env.decay + env.release, release: 0.1 },
+        volume: vol,
+      });
+      break;
+    case 'MembraneSynth':
+      synth = new Tone.MembraneSynth({
+        pitchDecay: 0.05,
+        octaves: 4,
+        oscillator: { type: oscType },
+        envelope: { attack: env.attack, decay: env.decay, sustain: 0, release: env.release },
+        volume: vol,
+      });
+      break;
+    case 'PluckSynth':
+      synth = new Tone.PluckSynth({
+        attackNoise: 1,
+        dampening: parseFloat(document.getElementById('filter-freq').value),
+        resonance: 0.9,
+        release: env.release,
+        volume: vol,
+      });
+      break;
+  }
+
+  // Effects chain
+  const fType = document.getElementById('filter-type').value;
+  const fFreq = parseFloat(document.getElementById('filter-freq').value);
+  const fQ = parseFloat(document.getElementById('filter-q').value);
+  filter = new Tone.Filter(fFreq, fType, -12);
+  filter.Q.value = fQ;
+
+  const revDecay = parseFloat(document.getElementById('reverb').value);
+  const revWet = parseFloat(document.getElementById('reverb-wet').value);
+  reverb = new Tone.Reverb({ decay: revDecay, wet: revWet });
+
+  const delTime = parseFloat(document.getElementById('delay-time').value);
+  const delFb = parseFloat(document.getElementById('delay-fb').value);
+  const delWet = parseFloat(document.getElementById('delay-wet').value);
+  delay = new Tone.PingPongDelay({ delayTime: delTime, feedback: delFb, wet: delWet });
+
+  const chDepth = parseFloat(document.getElementById('chorus-depth').value);
+  const chWet = parseFloat(document.getElementById('chorus-wet').value);
+  chorus = new Tone.Chorus({ frequency: 1.5, depth: chDepth, wet: chWet });
+
+  synth.chain(filter, chorus, delay, reverb, Tone.Destination);
+
+  updateConfig();
+}
+
+// ---- Note playing ----
+function playNote(note) {
+  ensureAudio().then(() => {
+    if (!synth) createSynth();
+    const canSustain = !['MetalSynth', 'PluckSynth', 'MembraneSynth'].includes(currentSynthType);
+    if (canSustain) {
+      synth.triggerAttack(note, Tone.now());
+    } else {
+      synth.triggerAttackRelease(note, '8n', Tone.now());
+    }
+  });
+}
+
+function releaseNote(note) {
+  if (!synth) return;
+  const canSustain = !['MetalSynth', 'PluckSynth', 'MembraneSynth'].includes(currentSynthType);
+  if (canSustain) {
+    if (Array.isArray(note)) {
+      // PolySynth can release individual notes
+      try { synth.triggerRelease(note, Tone.now()); } catch(e) {}
+    } else {
+      try { synth.triggerRelease(note, Tone.now()); } catch(e) {}
+    }
+  }
+}
+
+function playChord(notes) {
+  ensureAudio().then(() => {
+    if (!synth) createSynth();
+    const canSustain = !['MetalSynth', 'PluckSynth', 'MembraneSynth'].includes(currentSynthType);
+    const isMono = ['MonoSynth', 'DuoSynth', 'MembraneSynth'].includes(currentSynthType);
+
+    if (isMono) {
+      // Play root only for mono synths
+      if (canSustain) {
+        synth.triggerAttack(notes[0], Tone.now());
+      } else {
+        synth.triggerAttackRelease(notes[0], '4n', Tone.now());
+      }
+    } else {
+      if (canSustain) {
+        synth.triggerAttack(notes, Tone.now());
+      } else {
+        notes.forEach((n, i) => {
+          synth.triggerAttackRelease(n, '4n', Tone.now() + i * 0.02);
+        });
+      }
+    }
+  });
+}
+
+function releaseChord(notes) {
+  if (!synth) return;
+  const canSustain = !['MetalSynth', 'PluckSynth', 'MembraneSynth'].includes(currentSynthType);
+  const isMono = ['MonoSynth', 'DuoSynth'].includes(currentSynthType);
+  if (canSustain) {
+    if (isMono) {
+      try { synth.triggerRelease(Tone.now()); } catch(e) {}
+    } else {
+      try { synth.triggerRelease(notes, Tone.now()); } catch(e) {}
+    }
+  }
+}
+
+// ---- Build note grid ----
+function buildNoteGrid() {
+  const grid = document.getElementById('note-grid');
+  grid.innerHTML = '';
+  const chromatic = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+  chromatic.forEach(name => {
+    const btn = document.createElement('button');
+    btn.className = 'note-btn' + (name.includes('#') ? ' black' : '');
+    btn.textContent = name;
+    const fullNote = name + octave;
+
+    btn.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      btn.classList.add('held');
+      playNote(fullNote);
+    });
+    btn.addEventListener('mouseup', () => {
+      btn.classList.remove('held');
+      releaseNote(fullNote);
+    });
+    btn.addEventListener('mouseleave', () => {
+      if (btn.classList.contains('held')) {
+        btn.classList.remove('held');
+        releaseNote(fullNote);
+      }
+    });
+    grid.appendChild(btn);
+  });
+}
+
+// ---- Build chord grid ----
+function buildChordGrid() {
+  const grid = document.getElementById('chord-grid');
+  grid.innerHTML = '';
+
+  // Basic triads
+  Object.entries(DEGREES).forEach(([key, deg]) => {
+    const btn = document.createElement('button');
+    btn.className = 'chord-btn';
+    btn.textContent = deg.label;
+    const notes = buildChord(key, octave);
+
+    btn.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      btn.classList.add('held');
+      playChord(notes);
+    });
+    btn.addEventListener('mouseup', () => {
+      btn.classList.remove('held');
+      releaseChord(notes);
+    });
+    btn.addEventListener('mouseleave', () => {
+      if (btn.classList.contains('held')) {
+        btn.classList.remove('held');
+        releaseChord(notes);
+      }
+    });
+    grid.appendChild(btn);
+  });
+
+  // Extra qualities
+  const extras = [
+    { deg: 'i', qual: 'min7', label: 'i7' },
+    { deg: 'bIII', qual: 'maj7', label: 'bIIImaj7' },
+    { deg: 'i', qual: 'sus2', label: 'isus2' },
+    { deg: 'iv', qual: 'sus4', label: 'ivsus4' },
+    { deg: 'i', qual: 'add9', label: 'iadd9' },
+    { deg: 'bVI', qual: 'maj7', label: 'bVImaj7' },
+  ];
+  extras.forEach(({ deg, qual, label }) => {
+    const btn = document.createElement('button');
+    btn.className = 'chord-btn';
+    btn.textContent = label;
+    btn.style.fontSize = '10px';
+    const notes = buildChordQual(deg, qual, octave);
+
+    btn.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      btn.classList.add('held');
+      playChord(notes);
+    });
+    btn.addEventListener('mouseup', () => {
+      btn.classList.remove('held');
+      releaseChord(notes);
+    });
+    btn.addEventListener('mouseleave', () => {
+      if (btn.classList.contains('held')) {
+        btn.classList.remove('held');
+        releaseChord(notes);
+      }
+    });
+    grid.appendChild(btn);
+  });
+}
+
+// ---- Progression buttons ----
+function buildProgGrid() {
+  const grid = document.getElementById('prog-grid');
+  grid.innerHTML = '';
+
+  const progs = [
+    { label: 'Sad: i-bVI-bVII-i', degrees: ['i','bVI','bVII','i'] },
+    { label: 'Hopeful: i-bVII-bIII-bVI', degrees: ['i','bVII','bIII','bVI'] },
+    { label: 'Dramatic: i-bII-bVI-bVII', degrees: ['i','bII','bVI','bVII'] },
+    { label: 'Circular: i-bVI-bVII-bIII', degrees: ['i','bVI','bVII','bIII'] },
+    { label: 'Hymn: i-iv-bVI-bVII', degrees: ['i','iv','bVI','bVII'] },
+    { label: 'Dark: i-bII-iv-i', degrees: ['i','bII','iv','i'] },
+  ];
+
+  let progTimeout = null;
+
+  progs.forEach(({ label, degrees }) => {
+    const btn = document.createElement('button');
+    btn.className = 'chord-btn';
+    btn.textContent = label;
+    btn.style.fontSize = '10px';
+
+    btn.addEventListener('click', async () => {
+      await ensureAudio();
+      if (!synth) createSynth();
+      if (progTimeout) clearTimeout(progTimeout);
+
+      // Release everything first
+      try { synth.releaseAll && synth.releaseAll(); } catch(e) {}
+
+      const holdTime = 1.8; // seconds per chord
+      degrees.forEach((deg, i) => {
+        const notes = buildChord(deg, octave);
+        setTimeout(() => {
+          // Release previous
+          try { synth.releaseAll && synth.releaseAll(); } catch(e) {}
+          playChord(notes);
+          // Release last chord
+          if (i === degrees.length - 1) {
+            progTimeout = setTimeout(() => {
+              releaseChord(notes);
+            }, holdTime * 1000);
+          }
+        }, i * holdTime * 1000);
+      });
+    });
+    grid.appendChild(btn);
+  });
+}
+
+// ---- Config output ----
+function updateConfig() {
+  const env = getEnvelopeParams();
+  const config = {
+    synthType: currentSynthType,
+    oscillator: {
+      type: document.getElementById('osc-type').value,
+      detune: parseFloat(document.getElementById('detune').value),
+    },
+    envelope: env,
+    fm: {
+      harmonicity: parseFloat(document.getElementById('harmonicity').value),
+      modulationIndex: parseFloat(document.getElementById('modindex').value),
+    },
+    filter: {
+      type: document.getElementById('filter-type').value,
+      frequency: parseFloat(document.getElementById('filter-freq').value),
+      Q: parseFloat(document.getElementById('filter-q').value),
+      envelopeBaseFreq: parseFloat(document.getElementById('filter-env').value),
+    },
+    effects: {
+      reverb: {
+        decay: parseFloat(document.getElementById('reverb').value),
+        wet: parseFloat(document.getElementById('reverb-wet').value),
+      },
+      delay: {
+        time: parseFloat(document.getElementById('delay-time').value),
+        feedback: parseFloat(document.getElementById('delay-fb').value),
+        wet: parseFloat(document.getElementById('delay-wet').value),
+      },
+      chorus: {
+        depth: parseFloat(document.getElementById('chorus-depth').value),
+        wet: parseFloat(document.getElementById('chorus-wet').value),
+      },
+    },
+    volume: parseFloat(document.getElementById('volume').value),
+  };
+
+  document.getElementById('config-output').value = JSON.stringify(config, null, 2);
+}
+
+// ---- Wire up synth selector ----
+document.querySelectorAll('.synth-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelector('.synth-btn.active')?.classList.remove('active');
+    btn.classList.add('active');
+    currentSynthType = btn.dataset.synth;
+    createSynth();
+  });
+});
+
+// ---- Wire up octave ----
+document.getElementById('oct-down').addEventListener('click', () => {
+  if (octave > 1) { octave--; document.getElementById('octave-display').textContent = octave; buildNoteGrid(); buildChordGrid(); }
+});
+document.getElementById('oct-up').addEventListener('click', () => {
+  if (octave < 7) { octave++; document.getElementById('octave-display').textContent = octave; buildNoteGrid(); buildChordGrid(); }
+});
+
+// ---- Wire up all sliders ----
+const sliderDefs = [
+  { id: 'detune', display: 'detune-val', fmt: v => v + ' ct' },
+  { id: 'attack', display: 'attack-val', fmt: v => parseFloat(v).toFixed(2) + 's' },
+  { id: 'decay', display: 'decay-val', fmt: v => parseFloat(v).toFixed(2) + 's' },
+  { id: 'sustain', display: 'sustain-val', fmt: v => parseFloat(v).toFixed(2) },
+  { id: 'release', display: 'release-val', fmt: v => parseFloat(v).toFixed(2) + 's' },
+  { id: 'harmonicity', display: 'harmonicity-val', fmt: v => parseFloat(v).toFixed(2) },
+  { id: 'modindex', display: 'modindex-val', fmt: v => parseFloat(v).toFixed(0) },
+  { id: 'filter-freq', display: 'filter-freq-val', fmt: v => Math.round(v) + ' Hz' },
+  { id: 'filter-q', display: 'filter-q-val', fmt: v => parseFloat(v).toFixed(1) },
+  { id: 'filter-env', display: 'filter-env-val', fmt: v => Math.round(v) + ' Hz' },
+  { id: 'reverb', display: 'reverb-val', fmt: v => parseFloat(v).toFixed(1) + 's' },
+  { id: 'reverb-wet', display: 'reverb-wet-val', fmt: v => parseFloat(v).toFixed(2) },
+  { id: 'delay-time', display: 'delay-time-val', fmt: v => parseFloat(v).toFixed(2) + 's' },
+  { id: 'delay-fb', display: 'delay-fb-val', fmt: v => parseFloat(v).toFixed(2) },
+  { id: 'delay-wet', display: 'delay-wet-val', fmt: v => parseFloat(v).toFixed(2) },
+  { id: 'chorus-depth', display: 'chorus-depth-val', fmt: v => parseFloat(v).toFixed(2) },
+  { id: 'chorus-wet', display: 'chorus-wet-val', fmt: v => parseFloat(v).toFixed(2) },
+  { id: 'volume', display: 'volume-val', fmt: v => v + ' dB' },
+];
+
+sliderDefs.forEach(({ id, display, fmt }) => {
+  const el = document.getElementById(id);
+  el.addEventListener('input', () => {
+    document.getElementById(display).textContent = fmt(el.value);
+    // Recreate synth with new params
+    createSynth();
+  });
+});
+
+// Selects also trigger rebuild
+document.getElementById('osc-type').addEventListener('change', () => createSynth());
+document.getElementById('filter-type').addEventListener('change', () => createSynth());
+
+// ---- Copy button ----
+document.getElementById('copy-btn').addEventListener('click', () => {
+  const textarea = document.getElementById('config-output');
+  textarea.select();
+  navigator.clipboard.writeText(textarea.value).then(() => {
+    document.getElementById('copy-status').textContent = 'Copied!';
+    setTimeout(() => { document.getElementById('copy-status').textContent = ''; }, 2000);
+  });
+});
+
+// ---- Init ----
+buildNoteGrid();
+buildChordGrid();
+buildProgGrid();
+updateConfig();
+</script>
+
+</body>
+</html>
