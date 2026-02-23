@@ -1,10 +1,10 @@
 /**
  * Chord progression generator tuned to an emotional, choral minor aesthetic.
  *
- * Uses explicit degree→semitone mapping (Aeolian-based) and role-aware
- * chord coloring. Mostly plain triads with occasional sus2 / add9 for warmth.
- * All patterns start on i so the last chord of one progression can seed
- * the next for smooth chaining.
+ * Uses explicit degree→semitone mapping (Aeolian-based) and mood-aware,
+ * role-aware chord coloring. Mostly plain triads with occasional sus2 / add9
+ * for warmth. All patterns start on i so the last chord of one progression
+ * can seed the next for smooth chaining.
  */
 
 // --------------------------------------
@@ -31,72 +31,145 @@ const DEGREE_OFFSETS = {
   'VII':  11,
 };
 
-// Progression patterns aimed at emotional, clear, "choral" motion.
-// Very few chords per progression, lots of i / iv / bVI / bVII / bIII.
-const PROGRESSION_PATTERNS = [
-  // ── 3-chord ──
-  // i – bVI – bVII
-  [
-    { degree: 'i', quality: 'min', role: 'tonic' },
-    { degree: 'bVI', quality: 'maj', role: 'predominant' },
-    { degree: 'bVII', quality: 'maj', role: 'predominant' },
-  ],
-  // i – iv – bVII
-  [
-    { degree: 'i', quality: 'min', role: 'tonic' },
-    { degree: 'iv', quality: 'min', role: 'predominant' },
-    { degree: 'bVII', quality: 'maj', role: 'predominant' },
-  ],
-  // i – bIII – bVI
-  [
-    { degree: 'i', quality: 'min', role: 'tonic' },
-    { degree: 'bIII', quality: 'maj', role: 'tonicLike' },
-    { degree: 'bVI', quality: 'maj', role: 'predominant' },
-  ],
+// --------------------------------------
+// PROGRESSION PATTERNS (CHOIR-FRIENDLY)
+// Each pattern has a mood tag so we can steer the vibe.
+// --------------------------------------
 
-  // ── 4-chord ──
-  // Classic minor hymn feel
-  [
-    { degree: 'i', quality: 'min', role: 'tonic' },
-    { degree: 'bVI', quality: 'maj', role: 'predominant' },
-    { degree: 'bVII', quality: 'maj', role: 'predominant' },
-    { degree: 'i', quality: 'min', role: 'tonic' },
-  ],
-  // i – bVII – bIII – bVI (cinematic, simple)
-  [
-    { degree: 'i', quality: 'min', role: 'tonic' },
-    { degree: 'bVII', quality: 'maj', role: 'predominant' },
-    { degree: 'bIII', quality: 'maj', role: 'tonicLike' },
-    { degree: 'bVI', quality: 'maj', role: 'predominant' },
-  ],
-  // i – iv – bVI – bVII – i (cinematic 5-chord)
-  [
-    { degree: 'i', quality: 'min', role: 'tonic' },
-    { degree: 'iv', quality: 'min', role: 'predominant' },
-    { degree: 'bVI', quality: 'maj', role: 'predominant' },
-    { degree: 'bVII', quality: 'maj', role: 'predominant' },
-    { degree: 'i', quality: 'min', role: 'tonic' },
-  ],
-  // i – bIII – bVI – i (gentle and clear)
-  [
-    { degree: 'i', quality: 'min', role: 'tonic' },
-    { degree: 'bIII', quality: 'maj', role: 'tonicLike' },
-    { degree: 'bVI', quality: 'maj', role: 'predominant' },
-    { degree: 'i', quality: 'min', role: 'tonic' },
-  ],
-  // i – iv – bVII – i (dorian-ish choir progression)
-  [
-    { degree: 'i', quality: 'min', role: 'tonic' },
-    { degree: 'iv', quality: 'min', role: 'predominant' },
-    { degree: 'bVII', quality: 'maj', role: 'predominant' },
-    { degree: 'i', quality: 'min', role: 'tonic' },
-  ],
+const PROGRESSION_PATTERNS = [
+  // --- SAD / INTIMATE ---
+
+  // Classic i – bVI – bVII – i
+  {
+    mood: 'sad',
+    degrees: [
+      { degree: 'i',    quality: 'min', role: 'tonic' },
+      { degree: 'bVI',  quality: 'maj', role: 'predominant' },
+      { degree: 'bVII', quality: 'maj', role: 'predominant' },
+      { degree: 'i',    quality: 'min', role: 'tonic' },
+    ],
+  },
+
+  // i – bIII – bVI – i (gently melancholic)
+  {
+    mood: 'sad',
+    degrees: [
+      { degree: 'i',    quality: 'min', role: 'tonic' },
+      { degree: 'bIII', quality: 'maj', role: 'tonicLike' },
+      { degree: 'bVI',  quality: 'maj', role: 'predominant' },
+      { degree: 'i',    quality: 'min', role: 'tonic' },
+    ],
+  },
+
+  // i – iv – bVI – bVII – i (hymn-like)
+  {
+    mood: 'sad',
+    degrees: [
+      { degree: 'i',    quality: 'min', role: 'tonic' },
+      { degree: 'iv',   quality: 'min', role: 'predominant' },
+      { degree: 'bVI',  quality: 'maj', role: 'predominant' },
+      { degree: 'bVII', quality: 'maj', role: 'predominant' },
+      { degree: 'i',    quality: 'min', role: 'tonic' },
+    ],
+  },
+
+  // --- HOPEFUL / LIFTING ---
+
+  // i – bVII – bIII – bVI – i (cinematic lift then return)
+  {
+    mood: 'hopeful',
+    degrees: [
+      { degree: 'i',    quality: 'min', role: 'tonic' },
+      { degree: 'bVII', quality: 'maj', role: 'predominant' },
+      { degree: 'bIII', quality: 'maj', role: 'tonicLike' },
+      { degree: 'bVI',  quality: 'maj', role: 'predominant' },
+      { degree: 'i',    quality: 'min', role: 'tonic' },
+    ],
+  },
+
+  // i – iv – bVII – i (simple and singable)
+  {
+    mood: 'hopeful',
+    degrees: [
+      { degree: 'i',    quality: 'min', role: 'tonic' },
+      { degree: 'iv',   quality: 'min', role: 'predominant' },
+      { degree: 'bVII', quality: 'maj', role: 'predominant' },
+      { degree: 'i',    quality: 'min', role: 'tonic' },
+    ],
+  },
+
+  // i – bVI – bIII – bVII – i (bright minor)
+  {
+    mood: 'hopeful',
+    degrees: [
+      { degree: 'i',    quality: 'min', role: 'tonic' },
+      { degree: 'bVI',  quality: 'maj', role: 'predominant' },
+      { degree: 'bIII', quality: 'maj', role: 'tonicLike' },
+      { degree: 'bVII', quality: 'maj', role: 'predominant' },
+      { degree: 'i',    quality: 'min', role: 'tonic' },
+    ],
+  },
+
+  // --- DRAMATIC / DARKER (still choir, not jazzy) ---
+
+  // i – bII – bVI – bVII – i (phrygian drama)
+  {
+    mood: 'dramatic',
+    degrees: [
+      { degree: 'i',    quality: 'min', role: 'tonic' },
+      { degree: 'bII',  quality: 'maj', role: 'predominant' },
+      { degree: 'bVI',  quality: 'maj', role: 'predominant' },
+      { degree: 'bVII', quality: 'maj', role: 'predominant' },
+      { degree: 'i',    quality: 'min', role: 'tonic' },
+    ],
+  },
+
+  // i – iv – bII – i (short, intense)
+  {
+    mood: 'dramatic',
+    degrees: [
+      { degree: 'i',   quality: 'min', role: 'tonic' },
+      { degree: 'iv',  quality: 'min', role: 'predominant' },
+      { degree: 'bII', quality: 'maj', role: 'predominant' },
+      { degree: 'i',   quality: 'min', role: 'tonic' },
+    ],
+  },
+
+  // --- CIRCULAR / LOOPING ---
+
+  // i – bVI – bVII – bIII – i (circular)
+  {
+    mood: 'circular',
+    degrees: [
+      { degree: 'i',    quality: 'min', role: 'tonic' },
+      { degree: 'bVI',  quality: 'maj', role: 'predominant' },
+      { degree: 'bVII', quality: 'maj', role: 'predominant' },
+      { degree: 'bIII', quality: 'maj', role: 'tonicLike' },
+      { degree: 'i',    quality: 'min', role: 'tonic' },
+    ],
+  },
+
+  // i – iv – bIII – bVI – i (song-like)
+  {
+    mood: 'circular',
+    degrees: [
+      { degree: 'i',    quality: 'min', role: 'tonic' },
+      { degree: 'iv',   quality: 'min', role: 'predominant' },
+      { degree: 'bIII', quality: 'maj', role: 'tonicLike' },
+      { degree: 'bVI',  quality: 'maj', role: 'predominant' },
+      { degree: 'i',    quality: 'min', role: 'tonic' },
+    ],
+  },
 ];
 
-// Very *simple* colors: no 7ths, 9ths, 11ths, 13ths flying everywhere.
-// Mostly plain triads, with occasional sus2 / add9 for emotion.
-const MINOR_COLORS = ['', '', '', 'sus2', 'add9']; // mostly plain
-const MAJOR_COLORS = ['', '', 'sus2', 'add9'];      // mostly plain
+// --------------------------------------
+// COLOR PALETTES (STILL VERY SIMPLE)
+// --------------------------------------
+
+// Very simple colors: no 7ths, 9ths, 11ths, 13ths as separate chords.
+// Just sus2 or add9 and mostly plain triads.
+const MINOR_COLORS = ['', '', '', 'sus2', 'add9']; // 60% plain
+const MAJOR_COLORS = ['', '', 'sus2', 'add9'];      // also mostly plain
 
 function chance(prob) {
   return Math.random() < prob;
@@ -129,19 +202,35 @@ function toToneNote(pitchClass, octave) {
   return `${name}${octave}`;
 }
 
-// Decide how much color to allow based on harmonic role
-function pickColorForChord(quality, role) {
-  // Tonics can be a bit more expressive (sus2 / add9 sometimes)
+// Mood affects how much color we allow on tonic vs predominant
+function pickColorForChord(quality, role, mood) {
+  // Mood-tuned palettes
+  let minorPalette = MINOR_COLORS;
+  let majorPalette = MAJOR_COLORS;
+
+  if (mood === 'sad') {
+    minorPalette = ['', '', '', 'sus2', 'add9'];
+    majorPalette = ['', '', '', 'sus2'];
+  } else if (mood === 'hopeful') {
+    minorPalette = ['', '', 'add9', 'sus2', 'add9'];
+    majorPalette = ['', 'sus2', 'add9', 'add9'];
+  } else if (mood === 'dramatic') {
+    minorPalette = ['', '', 'sus2', 'sus2', 'add9'];
+    majorPalette = ['', '', 'sus2', 'sus2'];
+  }
+  // circular: use default base palettes
+
+  // Tonics can be slightly more expressive
   if (role === 'tonic' || role === 'tonicLike') {
     if (quality === 'min') {
-      return MINOR_COLORS[Math.floor(Math.random() * MINOR_COLORS.length)];
+      return minorPalette[Math.floor(Math.random() * minorPalette.length)];
     }
     if (quality === 'maj') {
-      return MAJOR_COLORS[Math.floor(Math.random() * MAJOR_COLORS.length)];
+      return majorPalette[Math.floor(Math.random() * majorPalette.length)];
     }
   }
 
-  // Predominants: mostly plain triads, very rarely sus2
+  // Predominants: mostly plain, occasional sus2
   if (role === 'predominant') {
     if (chance(0.15)) return 'sus2';
     return '';
@@ -151,9 +240,9 @@ function pickColorForChord(quality, role) {
 }
 
 // Build a choir-friendly chord with Tone.js-compatible note output
-function buildChord(root, chordSpec, octave) {
+function buildChord(root, chordSpec, octave, mood) {
   const { quality, role } = chordSpec;
-  const color = pickColorForChord(quality, role || 'tonic');
+  const color = pickColorForChord(quality, role || 'tonic', mood);
 
   let intervals;
 
@@ -168,11 +257,12 @@ function buildChord(root, chordSpec, octave) {
     intervals = [0, 4, 7]; // default to major
   }
 
-  // Apply gentle color
+  // sus2: replace 3rd with 2nd (1,2,5)
+  // add9: keep triad, add 9th (2nd, octave up)
   if (color === 'sus2') {
-    intervals = [0, 2, 7]; // replace 3rd with 2nd
+    intervals = [0, 2, 7];
   } else if (color === 'add9') {
-    intervals.push(14); // add 9th (2nd, octave up) for Tone.js voicing
+    intervals.push(14); // 9th = 2nd an octave up for Tone.js voicing
   }
 
   // Build symbol
@@ -223,15 +313,10 @@ function generateRhythm(chordCount) {
     return Array(chordCount).fill(BASE);
   }
 
-  // Rule: at most 2 chords may differ from ×1 (BASE = 4).
-  // For 2-chord progressions both always differ (4+4=8 ≠ 16).
-  // The non-varied slots lock to BASE; the varied slots absorb the rest.
-
   for (let attempt = 0; attempt < 40; attempt++) {
     const variedCount = chordCount <= 2 ? chordCount
       : 1 + Math.floor(Math.random() * 2);   // 1 or 2
 
-    // Pick unique random positions
     const positions = [];
     while (positions.length < variedCount) {
       const p = Math.floor(Math.random() * chordCount);
@@ -250,7 +335,6 @@ function generateRhythm(chordCount) {
       continue;
     }
 
-    // variedCount === 2: pick random first, derive second
     const shuffled = [...nonBase].sort(() => Math.random() - 0.5);
     for (const v1 of shuffled) {
       const v2 = variedTarget - v1;
@@ -268,6 +352,19 @@ function generateRhythm(chordCount) {
 }
 
 // --------------------------------------
+// PATTERN SELECTION
+// --------------------------------------
+
+function pickRandomPattern(mood) {
+  const candidates = mood
+    ? PROGRESSION_PATTERNS.filter(p => p.mood === mood)
+    : PROGRESSION_PATTERNS;
+
+  if (candidates.length === 0) return PROGRESSION_PATTERNS[0];
+  return candidates[Math.floor(Math.random() * candidates.length)];
+}
+
+// --------------------------------------
 // PUBLIC API
 // --------------------------------------
 
@@ -277,9 +374,10 @@ function generateRhythm(chordCount) {
  * @param {object} [options]
  * @param {string} [options.key] - Root note of the minor key (e.g. "C")
  * @param {number} [options.octave] - Base octave for voicing (default 3)
+ * @param {string} [options.mood] - "sad", "hopeful", "dramatic", "circular" (null = any)
  * @param {string} [options.startChordRoot] - Force first chord root for smooth chaining
  * @param {string} [options.startChordQuality] - Quality of the forced first chord (default "min")
- * @returns {{ key: string, chords: { symbol: string, notes: string[], root: string, quality: string }[], rhythm: number[] }}
+ * @returns {{ key: string, mood: string, chords: { symbol: string, notes: string[], root: string, quality: string }[], rhythm: number[] }}
  */
 export function generateProgression(options = {}) {
   let keyRoot;
@@ -291,25 +389,27 @@ export function generateProgression(options = {}) {
   }
 
   const octave = options.octave || 3;
-  const pattern = PROGRESSION_PATTERNS[Math.floor(Math.random() * PROGRESSION_PATTERNS.length)];
+  const mood = options.mood || null;
+  const pattern = pickRandomPattern(mood);
 
-  const chords = pattern.map((ch, idx) => {
+  const chords = pattern.degrees.map((ch, idx) => {
     if (idx === 0 && options.startChordRoot) {
       const forcedChord = buildChord(
         options.startChordRoot,
         { quality: options.startChordQuality || ch.quality, role: ch.role },
         octave,
+        pattern.mood,
       );
       return maybeAddInversion(forcedChord);
     }
     const degreeRoot = degreeToNote(keyRoot, ch.degree);
-    const chord = buildChord(degreeRoot, ch, octave);
+    const chord = buildChord(degreeRoot, ch, octave, pattern.mood);
     return maybeAddInversion(chord);
   });
 
   const rhythm = generateRhythm(chords.length);
 
-  return { key: `${keyRoot} minor`, chords, rhythm };
+  return { key: `${keyRoot} minor`, mood: pattern.mood, chords, rhythm };
 }
 
 export { MINOR_KEYS, TICKS_PER_UNIT };
