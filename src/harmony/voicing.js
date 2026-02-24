@@ -27,9 +27,9 @@ function parseNote(note) {
  *   offsets: per-note timing offsets in seconds (0 if humanize is false)
  */
 export function voiceChord(notes, spread = 2, humanize = true) {
-  // Keep pad notes in the low-mid register (octaves 2–3) for warmth
+  // Favor a brighter register (octaves 3–5) while still allowing warmth
   const MIN_OCTAVE = 3;
-  const MAX_OCTAVE = 4;
+  const MAX_OCTAVE = 5;
 
   const voiced = notes.map((note, i) => {
     const { name, octave } = parseNote(note);
