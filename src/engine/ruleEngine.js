@@ -35,10 +35,10 @@ function chordDurationInSeconds() {
 }
 
 /**
- * Picks a base octave appropriate for dark music (octaves 3–4).
+ * Picks a base octave, biased toward the higher register (octave 4 ~70%).
  */
 function pickOctave() {
-  return 3 + Math.floor(Math.random() * 2);
+  return Math.random() < 0.7 ? 4 : 3;
 }
 
 /**
@@ -90,7 +90,7 @@ function generateLoopProgression() {
   const prog = generateProgression(opts);
 
   const chords = prog.chords.map((chord, idx) => {
-    const { notes: voicedNotes, offsets } = voiceChord(chord.notes, 1, true);
+    const { notes: voicedNotes, offsets } = voiceChord(chord.notes, 2, true);
     return {
       symbol: chord.symbol,
       root: chord.root,
