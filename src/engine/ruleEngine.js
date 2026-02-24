@@ -1,6 +1,6 @@
 import * as Tone from 'tone';
 import rulesConfig from './rules.config.js';
-import { generateProgression, MINOR_KEYS, TICKS_PER_UNIT } from '../harmony/progression.js';
+import { generateProgression, rebuildChordWithColor, MINOR_KEYS, TICKS_PER_UNIT } from '../harmony/progression.js';
 import { voiceChord } from '../harmony/voicing.js';
 import { triggerPadChord, triggerDrone, triggerTexture, triggerBell } from '../rhythm/scheduler.js';
 import {
@@ -19,7 +19,8 @@ let loopTimeoutId = null;
 // times before a fresh progression is generated.
 const REPEATS_PER_CYCLE = 4;
 
-let loop = [];           // Array of pre-built chord snapshots (variable length)
+let baseLoop = [];       // Original unvaried chord snapshots (source of truth)
+let loop = [];           // Active loop — may be a varied copy of baseLoop
 let loopPosition = 0;    // Current chord within the loop
 let loopRepeatCount = 0; // How many times the current loop has fully played
 
@@ -64,6 +65,97 @@ function driftTempo() {
 // Track the last chord so the next progression can chain from it
 let lastChord = null;
 
+// ── Loop variation helpers ──
+// On repeats 2+, apply 1–2 subtle changes so no two passes are identical.
+
+/**
+ * Inversion: move the lowest voiced note up one octave.
+ * Creates a smoother, lifted voicing without changing the harmony.
+ */
+function applyInversion(chord) {
+  const voiced = [...chord.voicedNotes];
+  if (voiced.length < 2) return chord;
+
+  // Find lowest note by parsing octave numbers
+  let lowestIdx = 0;
+  let lowestOctave = Infinity;
+  voiced.forEach((n, i) => {
+    const oct = Number(n.match(/\d+$/)[0]);
+    if (oct < lowestOctave) { lowestOctave = oct; lowestIdx = i; }
+  });
+
+  // Shift that note up one octave
+  voiced[lowestIdx] = voiced[lowestIdx].replace(/\d+$/, String(lowestOctave + 1));
+
+  const label = `${chord.symbol} (inv)`;
+  return { ...chord, voicedNotes: voiced, symbol: label };
+}
+
+/**
+ * Re-voice: run voiceChord again with a different spread value,
+ * giving a new octave distribution of the same pitches.
+ */
+function applyRevoice(chord) {
+  const spread = Math.random() < 0.5 ? 1 : 3; // original is 2
+  const { notes: revoiced, offsets } = voiceChord(chord.notes, spread, true);
+  return { ...chord, voicedNotes: revoiced, offsets };
+}
+
+/**
+ * Color toggle: swap between plain / sus2 / add9.
+ * Rebuilds the note set from the chord root so intervals are correct.
+ */
+function applyColorChange(chord) {
+  const currentColor = chord.symbol.includes('sus2') ? 'sus2'
+    : chord.symbol.includes('add9') ? 'add9' : '';
+
+  // Pick a different color
+  const options = ['', 'sus2', 'add9'].filter(c => c !== currentColor);
+  const newColor = options[Math.floor(Math.random() * options.length)];
+
+  const { notes } = rebuildChordWithColor(chord.root, chord.quality, newColor, chord.octave);
+  const { notes: voicedNotes, offsets } = voiceChord(notes, 2, true);
+
+  // Update symbol
+  let symbol = chord.root;
+  if (chord.quality === 'min') symbol += ' min';
+  else if (chord.quality === 'maj') symbol += ' maj';
+  else if (chord.quality === 'dim') symbol += ' dim';
+  if (newColor) symbol += ` ${newColor}`;
+
+  return { ...chord, notes, voicedNotes, offsets, symbol: symbol.trim() };
+}
+
+const VARIATION_FNS = [applyInversion, applyRevoice, applyColorChange];
+
+/**
+ * Creates a varied copy of the base loop for a given repeat.
+ * Picks 1–2 random chord positions and applies a random micro-variation
+ * to each. The base loop is never mutated.
+ */
+function createVariedLoop(base) {
+  const varied = base.map(c => ({ ...c }));
+  const count = varied.length;
+  if (count === 0) return varied;
+
+  // Pick 1–2 chord indices to vary
+  const numChanges = count <= 2 ? 1 : (Math.random() < 0.5 ? 1 : 2);
+  const indices = new Set();
+  while (indices.size < numChanges) {
+    indices.add(Math.floor(Math.random() * count));
+  }
+
+  const changes = [];
+  for (const idx of indices) {
+    const fn = VARIATION_FNS[Math.floor(Math.random() * VARIATION_FNS.length)];
+    varied[idx] = fn(varied[idx]);
+    changes.push(`#${idx + 1}→${varied[idx].symbol}`);
+  }
+
+  console.log(`[loop]   repeat variation: ${changes.join(', ')}`);
+  return varied;
+}
+
 /**
  * Generates a fresh loop progression using the taste-profile generator.
  *
@@ -106,7 +198,8 @@ function generateLoopProgression() {
   // Remember the last chord for next cycle's chaining
   lastChord = chords[chords.length - 1];
 
-  loop = chords;
+  baseLoop = chords;
+  loop = chords;   // first pass plays the original
   loopPosition = 0;
   loopRepeatCount = 0;
 
@@ -136,6 +229,11 @@ function advanceLoop() {
       console.error('[loop] generation failed, replaying previous loop:', err);
       if (loop.length === 0) throw err;
     }
+  }
+
+  // At the start of each new repeat (not the first), create a varied copy
+  if (!needsNewLoop && loopPosition === 0 && loopRepeatCount > 0) {
+    loop = createVariedLoop(baseLoop);
   }
 
   const chord = loop[loopPosition];
@@ -209,6 +307,7 @@ export function start(mixerSynths) {
   synths = mixerSynths;
   running = true;
   chordCount = 0;
+  baseLoop = [];
   loop = [];
   loopPosition = 0;
   loopRepeatCount = 0;
@@ -244,6 +343,7 @@ export function stop() {
   }
 
   chordCount = 0;
+  baseLoop = [];
   loop = [];
   loopPosition = 0;
   loopRepeatCount = 0;
