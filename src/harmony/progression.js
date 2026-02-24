@@ -264,6 +264,134 @@ const PROGRESSION_PATTERNS = [
     ],
   },
 
+  // --- SAD / LAMENT (additional) ---
+
+  // i – iv – v – i (choral lament, subdominant to minor dominant)
+  {
+    mood: 'sad',
+    degrees: [
+      { degree: 'i',  quality: 'min', role: 'tonic' },
+      { degree: 'iv', quality: 'min', role: 'predominant' },
+      { degree: 'v',  quality: 'min', role: 'predominant' },
+      { degree: 'i',  quality: 'min', role: 'tonic' },
+    ],
+  },
+
+  // i – bIII – iv – i (warm ascent then fall)
+  {
+    mood: 'sad',
+    degrees: [
+      { degree: 'i',    quality: 'min', role: 'tonic' },
+      { degree: 'bIII', quality: 'maj', role: 'tonicLike' },
+      { degree: 'iv',   quality: 'min', role: 'predominant' },
+      { degree: 'i',    quality: 'min', role: 'tonic' },
+    ],
+  },
+
+  // i – v – bVI – iv – i (descending lament arc)
+  {
+    mood: 'sad',
+    degrees: [
+      { degree: 'i',   quality: 'min', role: 'tonic' },
+      { degree: 'v',   quality: 'min', role: 'predominant' },
+      { degree: 'bVI', quality: 'maj', role: 'predominant' },
+      { degree: 'iv',  quality: 'min', role: 'predominant' },
+      { degree: 'i',   quality: 'min', role: 'tonic' },
+    ],
+  },
+
+  // --- HOPEFUL (additional) ---
+
+  // i – bIII – iv – bVII – i (ascending stepwise lift)
+  {
+    mood: 'hopeful',
+    degrees: [
+      { degree: 'i',    quality: 'min', role: 'tonic' },
+      { degree: 'bIII', quality: 'maj', role: 'tonicLike' },
+      { degree: 'iv',   quality: 'min', role: 'predominant' },
+      { degree: 'bVII', quality: 'maj', role: 'predominant' },
+      { degree: 'i',    quality: 'min', role: 'tonic' },
+    ],
+  },
+
+  // i – iv – bVI – bVII – bIII – i (wide hopeful arc via subdominant)
+  {
+    mood: 'hopeful',
+    degrees: [
+      { degree: 'i',    quality: 'min', role: 'tonic' },
+      { degree: 'iv',   quality: 'min', role: 'predominant' },
+      { degree: 'bVI',  quality: 'maj', role: 'predominant' },
+      { degree: 'bVII', quality: 'maj', role: 'predominant' },
+      { degree: 'bIII', quality: 'maj', role: 'tonicLike' },
+      { degree: 'i',    quality: 'min', role: 'tonic' },
+    ],
+  },
+
+  // --- DRAMATIC (additional) ---
+
+  // i – bII – iv – v – i (phrygian climb to minor dominant)
+  {
+    mood: 'dramatic',
+    degrees: [
+      { degree: 'i',   quality: 'min', role: 'tonic' },
+      { degree: 'bII', quality: 'maj', role: 'predominant' },
+      { degree: 'iv',  quality: 'min', role: 'predominant' },
+      { degree: 'v',   quality: 'min', role: 'predominant' },
+      { degree: 'i',   quality: 'min', role: 'tonic' },
+    ],
+  },
+
+  // i – v – bVI – bII – i (dramatic drop then phrygian return)
+  {
+    mood: 'dramatic',
+    degrees: [
+      { degree: 'i',   quality: 'min', role: 'tonic' },
+      { degree: 'v',   quality: 'min', role: 'predominant' },
+      { degree: 'bVI', quality: 'maj', role: 'predominant' },
+      { degree: 'bII', quality: 'maj', role: 'predominant' },
+      { degree: 'i',   quality: 'min', role: 'tonic' },
+    ],
+  },
+
+  // --- CIRCULAR (additional) ---
+
+  // i – bVII – bVI – iv – i (smooth chromatic descent)
+  {
+    mood: 'circular',
+    degrees: [
+      { degree: 'i',    quality: 'min', role: 'tonic' },
+      { degree: 'bVII', quality: 'maj', role: 'predominant' },
+      { degree: 'bVI',  quality: 'maj', role: 'predominant' },
+      { degree: 'iv',   quality: 'min', role: 'predominant' },
+      { degree: 'i',    quality: 'min', role: 'tonic' },
+    ],
+  },
+
+  // i – bIII – bVII – bVI – i (orbiting thirds)
+  {
+    mood: 'circular',
+    degrees: [
+      { degree: 'i',    quality: 'min', role: 'tonic' },
+      { degree: 'bIII', quality: 'maj', role: 'tonicLike' },
+      { degree: 'bVII', quality: 'maj', role: 'predominant' },
+      { degree: 'bVI',  quality: 'maj', role: 'predominant' },
+      { degree: 'i',    quality: 'min', role: 'tonic' },
+    ],
+  },
+
+  // i – iv – bVII – bIII – bVI – i (long winding circle)
+  {
+    mood: 'circular',
+    degrees: [
+      { degree: 'i',    quality: 'min', role: 'tonic' },
+      { degree: 'iv',   quality: 'min', role: 'predominant' },
+      { degree: 'bVII', quality: 'maj', role: 'predominant' },
+      { degree: 'bIII', quality: 'maj', role: 'tonicLike' },
+      { degree: 'bVI',  quality: 'maj', role: 'predominant' },
+      { degree: 'i',    quality: 'min', role: 'tonic' },
+    ],
+  },
+
   // --- SPACIOUS / MEDITATIVE ---
 
   // i – bVI – i (wide, open)
@@ -425,56 +553,61 @@ function maybeAddInversion(chord) {
 // --------------------------------------
 
 const TICKS_PER_UNIT = 4;
-const ALLOWED_TICKS  = [1, 2, 4, 5, 6, 8, 10, 12];
 
 function generateRhythm(chordCount) {
-  // Scale total ticks so longer progressions don't get compressed
-  const TOTAL   = Math.max(4, chordCount) * TICKS_PER_UNIT;
-  const BASE    = TICKS_PER_UNIT;     // 4 ticks = ×1, always
-  const allowed = new Set(ALLOWED_TICKS);
-  const nonBase = ALLOWED_TICKS.filter(t => t !== BASE);
+  const TOTAL  = 4 * TICKS_PER_UNIT;  // always 4 beats = 16 ticks
+  const BASE   = TICKS_PER_UNIT;      // 4 ticks = ×1
+  const HALF   = BASE / 2;            // 2 ticks = ×0.5
+  const DOUBLE = BASE * 2;            // 8 ticks = ×2
 
-  // ~40 % chance: perfectly even (only possible when TOTAL divides evenly)
+  // Even rhythm when it fits exactly (chordCount === 4)
   if (BASE * chordCount === TOTAL && Math.random() < 0.4) {
     return Array(chordCount).fill(BASE);
   }
 
-  for (let attempt = 0; attempt < 40; attempt++) {
-    const variedCount = chordCount <= 2 ? chordCount
-      : 1 + Math.floor(Math.random() * 2);   // 1 or 2
+  // Start everyone at BASE, then adjust to hit TOTAL
+  const w = Array(chordCount).fill(BASE);
+  let sum = chordCount * BASE;
 
-    const positions = [];
-    while (positions.length < variedCount) {
-      const p = Math.floor(Math.random() * chordCount);
-      if (!positions.includes(p)) positions.push(p);
+  // Too many beats → shrink random chords to ×0.5
+  while (sum > TOTAL) {
+    const candidates = [];
+    for (let i = 0; i < chordCount; i++) {
+      if (w[i] > HALF) candidates.push(i);
     }
+    if (candidates.length === 0) break;
+    const idx = candidates[Math.floor(Math.random() * candidates.length)];
+    w[idx] -= HALF;
+    sum -= HALF;
+  }
 
-    const fixedTotal   = (chordCount - variedCount) * BASE;
-    const variedTarget = TOTAL - fixedTotal;
-
-    if (variedCount === 1) {
-      if (variedTarget > 0 && allowed.has(variedTarget) && variedTarget !== BASE) {
-        const w = Array(chordCount).fill(BASE);
-        w[positions[0]] = variedTarget;
-        return w;
-      }
-      continue;
+  // Too few beats → grow random chords (up to ×2)
+  while (sum < TOTAL) {
+    const candidates = [];
+    for (let i = 0; i < chordCount; i++) {
+      if (w[i] < DOUBLE) candidates.push(i);
     }
+    if (candidates.length === 0) break;
+    const idx = candidates[Math.floor(Math.random() * candidates.length)];
+    w[idx] += HALF;
+    sum += HALF;
+  }
 
-    const shuffled = [...nonBase].sort(() => Math.random() - 0.5);
-    for (const v1 of shuffled) {
-      const v2 = variedTarget - v1;
-      if (v2 > 0 && allowed.has(v2) && (v1 !== BASE || v2 !== BASE)) {
-        const w = Array(chordCount).fill(BASE);
-        w[positions[0]] = v1;
-        w[positions[1]] = v2;
-        return w;
+  // Optional variation for even distributions: swap durations between two chords
+  if (chordCount >= 3 && Math.random() > 0.4) {
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const i = Math.floor(Math.random() * chordCount);
+      const j = Math.floor(Math.random() * chordCount);
+      if (i === j) continue;
+      if (w[i] > HALF && w[j] < DOUBLE) {
+        w[i] -= HALF;
+        w[j] += HALF;
+        break;
       }
     }
   }
 
-  // Fallback: even rhythm
-  return Array(chordCount).fill(BASE);
+  return w;
 }
 
 // --------------------------------------
