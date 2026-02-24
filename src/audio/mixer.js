@@ -33,6 +33,7 @@ export function initMixer() {
     texture: new Tone.Gain(0.4),
     bell: new Tone.Gain(0.35),
     archive: new Tone.Gain(0.7),
+    freesound: new Tone.Gain(0.4),
   };
 
   // Per-track effect groups: trackGain → effects → masterGain
@@ -54,6 +55,9 @@ export function initMixer() {
   trackGains.archive.connect(trackEffects.archive.input);
   trackEffects.archive.output.connect(masterGain);
 
+  trackGains.freesound.connect(trackEffects.freesound.input);
+  trackEffects.freesound.output.connect(masterGain);
+
   // Initialize each synth routed to its own track gain
   const pad = createPadSynth(trackGains.pad);
   const drone = createDroneSynth(trackGains.drone);
@@ -69,6 +73,7 @@ export function initMixer() {
     setMasterVolume,
     setEffectsEnabled,
     getArchiveGain: () => trackGains.archive,
+    getFreesoundGain: () => trackGains.freesound,
     dispose: disposeMixer,
   };
 }

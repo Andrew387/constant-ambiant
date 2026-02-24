@@ -2,6 +2,7 @@ import * as Tone from 'tone';
 import { initMixer, setMasterVolume, setTrackVolume } from './audio/mixer.js';
 import { start, stop, updateRules, getConfig } from './engine/ruleEngine.js';
 import { startArchiveLayer, stopArchiveLayer } from './archive/player.js';
+import { startFreesoundLayer, stopFreesoundLayer } from './freesound/player.js';
 import { createControls } from './ui/controls.js';
 import { createDebugPanel, connectDebugAudio } from './ui/debug.js';
 
@@ -18,6 +19,7 @@ const debugState = {
   textureVolume: null,
   bellVolume: null,
   archiveVolume: null,
+  freesoundVolume: null,
   effectsEnabled: false,
 };
 
@@ -40,11 +42,15 @@ async function handleStart() {
   if (config.archiveEnabled) {
     startArchiveLayer(mixer.getArchiveGain());
   }
+  if (config.freesoundEnabled) {
+    startFreesoundLayer(mixer.getFreesoundGain());
+  }
 }
 
 function handleStop() {
   stop();
   stopArchiveLayer();
+  stopFreesoundLayer();
 }
 
 function handleVolumeChange(value) {
@@ -77,6 +83,7 @@ function applyDebugOverrides() {
   if (debugState.textureVolume !== null) setTrackVolume('texture', debugState.textureVolume);
   if (debugState.bellVolume !== null) setTrackVolume('bell', debugState.bellVolume);
   if (debugState.archiveVolume !== null) setTrackVolume('archive', debugState.archiveVolume);
+  if (debugState.freesoundVolume !== null) setTrackVolume('freesound', debugState.freesoundVolume);
 }
 
 function handleParamChange(param, value) {
@@ -108,6 +115,9 @@ case 'padVolume':
       break;
     case 'archiveVolume':
       setTrackVolume('archive', value);
+      break;
+    case 'freesoundVolume':
+      setTrackVolume('freesound', value);
       break;
     case 'effectsEnabled':
       if (mixer) mixer.setEffectsEnabled(value);

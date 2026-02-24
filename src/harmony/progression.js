@@ -671,4 +671,35 @@ export function generateProgression(options = {}) {
   return { key: `${keyRoot} minor`, mood: pattern.mood, chords, rhythm };
 }
 
+/**
+ * Rebuild a chord's notes with a different color (sus2 / add9 / plain).
+ * Used by the loop variation system to create subtle per-repeat differences.
+ *
+ * @param {string} root - Root pitch class (e.g. "C")
+ * @param {string} quality - "min", "maj", or "dim"
+ * @param {string} color - "", "sus2", or "add9"
+ * @param {number} octave - Base octave
+ * @returns {{ notes: string[], colorLabel: string }}
+ */
+export function rebuildChordWithColor(root, quality, color, octave) {
+  let intervals;
+  if (quality === 'min') intervals = [0, 3, 7];
+  else if (quality === 'dim') intervals = [0, 3, 6];
+  else intervals = [0, 4, 7];
+
+  if (color === 'sus2') {
+    intervals = [0, 2, 7];
+  } else if (color === 'add9') {
+    intervals.push(14);
+  }
+
+  const notes = intervals.map(i => {
+    const pitchClass = transpose(root, ((i % 12) + 12) % 12);
+    const octaveOffset = Math.floor(i / 12);
+    return toToneNote(pitchClass, octave + octaveOffset);
+  });
+
+  return { notes, colorLabel: color };
+}
+
 export { MINOR_KEYS, TICKS_PER_UNIT };

@@ -32,6 +32,9 @@ const rulesConfig = {
 
   /** Whether to enable Archive.org ambient texture layer */
   archiveEnabled: true,
+
+  /** Whether to enable Freesound SFX layer */
+  freesoundEnabled: true,
 };
 
 export default rulesConfig;

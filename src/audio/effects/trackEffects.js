@@ -67,6 +67,23 @@ export function createTextureEffects() {
 }
 
 /**
+ * Creates the freesound effect group: pass-through.
+ * Per-sound reverb is applied in the player itself.
+ *
+ * @returns {{ input: Tone.ToneAudioNode, output: Tone.ToneAudioNode, dispose: Function }}
+ */
+export function createFreesoundEffects() {
+  const passthrough = new Tone.Gain(1);
+  return {
+    input: passthrough,
+    output: passthrough,
+    dispose() {
+      passthrough.dispose();
+    },
+  };
+}
+
+/**
  * Creates the archive effect group: pass-through (ready for future effects).
  *
  * @returns {{ input: Tone.ToneAudioNode, output: Tone.ToneAudioNode, dispose: Function }}
@@ -93,5 +110,6 @@ export function createAllTrackEffects() {
     drone: createDroneEffects(),
     texture: createTextureEffects(),
     archive: createArchiveEffects(),
+    freesound: createFreesoundEffects(),
   };
 }
