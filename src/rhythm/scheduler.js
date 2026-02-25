@@ -35,6 +35,25 @@ export function triggerPadChord(synths, notes, offsets, time) {
 }
 
 /**
+ * Plays a chord on the choir sampler, identical to pad behavior.
+ *
+ * @param {object} synths - Object with choir synth
+ * @param {string[]} notes - Array of note strings to play
+ * @param {number[]} offsets - Per-note timing offsets in seconds (humanization)
+ * @param {number} time - Audio-context time from Transport callback
+ */
+export function triggerChoirChord(synths, notes, offsets, time) {
+  if (!synths.choir) {
+    return;
+  }
+  const maxOffset = Math.max(0, ...offsets.map(o => Math.abs(o)));
+  const t = time + maxOffset;
+  // Sample instruments play one octave below the pad voicing
+  const lowered = notes.map(dropOctave);
+  synths.choir.playChord(lowered, t);
+}
+
+/**
  * Triggers a drone note.
  *
  * @param {object} synths

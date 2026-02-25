@@ -14,6 +14,19 @@
 /** Minor keys the engine can land on (matches taste-profile MINOR_KEYS) */
 export const DARK_ROOTS = ['C', 'G', 'D', 'A', 'E', 'F', 'Bb', 'Eb', 'Ab'];
 
+/**
+ * Song structure section durations, measured in loop passes
+ * (one pass = one complete play-through of the chord progression).
+ */
+export const SECTION_DURATIONS = {
+  transition: 4,
+  intro: 4,
+  main: 8,
+  innerTransition: 1,
+  main2: 8,
+  outro: 4,
+};
+
 const rulesConfig = {
   tempo: {
     min: 45,

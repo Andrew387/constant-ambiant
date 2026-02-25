@@ -2,11 +2,14 @@ import * as Tone from 'tone';
 import rulesConfig from './rules.config.js';
 import { generateProgression, rebuildChordWithColor, MINOR_KEYS, TICKS_PER_UNIT } from '../harmony/progression.js';
 import { voiceChord } from '../harmony/voicing.js';
-import { triggerPadChord, triggerDrone, triggerTexture, triggerBell } from '../rhythm/scheduler.js';
+import { triggerPadChord, triggerDrone, triggerTexture, triggerBell, triggerChoirChord } from '../rhythm/scheduler.js';
 import {
   startClock, stopClock,
   setTempoImmediate, rampTempo, getTargetBpm,
 } from '../rhythm/clock.js';
+import {
+  initSongStructure, getCurrentSection, advanceSongProgression, getSongState,
+} from './songStructure.js';
 
 let config = { ...rulesConfig };
 let synths = null;
@@ -15,14 +18,13 @@ let chordCount = 0;
 let loopTimeoutId = null;
 
 // ── Loop state ──
-// A loop is a variable-length progression that repeats `REPEATS_PER_CYCLE`
-// times before a fresh progression is generated.
-const REPEATS_PER_CYCLE = 4;
-
+// A loop is a variable-length progression that loops continuously.
+// The song structure state machine controls when new progressions are generated
+// (only at the start of each song cycle / transition section).
 let baseLoop = [];       // Original unvaried chord snapshots (source of truth)
 let loop = [];           // Active loop — may be a varied copy of baseLoop
 let loopPosition = 0;    // Current chord within the loop
-let loopRepeatCount = 0; // How many times the current loop has fully played
+let loopPassCount = 0;   // How many full passes of the current loop have played
 
 /**
  * Converts chordDuration (in measures of 4/4) to seconds.
@@ -201,48 +203,69 @@ function generateLoopProgression() {
   baseLoop = chords;
   loop = chords;   // first pass plays the original
   loopPosition = 0;
-  loopRepeatCount = 0;
+  loopPassCount = 0;
 
   const symbols = chords.map(c => c.symbol).join(' → ');
   const rhythmStr = prog.rhythm.map(t => `×${t / TICKS_PER_UNIT}`).join(' ');
+  const section = getCurrentSection();
   console.log(
     `[loop] ── new progression ──  ${prog.key} | ${symbols} ` +
     `| rhythm [${rhythmStr}] ` +
-    `(${config.tempo.current}bpm)`
+    `(${config.tempo.current}bpm) [${section.type}]`
   );
 }
 
 /**
  * Returns the next chord snapshot from the loop, advancing position.
- * Automatically regenerates the progression after REPEATS_PER_CYCLE full plays.
+ *
+ * Progression generation is driven by the song structure state machine:
+ * a new progression is only generated at the start of each song cycle
+ * (when entering the transition section). Between cycles the same
+ * progression loops with micro-variations on every pass.
  */
 function advanceLoop() {
-  const needsNewLoop = loop.length === 0 || (loopPosition === 0 && loopRepeatCount >= REPEATS_PER_CYCLE);
+  // First-ever call — need an initial progression
+  const needsFirstLoop = loop.length === 0;
 
-  if (needsNewLoop) {
-    loopRepeatCount = 0;
+  if (needsFirstLoop) {
     loopPosition = 0;
+    loopPassCount = 0;
 
     try {
       generateLoopProgression();
     } catch (err) {
-      console.error('[loop] generation failed, replaying previous loop:', err);
+      console.error('[loop] generation failed:', err);
       if (loop.length === 0) throw err;
     }
   }
 
-  // At the start of each new repeat (not the first), create a varied copy
-  if (!needsNewLoop && loopPosition === 0 && loopRepeatCount > 0) {
-    loop = createVariedLoop(baseLoop);
+  // At the start of each new pass (not the very first), apply variation
+  // and notify the song structure that a pass completed
+  if (!needsFirstLoop && loopPosition === 0) {
+    loopPassCount++;
+    const { sectionChanged, isNewCycle } = advanceSongProgression();
+
+    if (isNewCycle) {
+      // New song cycle — generate a fresh chord progression
+      try {
+        generateLoopProgression();
+      } catch (err) {
+        console.error('[loop] generation failed, replaying previous loop:', err);
+      }
+      loopPassCount = 0;
+      driftTempo();
+    } else if (loopPassCount > 0) {
+      // Same cycle — apply micro-variations to keep it fresh
+      loop = createVariedLoop(baseLoop);
+    }
   }
 
   const chord = loop[loopPosition];
-  chord._newCycle = needsNewLoop;
+  chord._isNewCycle = needsFirstLoop;
   loopPosition++;
 
   if (loopPosition >= loop.length) {
     loopPosition = 0;
-    loopRepeatCount++;
   }
 
   return chord;
@@ -269,31 +292,35 @@ function scheduleNextChord() {
   // Per-chord duration scaled by its rhythm weight
   const chordSec = baseSec * durationTicks / TICKS_PER_UNIT;
 
-  // ── Trigger all instruments at current audio time ──
+  // ── Section-aware instrument triggers ──
+  const section = getCurrentSection();
   const now = Tone.now();
 
-  // Pad: release old + attack new = crossfade
-  triggerPadChord(synths, voicedNotes, offsets, now);
+  if (section.tracks.pad) {
+    triggerPadChord(synths, voicedNotes, offsets, now);
+  }
 
-  // Drone: root note, lasts the full chord duration
-  const bassNoteName = notes[0].match(/^([A-G]#?)/)[1];
-  const droneNote = `${bassNoteName}2`;
-  triggerDrone(synths, droneNote, chordSec, now);
+  if (section.tracks.choir) {
+    triggerChoirChord(synths, voicedNotes, offsets, now);
+  }
 
-  // Texture: atmospheric wash
-  triggerTexture(synths, chordSec, now);
+  if (section.tracks.drone) {
+    const bassNoteName = notes[0].match(/^([A-G]#?)/)[1];
+    const droneNote = `${bassNoteName}2`;
+    triggerDrone(synths, droneNote, chordSec, now);
+  }
 
-  // Bell: arpeggiate highest chord notes across 4 quarter-divisions
-  triggerBell(synths, voicedNotes, chordSec, now);
+  if (section.tracks.texture) {
+    triggerTexture(synths, chordSec, now);
+  }
 
-  // ── Drift tempo on new cycles ──
-  if (chord._newCycle) {
-    driftTempo();
+  if (section.tracks.bell) {
+    triggerBell(synths, voicedNotes, chordSec, now);
   }
 
   // ── Schedule next chord ──
   // Recalculate base in case driftTempo changed the target BPM
-  const nextBaseSec = chord._newCycle ? chordDurationInSeconds() : baseSec;
+  const nextBaseSec = chord._isNewCycle ? chordDurationInSeconds() : baseSec;
   const nextChordSec = nextBaseSec * durationTicks / TICKS_PER_UNIT;
   loopTimeoutId = setTimeout(scheduleNextChord, nextChordSec * 1000);
 }
@@ -310,8 +337,9 @@ export function start(mixerSynths) {
   baseLoop = [];
   loop = [];
   loopPosition = 0;
-  loopRepeatCount = 0;
+  loopPassCount = 0;
 
+  initSongStructure();
   setTempoImmediate(config.tempo.current);
   syncEnvelopesToDuration();
 
@@ -341,12 +369,15 @@ export function stop() {
   if (synths && synths.pad && synths.pad.releaseAll) {
     synths.pad.releaseAll(Tone.now());
   }
+  if (synths && synths.choir && synths.choir.releaseAll) {
+    synths.choir.releaseAll(Tone.now());
+  }
 
   chordCount = 0;
   baseLoop = [];
   loop = [];
   loopPosition = 0;
-  loopRepeatCount = 0;
+  loopPassCount = 0;
   lastChord = null;
 }
 
@@ -377,6 +408,9 @@ function syncEnvelopesToDuration() {
   }
   if (synths.drone && synths.drone.updateEnvelopes) {
     synths.drone.updateEnvelopes(chordSec, atk, rel);
+  }
+  if (synths.choir && synths.choir.updateEnvelopes) {
+    synths.choir.updateEnvelopes(chordSec, atk, rel);
   }
 }
 
