@@ -100,9 +100,25 @@ export function createArchiveEffects() {
 }
 
 /**
+ * Creates the choir effect group: pass-through (ready for future effects).
+ *
+ * @returns {{ input: Tone.ToneAudioNode, output: Tone.ToneAudioNode, dispose: Function }}
+ */
+export function createChoirEffects() {
+  const passthrough = new Tone.Gain(1);
+  return {
+    input: passthrough,
+    output: passthrough,
+    dispose() {
+      passthrough.dispose();
+    },
+  };
+}
+
+/**
  * Creates all per-track effect groups.
  *
- * @returns {{ pad, drone, texture, archive }}
+ * @returns {{ pad, drone, texture, archive, freesound, choir }}
  */
 export function createAllTrackEffects() {
   return {
@@ -111,5 +127,6 @@ export function createAllTrackEffects() {
     texture: createTextureEffects(),
     archive: createArchiveEffects(),
     freesound: createFreesoundEffects(),
+    choir: createChoirEffects(),
   };
 }
