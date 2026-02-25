@@ -2,10 +2,12 @@ import * as Tone from 'tone';
 import { buildEffectsChain } from './effects/index.js';
 import { createAllTrackEffects } from './effects/trackEffects.js';
 import { createPadSynth } from './synths/pad.js';
-import { createDroneSynth } from './synths/drone.js';
 import { createTextureSynth } from './synths/texture.js';
 import { createBellSynth } from './synths/bell.js';
-import { createChoirSynth } from './synths/choir.js';
+import { createSampleSynth } from './synths/samplePlayer.js';
+import {
+  LEAD_INSTRUMENTS, BASS_INSTRUMENTS, DEFAULT_LEAD, DEFAULT_BASS,
+} from './synths/sampleRegistry.js';
 
 let trackGains = {};
 let trackEffects = null;
@@ -13,6 +15,9 @@ let masterGain = null;
 let synths = null;
 let effectsChain = null;
 let effectsEnabled = false;
+
+let currentLeadId = DEFAULT_LEAD;
+let currentBassId = DEFAULT_BASS;
 
 /**
  * Initializes the mixer: creates gain nodes for each synth track,
@@ -63,12 +68,18 @@ export async function initMixer() {
   trackGains.choir.connect(trackEffects.choir.input);
   trackEffects.choir.output.connect(masterGain);
 
-  // Initialize each synth routed to its own track gain
+  // Initialize synths — lead and bass are sample-based
+  const leadConfig = LEAD_INSTRUMENTS.find(i => i.id === currentLeadId);
+  const bassConfig = BASS_INSTRUMENTS.find(i => i.id === currentBassId);
+
   const pad = createPadSynth(trackGains.pad);
-  const drone = createDroneSynth(trackGains.drone);
   const texture = createTextureSynth(trackGains.texture);
   const bell = createBellSynth(trackGains.bell);
-  const choir = await createChoirSynth(trackGains.choir);
+
+  const [choir, drone] = await Promise.all([
+    createSampleSynth(leadConfig, trackGains.choir),
+    createSampleSynth(bassConfig, trackGains.drone),
+  ]);
 
   synths = { pad, drone, texture, bell, choir };
 
@@ -78,10 +89,54 @@ export async function initMixer() {
     setTrackVolume,
     setMasterVolume,
     setEffectsEnabled,
+    swapLead,
+    swapBass,
     getArchiveGain: () => trackGains.archive,
     getFreesoundGain: () => trackGains.freesound,
     dispose: disposeMixer,
   };
+}
+
+/**
+ * Swaps the lead instrument (choir role) to a different sample set.
+ * Loads the new instrument first, then swaps and disposes the old one.
+ * @param {string} instrumentId - ID from LEAD_INSTRUMENTS
+ */
+async function swapLead(instrumentId) {
+  const config = LEAD_INSTRUMENTS.find(i => i.id === instrumentId);
+  if (!config || instrumentId === currentLeadId) return;
+
+  const newSynth = await createSampleSynth(config, trackGains.choir);
+  const oldSynth = synths.choir;
+  synths.choir = newSynth;
+  currentLeadId = instrumentId;
+
+  if (oldSynth) {
+    oldSynth.releaseAll(Tone.now());
+    setTimeout(() => oldSynth.dispose(), 5000);
+  }
+  console.log(`[mixer] lead swapped to ${config.name}`);
+}
+
+/**
+ * Swaps the bass instrument (drone role) to a different sample set.
+ * Loads the new instrument first, then swaps and disposes the old one.
+ * @param {string} instrumentId - ID from BASS_INSTRUMENTS
+ */
+async function swapBass(instrumentId) {
+  const config = BASS_INSTRUMENTS.find(i => i.id === instrumentId);
+  if (!config || instrumentId === currentBassId) return;
+
+  const newSynth = await createSampleSynth(config, trackGains.drone);
+  const oldSynth = synths.drone;
+  synths.drone = newSynth;
+  currentBassId = instrumentId;
+
+  if (oldSynth) {
+    oldSynth.releaseAll(Tone.now());
+    setTimeout(() => oldSynth.dispose(), 5000);
+  }
+  console.log(`[mixer] bass swapped to ${config.name}`);
 }
 
 /**

@@ -372,6 +372,9 @@ export function stop() {
   if (synths && synths.choir && synths.choir.releaseAll) {
     synths.choir.releaseAll(Tone.now());
   }
+  if (synths && synths.drone && synths.drone.releaseAll) {
+    synths.drone.releaseAll(Tone.now());
+  }
 
   chordCount = 0;
   baseLoop = [];

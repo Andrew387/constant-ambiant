@@ -121,6 +121,47 @@
       border-color: #555577;
     }
 
+    /* Instrument selector buttons */
+    .instrument-group {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .instrument-group > label {
+      font-size: 0.65rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: #666688;
+      min-width: 36px;
+    }
+
+    .instrument-btn {
+      background: #16161e;
+      color: #666688;
+      border: 1px solid #333355;
+      padding: 0.3rem 0.55rem;
+      font-size: 0.6rem;
+      font-family: inherit;
+      letter-spacing: 0.08em;
+      border-radius: 3px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .instrument-btn:hover {
+      border-color: #555577;
+      color: #8888aa;
+    }
+
+    .instrument-btn.active {
+      border-color: #6666aa;
+      color: #ccccee;
+      background: #1e1e2e;
+    }
+
     /* Debug Panel */
     #debug-toggle {
       position: fixed;

@@ -24,6 +24,20 @@ const debugState = {
   effectsEnabled: false,
 };
 
+async function handleLeadChange(instrumentId) {
+  if (!mixer) return;
+  await mixer.swapLead(instrumentId);
+  // Re-sync envelopes for the new instrument
+  updateRules({});
+}
+
+async function handleBassChange(instrumentId) {
+  if (!mixer) return;
+  await mixer.swapBass(instrumentId);
+  // Re-sync envelopes for the new instrument
+  updateRules({});
+}
+
 async function handleStart() {
   await Tone.start();
 
@@ -136,6 +150,8 @@ createControls({
   onStart: handleStart,
   onStop: handleStop,
   onVolumeChange: handleVolumeChange,
+  onLeadChange: handleLeadChange,
+  onBassChange: handleBassChange,
 });
 
 createDebugPanel({
