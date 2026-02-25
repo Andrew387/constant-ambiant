@@ -100,17 +100,22 @@ export function createArchiveEffects() {
 }
 
 /**
- * Creates the choir effect group: pass-through (ready for future effects).
+ * Creates the choir (lead) effect group: large reverb to blur/smear the sound.
  *
  * @returns {{ input: Tone.ToneAudioNode, output: Tone.ToneAudioNode, dispose: Function }}
  */
 export function createChoirEffects() {
-  const passthrough = new Tone.Gain(1);
+  const reverb = new Tone.Reverb({
+    decay: 6,
+    wet: 0.45,
+    preDelay: 0.1,
+  });
+
   return {
-    input: passthrough,
-    output: passthrough,
+    input: reverb,
+    output: reverb,
     dispose() {
-      passthrough.dispose();
+      reverb.dispose();
     },
   };
 }
