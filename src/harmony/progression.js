@@ -3,8 +3,9 @@
  *
  * Uses explicit degree→semitone mapping (Aeolian-based) and mood-aware,
  * role-aware chord coloring. Mostly plain triads with occasional sus2 / add9
- * for warmth. All patterns start on i so the last chord of one progression
- * can seed the next for smooth chaining.
+ * for warmth. Patterns start on i but end on various degrees so progressions
+ * don't always loop back to the tonic. The last chord seeds the next
+ * progression for smooth chaining regardless of what degree it lands on.
  */
 
 // --------------------------------------
@@ -39,29 +40,27 @@ const DEGREE_OFFSETS = {
 const PROGRESSION_PATTERNS = [
   // --- SAD / INTIMATE ---
 
-  // Classic i – bVI – bVII – i
+  // i – bVI – bVII (opens outward)
   {
     mood: 'sad',
     degrees: [
       { degree: 'i',    quality: 'min', role: 'tonic' },
       { degree: 'bVI',  quality: 'maj', role: 'predominant' },
       { degree: 'bVII', quality: 'maj', role: 'predominant' },
-      { degree: 'i',    quality: 'min', role: 'tonic' },
     ],
   },
 
-  // i – bIII – bVI – i (gently melancholic)
+  // i – bIII – bVI (gently melancholic, settles on bVI)
   {
     mood: 'sad',
     degrees: [
       { degree: 'i',    quality: 'min', role: 'tonic' },
       { degree: 'bIII', quality: 'maj', role: 'tonicLike' },
       { degree: 'bVI',  quality: 'maj', role: 'predominant' },
-      { degree: 'i',    quality: 'min', role: 'tonic' },
     ],
   },
 
-  // i – iv – bVI – bVII – i (hymn-like)
+  // i – iv – bVI – bVII (hymn-like, doesn't resolve)
   {
     mood: 'sad',
     degrees: [
@@ -69,13 +68,12 @@ const PROGRESSION_PATTERNS = [
       { degree: 'iv',   quality: 'min', role: 'predominant' },
       { degree: 'bVI',  quality: 'maj', role: 'predominant' },
       { degree: 'bVII', quality: 'maj', role: 'predominant' },
-      { degree: 'i',    quality: 'min', role: 'tonic' },
     ],
   },
 
   // --- HOPEFUL / LIFTING ---
 
-  // i – bVII – bIII – bVI – i (cinematic lift then return)
+  // i – bVII – bIII – bVI (cinematic lift, hangs on bVI)
   {
     mood: 'hopeful',
     degrees: [
@@ -83,22 +81,20 @@ const PROGRESSION_PATTERNS = [
       { degree: 'bVII', quality: 'maj', role: 'predominant' },
       { degree: 'bIII', quality: 'maj', role: 'tonicLike' },
       { degree: 'bVI',  quality: 'maj', role: 'predominant' },
-      { degree: 'i',    quality: 'min', role: 'tonic' },
     ],
   },
 
-  // i – iv – bVII – i (simple and singable)
+  // i – iv – bVII (simple, lifts away)
   {
     mood: 'hopeful',
     degrees: [
       { degree: 'i',    quality: 'min', role: 'tonic' },
       { degree: 'iv',   quality: 'min', role: 'predominant' },
       { degree: 'bVII', quality: 'maj', role: 'predominant' },
-      { degree: 'i',    quality: 'min', role: 'tonic' },
     ],
   },
 
-  // i – bVI – bIII – bVII – i (bright minor)
+  // i – bVI – bIII – bVII (bright minor, ends bright)
   {
     mood: 'hopeful',
     degrees: [
@@ -106,13 +102,12 @@ const PROGRESSION_PATTERNS = [
       { degree: 'bVI',  quality: 'maj', role: 'predominant' },
       { degree: 'bIII', quality: 'maj', role: 'tonicLike' },
       { degree: 'bVII', quality: 'maj', role: 'predominant' },
-      { degree: 'i',    quality: 'min', role: 'tonic' },
     ],
   },
 
   // --- DRAMATIC / DARKER (still choir, not jazzy) ---
 
-  // i – bII – bVI – bVII – i (phrygian drama)
+  // i – bII – bVI – bVII (phrygian drama, unresolved)
   {
     mood: 'dramatic',
     degrees: [
@@ -120,24 +115,22 @@ const PROGRESSION_PATTERNS = [
       { degree: 'bII',  quality: 'maj', role: 'predominant' },
       { degree: 'bVI',  quality: 'maj', role: 'predominant' },
       { degree: 'bVII', quality: 'maj', role: 'predominant' },
-      { degree: 'i',    quality: 'min', role: 'tonic' },
     ],
   },
 
-  // i – iv – bII – i (short, intense)
+  // i – iv – bII (short, tense)
   {
     mood: 'dramatic',
     degrees: [
       { degree: 'i',   quality: 'min', role: 'tonic' },
       { degree: 'iv',  quality: 'min', role: 'predominant' },
       { degree: 'bII', quality: 'maj', role: 'predominant' },
-      { degree: 'i',   quality: 'min', role: 'tonic' },
     ],
   },
 
   // --- CIRCULAR / LOOPING ---
 
-  // i – bVI – bVII – bIII – i (circular)
+  // i – bVI – bVII – bIII (circular, lands on relative major)
   {
     mood: 'circular',
     degrees: [
@@ -145,11 +138,10 @@ const PROGRESSION_PATTERNS = [
       { degree: 'bVI',  quality: 'maj', role: 'predominant' },
       { degree: 'bVII', quality: 'maj', role: 'predominant' },
       { degree: 'bIII', quality: 'maj', role: 'tonicLike' },
-      { degree: 'i',    quality: 'min', role: 'tonic' },
     ],
   },
 
-  // i – iv – bIII – bVI – i (song-like)
+  // i – iv – bIII – bVI (song-like, hangs on bVI)
   {
     mood: 'circular',
     degrees: [
@@ -157,23 +149,21 @@ const PROGRESSION_PATTERNS = [
       { degree: 'iv',   quality: 'min', role: 'predominant' },
       { degree: 'bIII', quality: 'maj', role: 'tonicLike' },
       { degree: 'bVI',  quality: 'maj', role: 'predominant' },
-      { degree: 'i',    quality: 'min', role: 'tonic' },
     ],
   },
 
   // --- PLAGAL / HYMN ---
 
-  // i – iv – i (amen cadence, very choral)
+  // i – iv (amen cadence, open)
   {
     mood: 'sad',
     degrees: [
       { degree: 'i',  quality: 'min', role: 'tonic' },
       { degree: 'iv', quality: 'min', role: 'predominant' },
-      { degree: 'i',  quality: 'min', role: 'tonic' },
     ],
   },
 
-  // i – iv – bVI – iv – i (gospel / hymn-like)
+  // i – iv – bVI – iv (gospel / hymn-like, rests on iv)
   {
     mood: 'hopeful',
     degrees: [
@@ -181,13 +171,12 @@ const PROGRESSION_PATTERNS = [
       { degree: 'iv',  quality: 'min', role: 'predominant' },
       { degree: 'bVI', quality: 'maj', role: 'predominant' },
       { degree: 'iv',  quality: 'min', role: 'predominant' },
-      { degree: 'i',   quality: 'min', role: 'tonic' },
     ],
   },
 
   // --- DESCENDING ---
 
-  // i – bVII – bVI – v – i (cinematic choral descent)
+  // i – bVII – bVI – v (cinematic choral descent)
   {
     mood: 'dramatic',
     degrees: [
@@ -195,11 +184,10 @@ const PROGRESSION_PATTERNS = [
       { degree: 'bVII', quality: 'maj', role: 'predominant' },
       { degree: 'bVI',  quality: 'maj', role: 'predominant' },
       { degree: 'v',    quality: 'min', role: 'predominant' },
-      { degree: 'i',    quality: 'min', role: 'tonic' },
     ],
   },
 
-  // i – bVII – bVI – bVII – i (swaying descent and return)
+  // i – bVII – bVI – bVII (swaying descent)
   {
     mood: 'circular',
     degrees: [
@@ -207,13 +195,12 @@ const PROGRESSION_PATTERNS = [
       { degree: 'bVII', quality: 'maj', role: 'predominant' },
       { degree: 'bVI',  quality: 'maj', role: 'predominant' },
       { degree: 'bVII', quality: 'maj', role: 'predominant' },
-      { degree: 'i',    quality: 'min', role: 'tonic' },
     ],
   },
 
   // --- LONGER JOURNEYS ---
 
-  // i – bIII – bVII – iv – bVI – i (wide arc)
+  // i – bIII – bVII – iv – bVI (wide arc)
   {
     mood: 'hopeful',
     degrees: [
@@ -222,11 +209,10 @@ const PROGRESSION_PATTERNS = [
       { degree: 'bVII', quality: 'maj', role: 'predominant' },
       { degree: 'iv',   quality: 'min', role: 'predominant' },
       { degree: 'bVI',  quality: 'maj', role: 'predominant' },
-      { degree: 'i',    quality: 'min', role: 'tonic' },
     ],
   },
 
-  // i – bVI – iv – bVII – bIII – i (winding return)
+  // i – bVI – iv – bVII – bIII (winding, lands on bIII)
   {
     mood: 'circular',
     degrees: [
@@ -235,24 +221,22 @@ const PROGRESSION_PATTERNS = [
       { degree: 'iv',   quality: 'min', role: 'predominant' },
       { degree: 'bVII', quality: 'maj', role: 'predominant' },
       { degree: 'bIII', quality: 'maj', role: 'tonicLike' },
-      { degree: 'i',    quality: 'min', role: 'tonic' },
     ],
   },
 
   // --- PHRYGIAN / DARK ---
 
-  // i – bII – bIII – i (dark Eastern-choir feel)
+  // i – bII – bIII (dark Eastern-choir feel, opens up)
   {
     mood: 'dramatic',
     degrees: [
       { degree: 'i',    quality: 'min', role: 'tonic' },
       { degree: 'bII',  quality: 'maj', role: 'predominant' },
       { degree: 'bIII', quality: 'maj', role: 'tonicLike' },
-      { degree: 'i',    quality: 'min', role: 'tonic' },
     ],
   },
 
-  // i – bII – bVII – bVI – i (phrygian processional)
+  // i – bII – bVII – bVI (phrygian processional)
   {
     mood: 'dramatic',
     degrees: [
@@ -260,35 +244,32 @@ const PROGRESSION_PATTERNS = [
       { degree: 'bII',  quality: 'maj', role: 'predominant' },
       { degree: 'bVII', quality: 'maj', role: 'predominant' },
       { degree: 'bVI',  quality: 'maj', role: 'predominant' },
-      { degree: 'i',    quality: 'min', role: 'tonic' },
     ],
   },
 
   // --- SAD / LAMENT (additional) ---
 
-  // i – iv – v – i (choral lament, subdominant to minor dominant)
+  // i – iv – v (choral lament, ends on minor dominant)
   {
     mood: 'sad',
     degrees: [
       { degree: 'i',  quality: 'min', role: 'tonic' },
       { degree: 'iv', quality: 'min', role: 'predominant' },
       { degree: 'v',  quality: 'min', role: 'predominant' },
-      { degree: 'i',  quality: 'min', role: 'tonic' },
     ],
   },
 
-  // i – bIII – iv – i (warm ascent then fall)
+  // i – bIII – iv (warm ascent)
   {
     mood: 'sad',
     degrees: [
       { degree: 'i',    quality: 'min', role: 'tonic' },
       { degree: 'bIII', quality: 'maj', role: 'tonicLike' },
       { degree: 'iv',   quality: 'min', role: 'predominant' },
-      { degree: 'i',    quality: 'min', role: 'tonic' },
     ],
   },
 
-  // i – v – bVI – iv – i (descending lament arc)
+  // i – v – bVI – iv (descending lament arc)
   {
     mood: 'sad',
     degrees: [
@@ -296,13 +277,12 @@ const PROGRESSION_PATTERNS = [
       { degree: 'v',   quality: 'min', role: 'predominant' },
       { degree: 'bVI', quality: 'maj', role: 'predominant' },
       { degree: 'iv',  quality: 'min', role: 'predominant' },
-      { degree: 'i',   quality: 'min', role: 'tonic' },
     ],
   },
 
   // --- HOPEFUL (additional) ---
 
-  // i – bIII – iv – bVII – i (ascending stepwise lift)
+  // i – bIII – iv – bVII (ascending stepwise lift)
   {
     mood: 'hopeful',
     degrees: [
@@ -310,11 +290,10 @@ const PROGRESSION_PATTERNS = [
       { degree: 'bIII', quality: 'maj', role: 'tonicLike' },
       { degree: 'iv',   quality: 'min', role: 'predominant' },
       { degree: 'bVII', quality: 'maj', role: 'predominant' },
-      { degree: 'i',    quality: 'min', role: 'tonic' },
     ],
   },
 
-  // i – iv – bVI – bVII – bIII – i (wide hopeful arc via subdominant)
+  // i – iv – bVI – bVII – bIII (wide hopeful arc)
   {
     mood: 'hopeful',
     degrees: [
@@ -323,13 +302,12 @@ const PROGRESSION_PATTERNS = [
       { degree: 'bVI',  quality: 'maj', role: 'predominant' },
       { degree: 'bVII', quality: 'maj', role: 'predominant' },
       { degree: 'bIII', quality: 'maj', role: 'tonicLike' },
-      { degree: 'i',    quality: 'min', role: 'tonic' },
     ],
   },
 
   // --- DRAMATIC (additional) ---
 
-  // i – bII – iv – v – i (phrygian climb to minor dominant)
+  // i – bII – iv – v (phrygian climb to minor dominant)
   {
     mood: 'dramatic',
     degrees: [
@@ -337,11 +315,10 @@ const PROGRESSION_PATTERNS = [
       { degree: 'bII', quality: 'maj', role: 'predominant' },
       { degree: 'iv',  quality: 'min', role: 'predominant' },
       { degree: 'v',   quality: 'min', role: 'predominant' },
-      { degree: 'i',   quality: 'min', role: 'tonic' },
     ],
   },
 
-  // i – v – bVI – bII – i (dramatic drop then phrygian return)
+  // i – v – bVI – bII (dramatic drop, phrygian tension)
   {
     mood: 'dramatic',
     degrees: [
@@ -349,13 +326,12 @@ const PROGRESSION_PATTERNS = [
       { degree: 'v',   quality: 'min', role: 'predominant' },
       { degree: 'bVI', quality: 'maj', role: 'predominant' },
       { degree: 'bII', quality: 'maj', role: 'predominant' },
-      { degree: 'i',   quality: 'min', role: 'tonic' },
     ],
   },
 
   // --- CIRCULAR (additional) ---
 
-  // i – bVII – bVI – iv – i (smooth chromatic descent)
+  // i – bVII – bVI – iv (smooth chromatic descent)
   {
     mood: 'circular',
     degrees: [
@@ -363,11 +339,10 @@ const PROGRESSION_PATTERNS = [
       { degree: 'bVII', quality: 'maj', role: 'predominant' },
       { degree: 'bVI',  quality: 'maj', role: 'predominant' },
       { degree: 'iv',   quality: 'min', role: 'predominant' },
-      { degree: 'i',    quality: 'min', role: 'tonic' },
     ],
   },
 
-  // i – bIII – bVII – bVI – i (orbiting thirds)
+  // i – bIII – bVII – bVI (orbiting thirds)
   {
     mood: 'circular',
     degrees: [
@@ -375,11 +350,10 @@ const PROGRESSION_PATTERNS = [
       { degree: 'bIII', quality: 'maj', role: 'tonicLike' },
       { degree: 'bVII', quality: 'maj', role: 'predominant' },
       { degree: 'bVI',  quality: 'maj', role: 'predominant' },
-      { degree: 'i',    quality: 'min', role: 'tonic' },
     ],
   },
 
-  // i – iv – bVII – bIII – bVI – i (long winding circle)
+  // i – iv – bVII – bIII – bVI (long winding path)
   {
     mood: 'circular',
     degrees: [
@@ -388,29 +362,26 @@ const PROGRESSION_PATTERNS = [
       { degree: 'bVII', quality: 'maj', role: 'predominant' },
       { degree: 'bIII', quality: 'maj', role: 'tonicLike' },
       { degree: 'bVI',  quality: 'maj', role: 'predominant' },
-      { degree: 'i',    quality: 'min', role: 'tonic' },
     ],
   },
 
   // --- SPACIOUS / MEDITATIVE ---
 
-  // i – bVI – i (wide, open)
+  // i – bVI (wide, open)
   {
     mood: 'sad',
     degrees: [
       { degree: 'i',   quality: 'min', role: 'tonic' },
       { degree: 'bVI', quality: 'maj', role: 'predominant' },
-      { degree: 'i',   quality: 'min', role: 'tonic' },
     ],
   },
 
-  // i – bVII – i (bright, breathing)
+  // i – bVII (bright, breathing)
   {
     mood: 'hopeful',
     degrees: [
       { degree: 'i',    quality: 'min', role: 'tonic' },
       { degree: 'bVII', quality: 'maj', role: 'predominant' },
-      { degree: 'i',    quality: 'min', role: 'tonic' },
     ],
   },
 ];
@@ -698,6 +669,37 @@ export function generateProgression(options = {}) {
   const rhythm = generateRhythm(chords.length);
 
   return { key: `${keyRoot} minor`, mood: pattern.mood, chords, rhythm };
+}
+
+/**
+ * Rebuild a chord's notes with a different color (sus2 / add9 / plain).
+ * Used by the loop variation system to create subtle per-repeat differences.
+ *
+ * @param {string} root - Root pitch class (e.g. "C")
+ * @param {string} quality - "min", "maj", or "dim"
+ * @param {string} color - "", "sus2", or "add9"
+ * @param {number} octave - Base octave
+ * @returns {{ notes: string[], colorLabel: string }}
+ */
+export function rebuildChordWithColor(root, quality, color, octave) {
+  let intervals;
+  if (quality === 'min') intervals = [0, 3, 7];
+  else if (quality === 'dim') intervals = [0, 3, 6];
+  else intervals = [0, 4, 7];
+
+  if (color === 'sus2') {
+    intervals = [0, 2, 7];
+  } else if (color === 'add9') {
+    intervals.push(14);
+  }
+
+  const notes = intervals.map(i => {
+    const pitchClass = transpose(root, ((i % 12) + 12) % 12);
+    const octaveOffset = Math.floor(i / 12);
+    return toToneNote(pitchClass, octave + octaveOffset);
+  });
+
+  return { notes, colorLabel: color };
 }
 
 export { MINOR_KEYS, TICKS_PER_UNIT };

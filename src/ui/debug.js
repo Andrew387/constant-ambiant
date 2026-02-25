@@ -62,7 +62,7 @@ export function createDebugPanel({ onParamChange, getConfig }) {
   metersLabel.textContent = 'Track Levels';
   metersSection.appendChild(metersLabel);
 
-  const trackNames = ['pad', 'drone', 'texture', 'bell', 'archive'];
+  const trackNames = ['pad', 'drone', 'texture', 'bell', 'choir', 'archive', 'freesound'];
   trackNames.forEach(name => {
     const row = document.createElement('div');
     row.className = 'meter-row';
@@ -140,7 +140,9 @@ export function createDebugPanel({ onParamChange, getConfig }) {
     { id: 'drone-vol', label: 'Drone Volume', param: 'droneVolume', min: 0, max: 1, step: 0.05, value: 0.5 },
     { id: 'texture-vol', label: 'Texture Volume', param: 'textureVolume', min: 0, max: 1, step: 0.05, value: 0.4 },
     { id: 'bell-vol', label: 'Bell Volume', param: 'bellVolume', min: 0, max: 1, step: 0.05, value: 0.35 },
+    { id: 'choir-vol', label: 'Choir Volume', param: 'choirVolume', min: 0, max: 1, step: 0.05, value: 0.4 },
     { id: 'archive-vol', label: 'Archive Volume', param: 'archiveVolume', min: 0, max: 1, step: 0.05, value: 0.7 },
+    { id: 'freesound-vol', label: 'Freesound Volume', param: 'freesoundVolume', min: 0, max: 1, step: 0.05, value: 0.4 },
   ];
 
   sliders.forEach(s => {
@@ -193,6 +195,22 @@ export function createDebugPanel({ onParamChange, getConfig }) {
 
   panel.appendChild(archiveSection);
 
+  // --- Freesound Status ---
+  const freesoundSection = document.createElement('div');
+  freesoundSection.className = 'debug-section';
+
+  const freesoundLabel = document.createElement('div');
+  freesoundLabel.className = 'debug-section-label';
+  freesoundLabel.textContent = 'Freesound Status';
+  freesoundSection.appendChild(freesoundLabel);
+
+  const freesoundStatus = document.createElement('div');
+  freesoundStatus.id = 'freesound-status';
+  freesoundStatus.textContent = 'Waiting...';
+  freesoundSection.appendChild(freesoundStatus);
+
+  panel.appendChild(freesoundSection);
+
   document.body.appendChild(panel);
 }
 
@@ -208,7 +226,7 @@ export function connectDebugAudio(trackGains) {
   Tone.getDestination().connect(analyser);
 
   // Create a Tone.Meter for each track
-  const trackNames = ['pad', 'drone', 'texture', 'bell', 'archive'];
+  const trackNames = ['pad', 'drone', 'texture', 'bell', 'choir', 'archive', 'freesound'];
   trackNames.forEach(name => {
     if (trackGains[name]) {
       const meter = new Tone.Meter({ smoothing: 0.8 });
@@ -300,6 +318,15 @@ function startAnimation() {
  */
 export function updateArchiveStatus(status) {
   const el = document.getElementById('archive-status');
+  if (el) el.innerText = status;
+}
+
+/**
+ * Updates the freesound status display.
+ * @param {string} status
+ */
+export function updateFreesoundStatus(status) {
+  const el = document.getElementById('freesound-status');
   if (el) el.innerText = status;
 }
 

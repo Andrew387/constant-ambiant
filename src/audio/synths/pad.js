@@ -14,7 +14,7 @@ export function createPadSynth(destination) {
   const synth = new Tone.PolySynth(Tone.Synth, {
     maxPolyphony: 16,
     oscillator: {
-      type: 'triangle',
+      type: 'sine',
       detune: -8,
     },
     envelope: {

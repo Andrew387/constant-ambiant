@@ -1,11 +1,14 @@
 import * as Tone from 'tone';
 import { buildEffectsChain } from './effects/index.js';
+import { createAllTrackEffects } from './effects/trackEffects.js';
 import { createPadSynth } from './synths/pad.js';
 import { createDroneSynth } from './synths/drone.js';
 import { createTextureSynth } from './synths/texture.js';
 import { createBellSynth } from './synths/bell.js';
+import { createChoirSynth } from './synths/choir.js';
 
 let trackGains = {};
+let trackEffects = null;
 let masterGain = null;
 let synths = null;
 let effectsChain = null;
@@ -19,7 +22,7 @@ let effectsEnabled = false;
  *
  * @returns {{ synths, setTrackVolume, setMasterVolume, dispose }}
  */
-export function initMixer() {
+export async function initMixer() {
   // Master gain → straight to destination (effects off by default)
   masterGain = new Tone.Gain(0.8);
   masterGain.toDestination();
@@ -31,20 +34,43 @@ export function initMixer() {
     texture: new Tone.Gain(0.4),
     bell: new Tone.Gain(0.35),
     archive: new Tone.Gain(0.7),
+    freesound: new Tone.Gain(0.4),
+    choir: new Tone.Gain(0.4),
   };
 
-  // Connect each track gain to master
-  for (const gain of Object.values(trackGains)) {
-    gain.connect(masterGain);
-  }
+  // Per-track effect groups: trackGain → effects → masterGain
+  trackEffects = createAllTrackEffects();
+
+  // Route: trackGain → trackEffects → masterGain
+  // Bell has no dedicated effect group — routes directly to master
+  trackGains.pad.connect(trackEffects.pad.input);
+  trackEffects.pad.output.connect(masterGain);
+
+  trackGains.drone.connect(trackEffects.drone.input);
+  trackEffects.drone.output.connect(masterGain);
+
+  trackGains.texture.connect(trackEffects.texture.input);
+  trackEffects.texture.output.connect(masterGain);
+
+  trackGains.bell.connect(masterGain);
+
+  trackGains.archive.connect(trackEffects.archive.input);
+  trackEffects.archive.output.connect(masterGain);
+
+  trackGains.freesound.connect(trackEffects.freesound.input);
+  trackEffects.freesound.output.connect(masterGain);
+
+  trackGains.choir.connect(trackEffects.choir.input);
+  trackEffects.choir.output.connect(masterGain);
 
   // Initialize each synth routed to its own track gain
   const pad = createPadSynth(trackGains.pad);
   const drone = createDroneSynth(trackGains.drone);
   const texture = createTextureSynth(trackGains.texture);
   const bell = createBellSynth(trackGains.bell);
+  const choir = await createChoirSynth(trackGains.choir);
 
-  synths = { pad, drone, texture, bell };
+  synths = { pad, drone, texture, bell, choir };
 
   return {
     synths,
@@ -53,6 +79,7 @@ export function initMixer() {
     setMasterVolume,
     setEffectsEnabled,
     getArchiveGain: () => trackGains.archive,
+    getFreesoundGain: () => trackGains.freesound,
     dispose: disposeMixer,
   };
 }
@@ -107,6 +134,10 @@ function disposeMixer() {
   if (synths) {
     Object.values(synths).forEach(s => s.dispose());
     synths = null;
+  }
+  if (trackEffects) {
+    Object.values(trackEffects).forEach(fx => fx.dispose());
+    trackEffects = null;
   }
   if (trackGains) {
     Object.values(trackGains).forEach(g => g.dispose());
