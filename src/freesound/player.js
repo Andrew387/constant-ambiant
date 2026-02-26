@@ -86,7 +86,6 @@ async function playSoundEffect() {
 
           player.start();
           totalPlayed++;
-          console.log(`[freesound] playing: "${sound.name}"`);
           safeUpdateStatus(statusText(`Playing: "${sound.name}"`));
 
           // Dispose after reverb tail fades
@@ -138,7 +137,6 @@ export function startFreesoundLayer(dest) {
   isActive = true;
   destination = dest;
   totalPlayed = 0;
-  console.log('[freesound] starting');
   safeUpdateStatus('Starting...');
 
   // First sound after a short initial delay
@@ -149,7 +147,6 @@ export function startFreesoundLayer(dest) {
  * Stops the Freesound SFX layer and cleans up all active audio nodes.
  */
 export function stopFreesoundLayer() {
-  console.log('[freesound] stopping');
   isActive = false;
 
   if (triggerTimer) {

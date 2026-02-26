@@ -18,6 +18,7 @@ export const LEAD_INSTRUMENTS = [
   { id: 'analogbellslong',  name: 'Analog Bells',  folder: 'Lead/Loopable/analogbellslong',  filePrefix: 'analogbellslong',  plucked: false },
   { id: 'crystalbellslong', name: 'Crystal Bells', folder: 'Lead/Loopable/crystalbellslong', filePrefix: 'crystalbellslong', plucked: false },
   { id: 'calmbeachlong',    name: 'Calm Beach',    folder: 'Lead/Loopable/calmbeachlong',    filePrefix: 'calmbeachlong',    plucked: false },
+  { id: 'silkystringslong', name: 'Silky Strings', folder: 'Lead/Loopable/silkystringslong', filePrefix: 'silkystringslong', plucked: false },
 ];
 
 export const BASS_INSTRUMENTS = [

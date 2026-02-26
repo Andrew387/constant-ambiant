@@ -22,32 +22,32 @@ const SONG_SECTIONS = [
   {
     type: 'transition',
     duration: SECTION_DURATIONS.transition,
-    tracks: { pad: true, drone: true, archive: true, freesound: true, choir: true },
+    tracks: { pad: true, drone: true, archive: true, freesound: true, lead: true },
   },
   {
     type: 'intro',
     duration: SECTION_DURATIONS.intro,
-    tracks: { pad: true, drone: true, archive: true, freesound: true, choir: true },
+    tracks: { pad: true, drone: true, archive: true, freesound: true, lead: true },
   },
   {
     type: 'main',
     duration: SECTION_DURATIONS.main,
-    tracks: { pad: true, drone: true, archive: true, freesound: true, choir: true },
+    tracks: { pad: true, drone: true, archive: true, freesound: true, lead: true },
   },
   {
     type: 'innerTransition',
     duration: SECTION_DURATIONS.innerTransition,
-    tracks: { pad: true, drone: true, archive: true, freesound: true, choir: true },
+    tracks: { pad: true, drone: true, archive: true, freesound: true, lead: true },
   },
   {
     type: 'main2',
     duration: SECTION_DURATIONS.main2,
-    tracks: { pad: true, drone: true, archive: true, freesound: true, choir: true },
+    tracks: { pad: true, drone: true, archive: true, freesound: true, lead: true },
   },
   {
     type: 'outro',
     duration: SECTION_DURATIONS.outro,
-    tracks: { pad: true, drone: true, archive: true, freesound: true, choir: true },
+    tracks: { pad: true, drone: true, archive: true, freesound: true, lead: true },
   },
 ];
 
@@ -109,6 +109,26 @@ export function advanceSongProgression() {
   );
 
   return { sectionChanged: true, isNewCycle };
+}
+
+/**
+ * Returns the next section in the cycle (wraps around).
+ * @returns {{ type: string, duration: number, tracks: object }}
+ */
+export function getNextSection() {
+  const nextIndex = (currentSectionIndex + 1) % SONG_SECTIONS.length;
+  return SONG_SECTIONS[nextIndex];
+}
+
+/**
+ * Returns how far through the current section we are (0–1).
+ * Coarse resolution: increments per loop pass, not per chord.
+ * @returns {number}
+ */
+export function getSectionProgress() {
+  const section = SONG_SECTIONS[currentSectionIndex];
+  if (section.duration <= 1) return 0.5; // single-pass sections stay at midpoint
+  return progressionsInSection / section.duration;
 }
 
 /**

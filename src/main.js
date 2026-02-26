@@ -16,7 +16,7 @@ const debugState = {
   releaseLevel: null,
   padVolume: null,
   droneVolume: null,
-  choirVolume: null,
+  leadVolume: null,
   archiveVolume: null,
   freesoundVolume: null,
   sampleTextureVolume: null,
@@ -45,7 +45,7 @@ async function handleStart() {
   }
 
   if (!audioConnected) {
-    connectDebugAudio(mixer.trackGains);
+    connectDebugAudio(mixer.trackEffects);
     audioConnected = true;
   }
 
@@ -94,7 +94,7 @@ function applyDebugOverrides() {
   // Re-apply track volumes
   if (debugState.padVolume !== null) setTrackVolume('pad', debugState.padVolume);
   if (debugState.droneVolume !== null) setTrackVolume('drone', debugState.droneVolume);
-  if (debugState.choirVolume !== null) setTrackVolume('choir', debugState.choirVolume);
+  if (debugState.leadVolume !== null) setTrackVolume('lead', debugState.leadVolume);
   if (debugState.archiveVolume !== null) setTrackVolume('archive', debugState.archiveVolume);
   if (debugState.freesoundVolume !== null) setTrackVolume('freesound', debugState.freesoundVolume);
   if (debugState.sampleTextureVolume !== null) setTrackVolume('sampleTexture', debugState.sampleTextureVolume);
@@ -121,8 +121,8 @@ case 'padVolume':
     case 'droneVolume':
       setTrackVolume('drone', value);
       break;
-    case 'choirVolume':
-      setTrackVolume('choir', value);
+    case 'leadVolume':
+      setTrackVolume('lead', value);
       break;
     case 'archiveVolume':
       setTrackVolume('archive', value);

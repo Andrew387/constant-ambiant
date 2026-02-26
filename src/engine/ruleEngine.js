@@ -2,14 +2,16 @@ import * as Tone from 'tone';
 import rulesConfig from './rules.config.js';
 import { generateProgression, rebuildChordWithColor, MINOR_KEYS, TICKS_PER_UNIT } from '../harmony/progression.js';
 import { voiceChord } from '../harmony/voicing.js';
-import { triggerPadChord, triggerDrone, triggerChoirChord } from '../rhythm/scheduler.js';
+import { triggerPadChord, triggerDrone, triggerLeadChord } from '../rhythm/scheduler.js';
 import {
   startClock, stopClock,
   setTempoImmediate, rampTempo, getTargetBpm,
 } from '../rhythm/clock.js';
 import {
-  initSongStructure, getCurrentSection, advanceSongProgression, getSongState,
+  initSongStructure, getCurrentSection, getNextSection, getSectionProgress,
+  advanceSongProgression, getSongState,
 } from './songStructure.js';
+import { updateSectionAutomation } from '../audio/effects/sectionAutomation.js';
 
 let config = { ...rulesConfig };
 let synths = null;
@@ -26,6 +28,7 @@ let baseLoop = [];       // Original unvaried chord snapshots (source of truth)
 let loop = [];           // Active loop — may be a varied copy of baseLoop
 let loopPosition = 0;    // Current chord within the loop
 let loopPassCount = 0;   // How many full passes of the current loop have played
+let lastPlayedPosition = 0; // Index of the chord that was just played (for progress)
 
 /**
  * Converts chordDuration (in measures of 4/4) to seconds.
@@ -155,7 +158,6 @@ function createVariedLoop(base) {
     changes.push(`#${idx + 1}→${varied[idx].symbol}`);
   }
 
-  console.log(`[loop]   repeat variation: ${changes.join(', ')}`);
   return varied;
 }
 
@@ -267,6 +269,7 @@ function advanceLoop() {
   }
 
   const chord = loop[loopPosition];
+  lastPlayedPosition = loopPosition;
   chord._isNewCycle = needsFirstLoop;
   loopPosition++;
 
@@ -306,9 +309,19 @@ function scheduleNextChord() {
     triggerPadChord(synths, voicedNotes, offsets, now);
   }
 
-  if (section.tracks.choir) {
-    triggerChoirChord(synths, voicedNotes, offsets, now);
+  if (section.tracks.lead) {
+    triggerLeadChord(synths, voicedNotes, offsets, now);
   }
+
+  // Update dynamic filters (lead ↔ texture brightness) on every chord.
+  // Pass section progress (refined with chord position) so values interpolate
+  // gradually toward the next section rather than jumping at boundaries.
+  // Use lastPlayedPosition+1 (not the post-increment loopPosition) to avoid
+  // progress dropping backward when loopPosition wraps to 0.
+  const coarseProgress = getSectionProgress();
+  const chordFraction = loop.length > 0 ? ((lastPlayedPosition + 1) / loop.length) / section.duration : 0;
+  const progress = Math.min(1, coarseProgress + chordFraction);
+  updateSectionAutomation(section.type, getNextSection().type, progress, chordSec * 0.8);
 
   if (section.tracks.drone) {
     const bassNoteName = notes[0].match(/^([A-G]#?)/)[1];
@@ -338,6 +351,7 @@ export function start(mixerSynths, mixerTexturePlayer) {
   loop = [];
   loopPosition = 0;
   loopPassCount = 0;
+  lastPlayedPosition = 0;
 
   initSongStructure();
   setTempoImmediate(config.tempo.current);
@@ -379,8 +393,8 @@ export function stop() {
   if (synths && synths.pad && synths.pad.releaseAll) {
     synths.pad.releaseAll(Tone.now());
   }
-  if (synths && synths.choir && synths.choir.releaseAll) {
-    synths.choir.releaseAll(Tone.now());
+  if (synths && synths.lead && synths.lead.releaseAll) {
+    synths.lead.releaseAll(Tone.now());
   }
   if (synths && synths.drone && synths.drone.releaseAll) {
     synths.drone.releaseAll(Tone.now());
@@ -391,6 +405,7 @@ export function stop() {
   loop = [];
   loopPosition = 0;
   loopPassCount = 0;
+  lastPlayedPosition = 0;
   lastChord = null;
 }
 
@@ -422,8 +437,8 @@ function syncEnvelopesToDuration() {
   if (synths.drone && synths.drone.updateEnvelopes) {
     synths.drone.updateEnvelopes(chordSec, atk, rel);
   }
-  if (synths.choir && synths.choir.updateEnvelopes) {
-    synths.choir.updateEnvelopes(chordSec, atk, rel);
+  if (synths.lead && synths.lead.updateEnvelopes) {
+    synths.lead.updateEnvelopes(chordSec, atk, rel);
   }
 }
 

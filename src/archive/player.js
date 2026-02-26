@@ -45,7 +45,6 @@ function fadeIn(track) {
   track.player.volume.value = -60;
   track.player.start();
   track.player.volume.rampTo(track.targetVolume, CROSSFADE_DURATION);
-  console.log(`[archive] playing: "${track.title}"`);
 }
 
 function fadeOutAndDispose(track) {
@@ -135,7 +134,6 @@ export async function startArchiveLayer(destination) {
     return;
   }
   isActive = true;
-  console.log('[archive] starting');
   safeUpdateStatus('Fetching first track...');
 
   const track = await loadTrack(destination);
@@ -164,7 +162,6 @@ export async function startArchiveLayer(destination) {
  * Stops the archive layer with a fade-out.
  */
 export async function stopArchiveLayer() {
-  console.log('[archive] stopping');
   isActive = false;
 
   if (crossfadeTimer) {

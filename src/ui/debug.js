@@ -62,7 +62,7 @@ export function createDebugPanel({ onParamChange, getConfig }) {
   metersLabel.textContent = 'Track Levels';
   metersSection.appendChild(metersLabel);
 
-  const trackNames = ['pad', 'drone', 'choir', 'archive', 'freesound', 'sampleTexture'];
+  const trackNames = ['pad', 'drone', 'lead', 'archive', 'freesound', 'sampleTexture'];
   const trackDisplayNames = { sampleTexture: 'smpTxtr' };
   trackNames.forEach(name => {
     const row = document.createElement('div');
@@ -139,7 +139,7 @@ export function createDebugPanel({ onParamChange, getConfig }) {
     { id: 'release', label: 'Release', param: 'releaseLevel', min: 0, max: 1.5, step: 0.05, value: config.releaseLevel || 1.0 },
     { id: 'pad-vol', label: 'Pad Volume', param: 'padVolume', min: 0, max: 1, step: 0.05, value: 0.45 },
     { id: 'drone-vol', label: 'Drone Volume', param: 'droneVolume', min: 0, max: 1, step: 0.05, value: 0.5 },
-    { id: 'choir-vol', label: 'Choir Volume', param: 'choirVolume', min: 0, max: 1, step: 0.05, value: 0.4 },
+    { id: 'lead-vol', label: 'Lead Volume', param: 'leadVolume', min: 0, max: 1, step: 0.05, value: 0.4 },
     { id: 'archive-vol', label: 'Archive Volume', param: 'archiveVolume', min: 0, max: 1, step: 0.05, value: 0.7 },
     { id: 'freesound-vol', label: 'Freesound Volume', param: 'freesoundVolume', min: 0, max: 1, step: 0.05, value: 0.4 },
     { id: 'sample-texture-vol', label: 'Sample Texture Volume', param: 'sampleTextureVolume', min: 0, max: 1, step: 0.05, value: 0.35 },
@@ -218,19 +218,19 @@ export function createDebugPanel({ onParamChange, getConfig }) {
  * Connects audio nodes to the debug panel (spectrum analyser + track meters).
  * Call this after the audio context and mixer are initialized.
  *
- * @param {object} trackGains - { pad, drone, texture, bell, archive } gain nodes
+ * @param {object} trackEffects - { pad, drone, lead, ... } effect groups with .output nodes
  */
-export function connectDebugAudio(trackGains) {
+export function connectDebugAudio(trackEffects) {
   // Create analyser node on master output
   analyser = new Tone.Analyser('fft', 256);
   Tone.getDestination().connect(analyser);
 
-  // Create a Tone.Meter for each track
-  const meterTrackNames = ['pad', 'drone', 'choir', 'archive', 'freesound', 'sampleTexture'];
+  // Create a Tone.Meter for each track, connected post-effects
+  const meterTrackNames = ['pad', 'drone', 'lead', 'archive', 'freesound', 'sampleTexture'];
   meterTrackNames.forEach(name => {
-    if (trackGains[name]) {
+    if (trackEffects[name]) {
       const meter = new Tone.Meter({ smoothing: 0.8 });
-      trackGains[name].connect(meter);
+      trackEffects[name].output.connect(meter);
       meters[name] = meter;
     }
   });

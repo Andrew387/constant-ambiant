@@ -1,6 +1,8 @@
 import * as Tone from 'tone';
 import { buildEffectsChain } from './effects/index.js';
 import { createAllTrackEffects } from './effects/trackEffects.js';
+import { initSectionAutomation, disposeSectionAutomation } from './effects/sectionAutomation.js';
+import { TRACK_PROFILES } from './trackProfiles.js';
 import { createPadSynth } from './synths/pad.js';
 import { createSampleSynth } from './synths/samplePlayer.js';
 import { createTexturePlayer } from './synths/texturePlayer.js';
@@ -32,38 +34,22 @@ export async function initMixer() {
   masterGain = new Tone.Gain(0.8);
   masterGain.toDestination();
 
-  // Individual track gains
-  trackGains = {
-    pad: new Tone.Gain(0.45),
-    drone: new Tone.Gain(0.5),
-    archive: new Tone.Gain(0.7),
-    freesound: new Tone.Gain(0.4),
-    choir: new Tone.Gain(0.4),
-    sampleTexture: new Tone.Gain(0.35),
-  };
+  // Per-track gains and effect groups — driven by TRACK_PROFILES
+  trackGains = {};
+  for (const [name, profile] of Object.entries(TRACK_PROFILES)) {
+    trackGains[name] = new Tone.Gain(profile.gain);
+  }
 
-  // Per-track effect groups: trackGain → effects → masterGain
   trackEffects = createAllTrackEffects();
 
   // Route: trackGain → trackEffects → masterGain
-  // Bell has no dedicated effect group — routes directly to master
-  trackGains.pad.connect(trackEffects.pad.input);
-  trackEffects.pad.output.connect(masterGain);
+  for (const name of Object.keys(TRACK_PROFILES)) {
+    trackGains[name].connect(trackEffects[name].input);
+    trackEffects[name].output.connect(masterGain);
+  }
 
-  trackGains.drone.connect(trackEffects.drone.input);
-  trackEffects.drone.output.connect(masterGain);
-
-  trackGains.archive.connect(trackEffects.archive.input);
-  trackEffects.archive.output.connect(masterGain);
-
-  trackGains.freesound.connect(trackEffects.freesound.input);
-  trackEffects.freesound.output.connect(masterGain);
-
-  trackGains.choir.connect(trackEffects.choir.input);
-  trackEffects.choir.output.connect(masterGain);
-
-  trackGains.sampleTexture.connect(trackEffects.sampleTexture.input);
-  trackEffects.sampleTexture.output.connect(masterGain);
+  // Section automation self-discovers which tracks have automation config
+  initSectionAutomation(trackEffects);
 
   // Initialize synths — lead and bass are sample-based
   const leadConfig = LEAD_INSTRUMENTS.find(i => i.id === currentLeadId);
@@ -71,12 +57,12 @@ export async function initMixer() {
 
   const pad = createPadSynth(trackGains.pad);
 
-  const [choir, drone] = await Promise.all([
-    createSampleSynth(leadConfig, trackGains.choir),
+  const [lead, drone] = await Promise.all([
+    createSampleSynth(leadConfig, trackGains.lead),
     createSampleSynth(bassConfig, trackGains.drone),
   ]);
 
-  synths = { pad, drone, choir };
+  synths = { pad, drone, lead };
 
   // Create the texture sample player (loops a random file per song cycle)
   texturePlayer = createTexturePlayer(trackGains.sampleTexture);
@@ -85,6 +71,7 @@ export async function initMixer() {
     synths,
     texturePlayer,
     trackGains,
+    trackEffects,
     setTrackVolume,
     setMasterVolume,
     setEffectsEnabled,
@@ -97,7 +84,7 @@ export async function initMixer() {
 }
 
 /**
- * Swaps the lead instrument (choir role) to a different sample set.
+ * Swaps the lead instrument to a different sample set.
  * Loads the new instrument first, then swaps and disposes the old one.
  * @param {string} instrumentId - ID from LEAD_INSTRUMENTS
  */
@@ -105,9 +92,9 @@ async function swapLead(instrumentId) {
   const config = LEAD_INSTRUMENTS.find(i => i.id === instrumentId);
   if (!config || instrumentId === currentLeadId) return;
 
-  const newSynth = await createSampleSynth(config, trackGains.choir);
-  const oldSynth = synths.choir;
-  synths.choir = newSynth;
+  const newSynth = await createSampleSynth(config, trackGains.lead);
+  const oldSynth = synths.lead;
+  synths.lead = newSynth;
   currentLeadId = instrumentId;
 
   if (oldSynth) {
@@ -140,7 +127,7 @@ async function swapBass(instrumentId) {
 
 /**
  * Sets the volume for a specific track.
- * @param {string} track - Track name: "pad", "drone", "texture", "archive"
+ * @param {string} track - Track name: "pad", "drone", "lead", "archive", etc.
  * @param {number} value - Gain value 0–1
  */
 export function setTrackVolume(track, value) {
@@ -185,6 +172,7 @@ async function setEffectsEnabled(enabled) {
 }
 
 function disposeMixer() {
+  disposeSectionAutomation();
   if (texturePlayer) {
     texturePlayer.dispose();
     texturePlayer = null;

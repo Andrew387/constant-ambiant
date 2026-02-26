@@ -181,7 +181,6 @@ function pickFromCache() {
   const entry = pool[Math.floor(Math.random() * pool.length)];
   played.add(entry.url);
   lastPlayedIdentifier = entry.identifier;
-  console.log(`[archive] picked: "${entry.title}"`);
   return entry;
 }
 

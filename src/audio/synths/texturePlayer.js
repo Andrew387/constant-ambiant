@@ -11,12 +11,16 @@ import * as Tone from 'tone';
  * Loop region is wider than pitched samples to exploit the longer duration.
  */
 
-const TEXTURE_COUNT = 129;
+const TEXTURE_COUNT = 79;
 
-// Loop region for ~14.5s texture samples.
+// Pitch shift: play samples faster to push bass content into higher range.
+const PLAYBACK_RATE = 1.5;
+
+// Loop region for ~14.5s texture samples (in buffer time).
 const LOOP_START = 1.0;
 const LOOP_END   = 13.0;
-const LOOP_LEN   = LOOP_END - LOOP_START;  // 12s
+// Real-time duration accounts for playback rate.
+const LOOP_LEN   = (LOOP_END - LOOP_START) / PLAYBACK_RATE;  // 8s at 1.5x
 
 // Crossfade: generous overlap for smooth blending of ambient material.
 const CROSSFADE_RATIO   = 0.35;
@@ -67,7 +71,7 @@ function pickRandomTexture(exclude) {
   } while (idx === exclude && TEXTURE_COUNT > 1);
   const padded = String(idx).padStart(2, '0');
   return {
-    url: `./samples/textures/textures${padded}.wav`,
+    url: `./samples/texturesNew/texturesNew${padded}.wav`,
     index: idx,
   };
 }
@@ -106,7 +110,11 @@ export function createTexturePlayer(destination) {
         const audioTime = batchStartTime + i * STRIDE;
         nextSegIndex++;
 
-        const source = new Tone.ToneBufferSource({ url: buffer, loop: false });
+        const source = new Tone.ToneBufferSource({
+          url: buffer,
+          loop: false,
+          playbackRate: PLAYBACK_RATE,
+        });
         const segGain = new Tone.Gain(0);
         source.connect(segGain);
         segGain.connect(envelope);
@@ -217,7 +225,7 @@ export function createTexturePlayer(destination) {
     const { url, index } = pickRandomTexture(excludeIndex);
     currentIndex = index;
 
-    const label = `textures${String(index).padStart(2, '0')}.wav`;
+    const label = `texturesNew${String(index).padStart(2, '0')}.wav`;
     console.log(`[sampleTexture] loading ${label}`);
 
     try {
