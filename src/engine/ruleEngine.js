@@ -2,7 +2,7 @@ import * as Tone from 'tone';
 import rulesConfig from './rules.config.js';
 import { generateProgression, rebuildChordWithColor, MINOR_KEYS, TICKS_PER_UNIT } from '../harmony/progression.js';
 import { voiceChord } from '../harmony/voicing.js';
-import { triggerPadChord, triggerDrone, triggerTexture, triggerBell, triggerChoirChord } from '../rhythm/scheduler.js';
+import { triggerPadChord, triggerDrone, triggerChoirChord } from '../rhythm/scheduler.js';
 import {
   startClock, stopClock,
   setTempoImmediate, rampTempo, getTargetBpm,
@@ -13,6 +13,7 @@ import {
 
 let config = { ...rulesConfig };
 let synths = null;
+let texturePlayer = null;
 let running = false;
 let chordCount = 0;
 let loopTimeoutId = null;
@@ -254,6 +255,11 @@ function advanceLoop() {
       }
       loopPassCount = 0;
       driftTempo();
+
+      // Swap to a new random texture sample for this cycle
+      if (texturePlayer) {
+        texturePlayer.swap();
+      }
     } else if (loopPassCount > 0) {
       // Same cycle — apply micro-variations to keep it fresh
       loop = createVariedLoop(baseLoop);
@@ -310,14 +316,6 @@ function scheduleNextChord() {
     triggerDrone(synths, droneNote, chordSec, now);
   }
 
-  if (section.tracks.texture) {
-    triggerTexture(synths, chordSec, now);
-  }
-
-  if (section.tracks.bell) {
-    triggerBell(synths, voicedNotes, chordSec, now);
-  }
-
   // ── Schedule next chord ──
   // Recalculate base in case driftTempo changed the target BPM
   const nextBaseSec = chord._isNewCycle ? chordDurationInSeconds() : baseSec;
@@ -328,10 +326,12 @@ function scheduleNextChord() {
 /**
  * Starts the generative engine.
  * @param {object} mixerSynths - Synths from the mixer
+ * @param {object} [mixerTexturePlayer] - Texture sample player from the mixer
  */
-export function start(mixerSynths) {
+export function start(mixerSynths, mixerTexturePlayer) {
   if (running) return;
   synths = mixerSynths;
+  texturePlayer = mixerTexturePlayer || null;
   running = true;
   chordCount = 0;
   baseLoop = [];
@@ -346,6 +346,11 @@ export function start(mixerSynths) {
   console.log(`[engine] starting — ${config.rootNote} minor, ${config.tempo.current}bpm`);
 
   startClock();
+
+  // Start the texture sample layer (loops a random file continuously)
+  if (texturePlayer) {
+    texturePlayer.start();
+  }
 
   // First chord after a short delay to let audio context settle
   loopTimeoutId = setTimeout(scheduleNextChord, 100);
@@ -365,6 +370,11 @@ export function stop() {
   }
 
   stopClock();
+
+  // Stop the texture sample layer
+  if (texturePlayer) {
+    texturePlayer.stop();
+  }
 
   if (synths && synths.pad && synths.pad.releaseAll) {
     synths.pad.releaseAll(Tone.now());

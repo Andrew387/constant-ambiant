@@ -22,32 +22,32 @@ const SONG_SECTIONS = [
   {
     type: 'transition',
     duration: SECTION_DURATIONS.transition,
-    tracks: { pad: true, drone: true, texture: true, bell: true, archive: true, freesound: true, choir: true },
+    tracks: { pad: true, drone: true, archive: true, freesound: true, choir: true },
   },
   {
     type: 'intro',
     duration: SECTION_DURATIONS.intro,
-    tracks: { pad: true, drone: true, texture: true, bell: true, archive: true, freesound: true, choir: true },
+    tracks: { pad: true, drone: true, archive: true, freesound: true, choir: true },
   },
   {
     type: 'main',
     duration: SECTION_DURATIONS.main,
-    tracks: { pad: true, drone: true, texture: true, bell: true, archive: true, freesound: true, choir: true },
+    tracks: { pad: true, drone: true, archive: true, freesound: true, choir: true },
   },
   {
     type: 'innerTransition',
     duration: SECTION_DURATIONS.innerTransition,
-    tracks: { pad: true, drone: true, texture: true, bell: true, archive: true, freesound: true, choir: true },
+    tracks: { pad: true, drone: true, archive: true, freesound: true, choir: true },
   },
   {
     type: 'main2',
     duration: SECTION_DURATIONS.main2,
-    tracks: { pad: true, drone: true, texture: true, bell: true, archive: true, freesound: true, choir: true },
+    tracks: { pad: true, drone: true, archive: true, freesound: true, choir: true },
   },
   {
     type: 'outro',
     duration: SECTION_DURATIONS.outro,
-    tracks: { pad: true, drone: true, texture: true, bell: true, archive: true, freesound: true, choir: true },
+    tracks: { pad: true, drone: true, archive: true, freesound: true, choir: true },
   },
 ];
 

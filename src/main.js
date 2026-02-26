@@ -16,11 +16,10 @@ const debugState = {
   releaseLevel: null,
   padVolume: null,
   droneVolume: null,
-  textureVolume: null,
-  bellVolume: null,
   choirVolume: null,
   archiveVolume: null,
   freesoundVolume: null,
+  sampleTextureVolume: null,
   effectsEnabled: false,
 };
 
@@ -50,7 +49,7 @@ async function handleStart() {
     audioConnected = true;
   }
 
-  start(mixer.synths);
+  start(mixer.synths, mixer.texturePlayer);
   applyDebugOverrides();
 
   const config = getConfig();
@@ -95,11 +94,10 @@ function applyDebugOverrides() {
   // Re-apply track volumes
   if (debugState.padVolume !== null) setTrackVolume('pad', debugState.padVolume);
   if (debugState.droneVolume !== null) setTrackVolume('drone', debugState.droneVolume);
-  if (debugState.textureVolume !== null) setTrackVolume('texture', debugState.textureVolume);
-  if (debugState.bellVolume !== null) setTrackVolume('bell', debugState.bellVolume);
   if (debugState.choirVolume !== null) setTrackVolume('choir', debugState.choirVolume);
   if (debugState.archiveVolume !== null) setTrackVolume('archive', debugState.archiveVolume);
   if (debugState.freesoundVolume !== null) setTrackVolume('freesound', debugState.freesoundVolume);
+  if (debugState.sampleTextureVolume !== null) setTrackVolume('sampleTexture', debugState.sampleTextureVolume);
 }
 
 function handleParamChange(param, value) {
@@ -123,12 +121,6 @@ case 'padVolume':
     case 'droneVolume':
       setTrackVolume('drone', value);
       break;
-    case 'textureVolume':
-      setTrackVolume('texture', value);
-      break;
-    case 'bellVolume':
-      setTrackVolume('bell', value);
-      break;
     case 'choirVolume':
       setTrackVolume('choir', value);
       break;
@@ -137,6 +129,9 @@ case 'padVolume':
       break;
     case 'freesoundVolume':
       setTrackVolume('freesound', value);
+      break;
+    case 'sampleTextureVolume':
+      setTrackVolume('sampleTexture', value);
       break;
     case 'effectsEnabled':
       if (mixer) mixer.setEffectsEnabled(value);

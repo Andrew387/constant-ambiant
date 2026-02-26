@@ -2,9 +2,8 @@ import * as Tone from 'tone';
 import { buildEffectsChain } from './effects/index.js';
 import { createAllTrackEffects } from './effects/trackEffects.js';
 import { createPadSynth } from './synths/pad.js';
-import { createTextureSynth } from './synths/texture.js';
-import { createBellSynth } from './synths/bell.js';
 import { createSampleSynth } from './synths/samplePlayer.js';
+import { createTexturePlayer } from './synths/texturePlayer.js';
 import {
   LEAD_INSTRUMENTS, BASS_INSTRUMENTS, DEFAULT_LEAD, DEFAULT_BASS,
 } from './synths/sampleRegistry.js';
@@ -13,6 +12,7 @@ let trackGains = {};
 let trackEffects = null;
 let masterGain = null;
 let synths = null;
+let texturePlayer = null;
 let effectsChain = null;
 let effectsEnabled = false;
 
@@ -36,11 +36,10 @@ export async function initMixer() {
   trackGains = {
     pad: new Tone.Gain(0.45),
     drone: new Tone.Gain(0.5),
-    texture: new Tone.Gain(0.4),
-    bell: new Tone.Gain(0.35),
     archive: new Tone.Gain(0.7),
     freesound: new Tone.Gain(0.4),
     choir: new Tone.Gain(0.4),
+    sampleTexture: new Tone.Gain(0.35),
   };
 
   // Per-track effect groups: trackGain → effects → masterGain
@@ -54,11 +53,6 @@ export async function initMixer() {
   trackGains.drone.connect(trackEffects.drone.input);
   trackEffects.drone.output.connect(masterGain);
 
-  trackGains.texture.connect(trackEffects.texture.input);
-  trackEffects.texture.output.connect(masterGain);
-
-  trackGains.bell.connect(masterGain);
-
   trackGains.archive.connect(trackEffects.archive.input);
   trackEffects.archive.output.connect(masterGain);
 
@@ -68,23 +62,28 @@ export async function initMixer() {
   trackGains.choir.connect(trackEffects.choir.input);
   trackEffects.choir.output.connect(masterGain);
 
+  trackGains.sampleTexture.connect(trackEffects.sampleTexture.input);
+  trackEffects.sampleTexture.output.connect(masterGain);
+
   // Initialize synths — lead and bass are sample-based
   const leadConfig = LEAD_INSTRUMENTS.find(i => i.id === currentLeadId);
   const bassConfig = BASS_INSTRUMENTS.find(i => i.id === currentBassId);
 
   const pad = createPadSynth(trackGains.pad);
-  const texture = createTextureSynth(trackGains.texture);
-  const bell = createBellSynth(trackGains.bell);
 
   const [choir, drone] = await Promise.all([
     createSampleSynth(leadConfig, trackGains.choir),
     createSampleSynth(bassConfig, trackGains.drone),
   ]);
 
-  synths = { pad, drone, texture, bell, choir };
+  synths = { pad, drone, choir };
+
+  // Create the texture sample player (loops a random file per song cycle)
+  texturePlayer = createTexturePlayer(trackGains.sampleTexture);
 
   return {
     synths,
+    texturePlayer,
     trackGains,
     setTrackVolume,
     setMasterVolume,
@@ -186,6 +185,10 @@ async function setEffectsEnabled(enabled) {
 }
 
 function disposeMixer() {
+  if (texturePlayer) {
+    texturePlayer.dispose();
+    texturePlayer = null;
+  }
   if (synths) {
     Object.values(synths).forEach(s => s.dispose());
     synths = null;
