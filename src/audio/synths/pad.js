@@ -98,6 +98,16 @@ export function createPadSynth(destination) {
       heldNotes = [...notes];
     },
 
+    /**
+     * Adds notes to the currently held chord without releasing existing notes.
+     * Used by sequential chord playing rules to bloom higher notes over time.
+     */
+    addNotes(notes, time) {
+      synth.triggerAttack(notes, time);
+      synth2.triggerAttack(notes, time);
+      heldNotes = [...heldNotes, ...notes];
+    },
+
     releaseAll(time) {
       if (heldNotes.length > 0) {
         synth.triggerRelease(heldNotes, time);

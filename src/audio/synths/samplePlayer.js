@@ -328,6 +328,16 @@ export function createSampleSynth({ folder, filePrefix, plucked, loopStart, loop
       },
 
       /**
+       * Adds notes without stopping existing voices.
+       * Used by sequential chord playing rules to bloom higher notes over time.
+       */
+      addNotes(notes, time) {
+        for (const note of notes) {
+          startVoice(note, time);
+        }
+      },
+
+      /**
        * Plays a single note for a given duration.
        * Used for the bass role (drone replacement).
        */

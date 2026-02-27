@@ -12,6 +12,7 @@ import {
   advanceSongProgression, getSongState,
 } from './songStructure.js';
 import { updateSectionAutomation } from '../audio/effects/sectionAutomation.js';
+import { pickChordPlayingRule, applyChordPlayingRule, getCurrentRule } from './chordPlayingRule.js';
 
 let config = { ...rulesConfig };
 let synths = null;
@@ -168,24 +169,39 @@ const VARIATION_FNS = [applyInversion, applyRevoice, applyColorChange, applyOcta
 
 /**
  * Creates a varied copy of the base loop for a given repeat.
- * Picks 1–2 random chord positions and applies a random micro-variation
+ * Picks 1–3 random chord positions and applies a random micro-variation
  * to each. The base loop is never mutated.
+ *
+ * When a sequential chord playing rule is active, variation probability is
+ * heavily reduced — the sequential bloom already provides movement, so
+ * changing the underlying chord voicings would fight the pattern.
  */
 function createVariedLoop(base) {
   const varied = base.map(c => ({ ...c }));
   const count = varied.length;
   if (count === 0) return varied;
 
-  // Pick 1–3 chord indices to vary (biased toward more changes)
+  // Sequential rules already add temporal movement — keep chords stable
+  const rule = getCurrentRule();
+  const isSequential = rule.includes('sequential');
+
   let numChanges;
   if (count <= 2) {
-    numChanges = 1;
+    // Small progressions: 0 or 1 change depending on rule
+    numChanges = isSequential ? 0 : 1;
+  } else if (isSequential) {
+    // Sequential: 70% no change, 30% one subtle change
+    numChanges = Math.random() < 0.7 ? 0 : 1;
   } else {
+    // Simultaneous: original behaviour — 1–3 changes
     const roll = Math.random();
     if (roll < 0.25) numChanges = 1;
     else if (roll < 0.65) numChanges = 2;
     else numChanges = Math.min(3, count);
   }
+
+  if (numChanges === 0) return varied;
+
   const indices = new Set();
   while (indices.size < numChanges) {
     indices.add(Math.floor(Math.random() * count));
@@ -297,6 +313,7 @@ function advanceLoop() {
       }
       loopPassCount = 0;
       driftTempo();
+      pickChordPlayingRule();
 
       // Swap to a new random texture sample for this cycle
       if (texturePlayer) {
@@ -347,16 +364,19 @@ function scheduleNextChord() {
   // Per-chord duration scaled by its rhythm weight
   const chordSec = baseSec * durationTicks / TICKS_PER_UNIT;
 
+  // ── Apply chord playing rule ──
+  const schedule = applyChordPlayingRule(voicedNotes, chordSec);
+
   // ── Section-aware instrument triggers ──
   const section = getCurrentSection();
   const now = Tone.now();
 
   if (section.tracks.pad) {
-    triggerPadChord(synths, voicedNotes, offsets, now);
+    triggerPadChord(synths, schedule, offsets, now);
   }
 
   if (section.tracks.lead) {
-    triggerLeadChord(synths, voicedNotes, offsets, now);
+    triggerLeadChord(synths, schedule, offsets, now);
   }
 
   // Update dynamic filters (lead ↔ texture brightness) on every chord.
@@ -403,6 +423,7 @@ export function start(mixerSynths, mixerTexturePlayer, callbacks = {}) {
   lastPlayedPosition = 0;
 
   initSongStructure();
+  pickChordPlayingRule();
   setTempoImmediate(config.tempo.current);
   syncEnvelopesToDuration();
 
