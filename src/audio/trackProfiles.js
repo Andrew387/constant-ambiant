@@ -86,6 +86,12 @@ export const TRACK_PROFILES = {
         outro:           0.5,
       },
       duckFloor: 0.2,
+      gainSwells: {
+        sections: ['intro', 'main', 'main2', 'outro'],
+        gainRange: [0.8, 1.0],
+        loopRange: [1, 3],
+        probability: 0.25,
+      },
     },
   },
 
