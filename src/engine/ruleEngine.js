@@ -16,6 +16,7 @@ import { updateSectionAutomation } from '../audio/effects/sectionAutomation.js';
 let config = { ...rulesConfig };
 let synths = null;
 let texturePlayer = null;
+let swapLeadFn = null;
 let running = false;
 let chordCount = 0;
 let loopTimeoutId = null;
@@ -132,7 +133,38 @@ function applyColorChange(chord) {
   return { ...chord, notes, voicedNotes, offsets, symbol: symbol.trim() };
 }
 
-const VARIATION_FNS = [applyInversion, applyRevoice, applyColorChange];
+/**
+ * Octave shift: transpose all voiced notes up or down one octave.
+ * Gives a wider/narrower feel without changing harmony.
+ */
+function applyOctaveShift(chord) {
+  const direction = Math.random() < 0.5 ? 1 : -1;
+  const voiced = chord.voicedNotes.map(n => {
+    const oct = Number(n.match(/\d+$/)[0]);
+    const newOct = Math.max(2, Math.min(6, oct + direction));
+    return n.replace(/\d+$/, String(newOct));
+  });
+  const label = `${chord.symbol} (${direction > 0 ? '8va' : '8vb'})`;
+  return { ...chord, voicedNotes: voiced, symbol: label };
+}
+
+/**
+ * Drop fifth: remove the 5th from the voicing for a more open, hollow sound.
+ * Only applies when there are 3+ notes so we don't strip too much.
+ */
+function applyDropFifth(chord) {
+  const voiced = [...chord.voicedNotes];
+  if (voiced.length < 3) return chord;
+
+  // Remove one inner note (not root or top) to thin the voicing
+  const removeIdx = 1 + Math.floor(Math.random() * (voiced.length - 2));
+  voiced.splice(removeIdx, 1);
+
+  const label = `${chord.symbol} (open)`;
+  return { ...chord, voicedNotes: voiced, symbol: label };
+}
+
+const VARIATION_FNS = [applyInversion, applyRevoice, applyColorChange, applyOctaveShift, applyDropFifth];
 
 /**
  * Creates a varied copy of the base loop for a given repeat.
@@ -144,8 +176,16 @@ function createVariedLoop(base) {
   const count = varied.length;
   if (count === 0) return varied;
 
-  // Pick 1–2 chord indices to vary
-  const numChanges = count <= 2 ? 1 : (Math.random() < 0.5 ? 1 : 2);
+  // Pick 1–3 chord indices to vary (biased toward more changes)
+  let numChanges;
+  if (count <= 2) {
+    numChanges = 1;
+  } else {
+    const roll = Math.random();
+    if (roll < 0.25) numChanges = 1;
+    else if (roll < 0.65) numChanges = 2;
+    else numChanges = Math.min(3, count);
+  }
   const indices = new Set();
   while (indices.size < numChanges) {
     indices.add(Math.floor(Math.random() * count));
@@ -262,6 +302,12 @@ function advanceLoop() {
       if (texturePlayer) {
         texturePlayer.swap();
       }
+
+      // Swap to a new random lead instrument for this cycle
+      // Re-sync envelopes after swap so attack/release config applies to the new synth
+      if (swapLeadFn) {
+        swapLeadFn().then(() => syncEnvelopesToDuration());
+      }
     } else if (loopPassCount > 0) {
       // Same cycle — apply micro-variations to keep it fresh
       loop = createVariedLoop(baseLoop);
@@ -340,11 +386,14 @@ function scheduleNextChord() {
  * Starts the generative engine.
  * @param {object} mixerSynths - Synths from the mixer
  * @param {object} [mixerTexturePlayer] - Texture sample player from the mixer
+ * @param {object} [callbacks] - Optional callbacks for cycle events
+ * @param {Function} [callbacks.onSwapLead] - Called each new cycle to swap lead instrument
  */
-export function start(mixerSynths, mixerTexturePlayer) {
+export function start(mixerSynths, mixerTexturePlayer, callbacks = {}) {
   if (running) return;
   synths = mixerSynths;
   texturePlayer = mixerTexturePlayer || null;
+  swapLeadFn = callbacks.onSwapLead || null;
   running = true;
   chordCount = 0;
   baseLoop = [];
@@ -407,6 +456,7 @@ export function stop() {
   loopPassCount = 0;
   lastPlayedPosition = 0;
   lastChord = null;
+  swapLeadFn = null;
 }
 
 /**

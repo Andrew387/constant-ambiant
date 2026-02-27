@@ -49,7 +49,9 @@ async function handleStart() {
     audioConnected = true;
   }
 
-  start(mixer.synths, mixer.texturePlayer);
+  start(mixer.synths, mixer.texturePlayer, {
+    onSwapLead: mixer.swapLeadRandom,
+  });
   applyDebugOverrides();
 
   const config = getConfig();

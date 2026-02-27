@@ -76,6 +76,7 @@ export async function initMixer() {
     setMasterVolume,
     setEffectsEnabled,
     swapLead,
+    swapLeadRandom,
     swapBass,
     getArchiveGain: () => trackGains.archive,
     getFreesoundGain: () => trackGains.freesound,
@@ -102,6 +103,15 @@ async function swapLead(instrumentId) {
     setTimeout(() => oldSynth.dispose(), 5000);
   }
   console.log(`[mixer] lead swapped to ${config.name}`);
+}
+
+/**
+ * Picks a random lead instrument (different from the current one) and swaps to it.
+ */
+async function swapLeadRandom() {
+  const candidates = LEAD_INSTRUMENTS.filter(i => i.id !== currentLeadId);
+  const pick = candidates[Math.floor(Math.random() * candidates.length)];
+  await swapLead(pick.id);
 }
 
 /**

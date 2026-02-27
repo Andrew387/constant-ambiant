@@ -391,9 +391,9 @@ const PROGRESSION_PATTERNS = [
 // --------------------------------------
 
 // Very simple colors: no 7ths, 9ths, 11ths, 13ths as separate chords.
-// Just sus2 or add9 and mostly plain triads.
-const MINOR_COLORS = ['', '', '', 'sus2', 'add9']; // 60% plain
-const MAJOR_COLORS = ['', '', 'sus2', 'add9'];      // also mostly plain
+// Just sus2 or add9, balanced with plain triads.
+const MINOR_COLORS = ['', '', 'sus2', 'add9', 'add9']; // 40% plain
+const MAJOR_COLORS = ['', 'sus2', 'sus2', 'add9'];      // 25% plain
 
 function chance(prob) {
   return Math.random() < prob;
@@ -433,14 +433,14 @@ function pickColorForChord(quality, role, mood) {
   let majorPalette = MAJOR_COLORS;
 
   if (mood === 'sad') {
-    minorPalette = ['', '', '', 'sus2', 'add9'];
-    majorPalette = ['', '', '', 'sus2'];
-  } else if (mood === 'hopeful') {
-    minorPalette = ['', '', 'add9', 'sus2', 'add9'];
-    majorPalette = ['', 'sus2', 'add9', 'add9'];
-  } else if (mood === 'dramatic') {
     minorPalette = ['', '', 'sus2', 'sus2', 'add9'];
-    majorPalette = ['', '', 'sus2', 'sus2'];
+    majorPalette = ['', '', 'sus2', 'add9'];
+  } else if (mood === 'hopeful') {
+    minorPalette = ['', 'add9', 'sus2', 'add9'];
+    majorPalette = ['sus2', 'add9', 'add9', ''];
+  } else if (mood === 'dramatic') {
+    minorPalette = ['', 'sus2', 'sus2', 'add9'];
+    majorPalette = ['', 'sus2', 'sus2', 'add9'];
   }
   // circular: use default base palettes
 
@@ -454,9 +454,11 @@ function pickColorForChord(quality, role, mood) {
     }
   }
 
-  // Predominants: mostly plain, occasional sus2
+  // Predominants: plain ~65%, sus2 ~20%, add9 ~15%
   if (role === 'predominant') {
-    if (chance(0.15)) return 'sus2';
+    const roll = Math.random();
+    if (roll < 0.20) return 'sus2';
+    if (roll < 0.35) return 'add9';
     return '';
   }
 
@@ -509,7 +511,7 @@ function buildChord(root, chordSpec, octave, mood) {
 
 // Optional inversion (rare, to keep things smooth)
 function maybeAddInversion(chord) {
-  if (!chance(0.25)) return chord;
+  if (!chance(0.35)) return chord;
 
   const { root, quality } = chord;
   const third = transpose(root, quality === 'maj' ? 4 : 3);
