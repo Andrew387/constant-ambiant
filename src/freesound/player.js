@@ -74,8 +74,18 @@ async function playSoundEffect() {
         const entry = { player, filter, reverb, name: sound.name, disposed: false };
         activeNodes.push(entry);
 
+        // Safety net: force-dispose if entry is still alive after 60s
+        const safetyTimer = setTimeout(() => {
+          if (!entry.disposed) {
+            console.warn(`[freesound] safety dispose for "${sound.name}"`);
+            disposeEntry(entry);
+            safeUpdateStatus(statusText());
+          }
+        }, 60000);
+
         reverb.generate().then(() => {
           if (entry.disposed || !isActive) {
+            clearTimeout(safetyTimer);
             disposeEntry(entry);
             return;
           }
@@ -90,13 +100,20 @@ async function playSoundEffect() {
 
           // Dispose after reverb tail fades
           setTimeout(() => {
+            clearTimeout(safetyTimer);
             disposeEntry(entry);
             safeUpdateStatus(statusText());
           }, REVERB_TAIL_EXTRA * 1000);
+        }).catch((err) => {
+          console.warn(`[freesound] reverb.generate() failed for "${sound.name}":`, err);
+          clearTimeout(safetyTimer);
+          disposeEntry(entry);
+          safeUpdateStatus(statusText());
         });
       },
       onerror: (err) => {
         console.warn(`[freesound] load error for "${sound.name}":`, err);
+        try { player.dispose(); } catch {}
         safeUpdateStatus(statusText(`Load error: "${sound.name}"`));
       },
     });

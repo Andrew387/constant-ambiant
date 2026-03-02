@@ -371,28 +371,32 @@ function scheduleNextChord() {
   const section = getCurrentSection();
   const now = Tone.now();
 
-  if (section.tracks.pad) {
-    triggerPadChord(synths, schedule, offsets, now);
-  }
+  try {
+    if (section.tracks.pad) {
+      triggerPadChord(synths, schedule, offsets, now);
+    }
 
-  if (section.tracks.lead) {
-    triggerLeadChord(synths, schedule, offsets, now);
-  }
+    if (section.tracks.lead) {
+      triggerLeadChord(synths, schedule, offsets, now);
+    }
 
-  // Update dynamic filters (lead ↔ texture brightness) on every chord.
-  // Pass section progress (refined with chord position) so values interpolate
-  // gradually toward the next section rather than jumping at boundaries.
-  // Use lastPlayedPosition+1 (not the post-increment loopPosition) to avoid
-  // progress dropping backward when loopPosition wraps to 0.
-  const coarseProgress = getSectionProgress();
-  const chordFraction = loop.length > 0 ? ((lastPlayedPosition + 1) / loop.length) / section.duration : 0;
-  const progress = Math.min(1, coarseProgress + chordFraction);
-  updateSectionAutomation(section.type, getNextSection().type, progress, chordSec * 0.8);
+    // Update dynamic filters (lead ↔ texture brightness) on every chord.
+    // Pass section progress (refined with chord position) so values interpolate
+    // gradually toward the next section rather than jumping at boundaries.
+    // Use lastPlayedPosition+1 (not the post-increment loopPosition) to avoid
+    // progress dropping backward when loopPosition wraps to 0.
+    const coarseProgress = getSectionProgress();
+    const chordFraction = loop.length > 0 ? ((lastPlayedPosition + 1) / loop.length) / section.duration : 0;
+    const progress = Math.min(1, coarseProgress + chordFraction);
+    updateSectionAutomation(section.type, getNextSection().type, progress, chordSec * 0.8);
 
-  if (section.tracks.drone) {
-    const bassNoteName = notes[0].match(/^([A-G]#?)/)[1];
-    const droneNote = `${bassNoteName}2`;
-    triggerDrone(synths, droneNote, chordSec, now);
+    if (section.tracks.drone) {
+      const bassNoteName = notes[0].match(/^([A-G]#?)/)[1];
+      const droneNote = `${bassNoteName}2`;
+      triggerDrone(synths, droneNote, chordSec, now);
+    }
+  } catch (err) {
+    console.warn('[engine] error triggering chord, continuing:', err);
   }
 
   // ── Schedule next chord ──

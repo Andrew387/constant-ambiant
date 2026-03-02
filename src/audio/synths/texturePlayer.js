@@ -96,6 +96,7 @@ export function createTexturePlayer(destination) {
     envelope.connect(destination);
 
     const segments = new Set();
+    const segTimers = new Set(); // track per-segment cleanup timer IDs
     let batchTimer = null;
     let stopped = false;
     let nextSegIndex = 0;
@@ -139,7 +140,8 @@ export function createTexturePlayer(destination) {
 
         // Self-cleanup
         const cleanupDelay = (audioTime + LOOP_LEN + 0.5 - Tone.now()) * 1000;
-        setTimeout(() => {
+        const timerId = setTimeout(() => {
+          segTimers.delete(timerId);
           if (segments.has(seg)) {
             try { source.stop(); } catch (_) {}
             source.dispose();
@@ -147,6 +149,7 @@ export function createTexturePlayer(destination) {
             segments.delete(seg);
           }
         }, Math.max(100, cleanupDelay));
+        segTimers.add(timerId);
       }
 
       // Schedule next batch
@@ -178,6 +181,10 @@ export function createTexturePlayer(destination) {
           clearTimeout(batchTimer);
           batchTimer = null;
         }
+        for (const id of segTimers) {
+          clearTimeout(id);
+        }
+        segTimers.clear();
       },
 
       /**

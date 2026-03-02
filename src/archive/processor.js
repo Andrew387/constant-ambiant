@@ -50,8 +50,9 @@ function computeAutoGain(buffer, targetRmsDb = -18) {
  * @returns {Promise<object|null>} The player/filter/reverb, or null on failure
  */
 export async function processArchiveAudio(url, destination) {
+  let player, highpass, filter, reverb;
   try {
-    const player = new Tone.GrainPlayer({
+    player = new Tone.GrainPlayer({
       url,
       loop: true,
       grainSize: 0.5,
@@ -61,21 +62,21 @@ export async function processArchiveAudio(url, destination) {
     });
 
     // High-pass filter to cut the lows
-    const highpass = new Tone.Filter({
+    highpass = new Tone.Filter({
       type: 'highpass',
       frequency: 250,
       Q: 0.5,
     });
 
     // Low-pass filter to soften the stretched audio (raised to let more highs through)
-    const filter = new Tone.Filter({
+    filter = new Tone.Filter({
       type: 'lowpass',
       frequency: 3500,
       Q: 0.5,
     });
 
     // Add reverb (longer decay, wetter mix)
-    const reverb = new Tone.Reverb({
+    reverb = new Tone.Reverb({
       decay: 14,
       wet: 0.85,
     });
@@ -99,6 +100,10 @@ export async function processArchiveAudio(url, destination) {
     return { player, highpass, filter, reverb };
   } catch (err) {
     console.error('[archive] error loading audio:', err);
+    try { if (player) player.dispose(); } catch {}
+    try { if (highpass) highpass.dispose(); } catch {}
+    try { if (filter) filter.dispose(); } catch {}
+    try { if (reverb) reverb.dispose(); } catch {}
     return null;
   }
 }

@@ -103,6 +103,16 @@ export function createPadSynth(destination) {
      * Used by sequential chord playing rules to bloom higher notes over time.
      */
     addNotes(notes, time) {
+      // Cap total held notes at maxPolyphony to prevent unbounded growth.
+      // Release oldest notes first to make room for new ones.
+      const MAX_HELD = 16;
+      const overflow = (heldNotes.length + notes.length) - MAX_HELD;
+      if (overflow > 0) {
+        const toRelease = heldNotes.slice(0, overflow);
+        synth.triggerRelease(toRelease, time);
+        synth2.triggerRelease(toRelease, time);
+        heldNotes = heldNotes.slice(overflow);
+      }
       synth.triggerAttack(notes, time);
       synth2.triggerAttack(notes, time);
       heldNotes = [...heldNotes, ...notes];
