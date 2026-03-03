@@ -25,6 +25,13 @@ let currentRule = RULES.COMPLETE_SIMULTANEOUS;
 // Maps chord size → which sorted-pitch indices to keep.
 let lockedPartialSeq = null;
 
+// Locked config for partial-simultaneous (persists for the whole song cycle).
+// Same structure as lockedPartialSeq — selected once so every chord in the
+// cycle uses the same subset of note indices.  Chord variations that change
+// the base chord (color swaps, revoicing, etc.) naturally alter the notes at
+// those indices, so the subset stays musically responsive.
+let lockedPartialSim = null;
+
 // ── Helpers ──
 
 /**
@@ -71,6 +78,28 @@ function lockPartialSequentialConfig() {
   console.log(`[rule] partial-seq locked — keep indices: ${JSON.stringify(example.keepIndices)} (for 3-note chords)`);
 }
 
+/**
+ * Pre-computes which note indices to keep for each possible chord size (2–5).
+ * Called once per song cycle when partial-simultaneous is selected.
+ * Identical logic to lockPartialSequentialConfig — the difference is only
+ * in *how* the selected notes are scheduled (all at once vs. blooming).
+ */
+function lockPartialSimultaneousConfig() {
+  lockedPartialSim = {};
+
+  for (const n of [2, 3, 4, 5]) {
+    if (n <= 2) {
+      lockedPartialSim[n] = { keepIndices: Array.from({ length: n }, (_, i) => i) };
+    } else {
+      const keepCount = 2 + Math.floor(Math.random() * (n - 2));
+      lockedPartialSim[n] = { keepIndices: randomIndices(n, keepCount) };
+    }
+  }
+
+  const example = lockedPartialSim[3];
+  console.log(`[rule] partial-sim locked — keep indices: ${JSON.stringify(example.keepIndices)} (for 3-note chords)`);
+}
+
 // ── Public API ──
 
 /**
@@ -84,6 +113,12 @@ export function pickChordPlayingRule() {
     lockPartialSequentialConfig();
   } else {
     lockedPartialSeq = null;
+  }
+
+  if (currentRule === RULES.PARTIAL_SIMULTANEOUS) {
+    lockPartialSimultaneousConfig();
+  } else {
+    lockedPartialSim = null;
   }
 
   console.log(`[rule] chord playing: ${currentRule}`);
@@ -122,8 +157,17 @@ export function applyChordPlayingRule(voicedNotes, chordSec) {
       .filter(i => i < sorted.length)
       .map(i => sorted[i]);
     if (selected.length < 2) selected = sorted; // safety fallback
+  } else if (currentRule === RULES.PARTIAL_SIMULTANEOUS && lockedPartialSim) {
+    // Partial-simultaneous: use locked indices for this chord size
+    // (deterministic per song — chord variations change the notes at these
+    // indices but the structural pattern stays the same)
+    const config = lockedPartialSim[sorted.length] || lockedPartialSim[Math.min(sorted.length, 5)];
+    selected = config.keepIndices
+      .filter(i => i < sorted.length)
+      .map(i => sorted[i]);
+    if (selected.length < 2) selected = sorted; // safety fallback
   } else if (isPartial && sorted.length > 2) {
-    // Partial-simultaneous: per-chord randomization
+    // Fallback for any future partial rule without locked config
     const subsetSize = 2 + Math.floor(Math.random() * (sorted.length - 2));
     const indices = randomIndices(sorted.length, subsetSize);
     selected = indices.map(i => sorted[i]);

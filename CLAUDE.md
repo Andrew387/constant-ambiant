@@ -20,7 +20,7 @@ A **generative ambient music web app** built with **Tone.js** and **vanilla JS (
 | **main.js** | `src/main.js` | Wires UI ↔ engine ↔ mixer, manages debug state |
 | **ruleEngine** | `src/engine/ruleEngine.js` | Central brain — generates progressions, schedules chords via `setTimeout`, manages loop state |
 | **songStructure** | `src/engine/songStructure.js` | 6-section state machine: `transition → intro → main → innerTransition → main2 → outro → repeat` |
-| **rules.config** | `src/engine/rules.config.js` | Tempo (45–72 BPM), chord duration, section durations, feature flags |
+| **rules.config** | `src/engine/rules.config.js` | Tempo (45–72 BPM), chord duration, section durations, chord skip probabilities, feature flags |
 | **mixer** | `src/audio/mixer.js` | Master audio graph: per-track gains, effect chains, instrument swapping |
 | **trackProfiles** | `src/audio/trackProfiles.js` | Declarative per-track config: gain, effect chain specs, section automation |
 | **progression** | `src/harmony/progression.js` | Procedural chord progression generator — 14 patterns across 7 moods, chord coloring (sus2/add9), rhythm weights |
@@ -46,6 +46,13 @@ A **generative ambient music web app** built with **Tone.js** and **vanilla JS (
 - Stored in `baseLoop` (source of truth); `loop` may be a varied copy
 - On repeat passes: `createVariedLoop()` applies micro-changes (inversions, revoicing, chord color swaps)
 - ~30% chance of root note modulation per cycle; tempo drifts ±4 BPM
+
+### Chord Skip (Breathing Silences)
+- In certain sections, individual chords have a random chance of being silently skipped, creating organic gaps
+- Configured via `CHORD_SKIP_PROBABILITY` in `rules.config.js` (per section type, 0–1)
+- Current probabilities: **transition 30%**, **intro 20%**, **outro 10%** — main sections play all chords
+- Skip is evaluated independently per chord per play — loop timing and section automation continue normally
+- Logged as `[engine] skipping chord …` in the console
 
 ### Per-Track Effect System
 - `TRACK_PROFILES` in `trackProfiles.js` is the single source of truth

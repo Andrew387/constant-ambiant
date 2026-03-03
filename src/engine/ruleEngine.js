@@ -1,5 +1,5 @@
 import * as Tone from 'tone';
-import rulesConfig from './rules.config.js';
+import rulesConfig, { CHORD_SKIP_PROBABILITY } from './rules.config.js';
 import { generateProgression, rebuildChordWithColor, MINOR_KEYS, TICKS_PER_UNIT } from '../harmony/progression.js';
 import { voiceChord } from '../harmony/voicing.js';
 import { triggerPadChord, triggerDrone, triggerLeadChord } from '../rhythm/scheduler.js';
@@ -139,13 +139,13 @@ function applyColorChange(chord) {
  * Gives a wider/narrower feel without changing harmony.
  */
 function applyOctaveShift(chord) {
-  const direction = Math.random() < 0.5 ? 1 : -1;
+  const direction = -1; // always drop — never shift up
   const voiced = chord.voicedNotes.map(n => {
     const oct = Number(n.match(/\d+$/)[0]);
     const newOct = Math.max(2, Math.min(6, oct + direction));
     return n.replace(/\d+$/, String(newOct));
   });
-  const label = `${chord.symbol} (${direction > 0 ? '8va' : '8vb'})`;
+  const label = `${chord.symbol} (8vb)`;
   return { ...chord, voicedNotes: voiced, symbol: label };
 }
 
@@ -364,39 +364,54 @@ function scheduleNextChord() {
   // Per-chord duration scaled by its rhythm weight
   const chordSec = baseSec * durationTicks / TICKS_PER_UNIT;
 
-  // ── Apply chord playing rule ──
-  const schedule = applyChordPlayingRule(voicedNotes, chordSec);
-
-  // ── Section-aware instrument triggers ──
+  // ── Section-aware chord skip ──
   const section = getCurrentSection();
-  const now = Tone.now();
+  const skipChance = CHORD_SKIP_PROBABILITY[section.type] || 0;
+  const skipThisChord = skipChance > 0 && Math.random() < skipChance;
 
+  if (skipThisChord) {
+    console.log(`[engine] skipping chord ${chord.symbol} (${section.type} skip, ${Math.round(skipChance * 100)}%)`);
+
+    // Release held notes so the previous chord doesn't sustain through the gap.
+    // The synths' release envelopes provide a natural fade-out.
+    const now = Tone.now();
+    if (synths.pad && synths.pad.releaseAll)  synths.pad.releaseAll(now);
+    if (synths.lead && synths.lead.releaseAll) synths.lead.releaseAll(now);
+  } else {
+    // ── Apply chord playing rule ──
+    const schedule = applyChordPlayingRule(voicedNotes, chordSec);
+
+    // ── Section-aware instrument triggers ──
+    const now = Tone.now();
+
+    try {
+      if (section.tracks.pad) {
+        triggerPadChord(synths, schedule, offsets, now);
+      }
+
+      if (section.tracks.lead) {
+        triggerLeadChord(synths, schedule, offsets, now);
+      }
+
+      if (section.tracks.drone) {
+        const bassNoteName = notes[0].match(/^([A-G]#?)/)[1];
+        const droneNote = `${bassNoteName}2`;
+        triggerDrone(synths, droneNote, chordSec, now);
+      }
+    } catch (err) {
+      console.warn('[engine] error triggering chord, continuing:', err);
+    }
+  }
+
+  // Update dynamic filters on every chord (even skipped ones) so section
+  // automation stays smooth and doesn't stall during silent beats.
   try {
-    if (section.tracks.pad) {
-      triggerPadChord(synths, schedule, offsets, now);
-    }
-
-    if (section.tracks.lead) {
-      triggerLeadChord(synths, schedule, offsets, now);
-    }
-
-    // Update dynamic filters (lead ↔ texture brightness) on every chord.
-    // Pass section progress (refined with chord position) so values interpolate
-    // gradually toward the next section rather than jumping at boundaries.
-    // Use lastPlayedPosition+1 (not the post-increment loopPosition) to avoid
-    // progress dropping backward when loopPosition wraps to 0.
     const coarseProgress = getSectionProgress();
     const chordFraction = loop.length > 0 ? ((lastPlayedPosition + 1) / loop.length) / section.duration : 0;
     const progress = Math.min(1, coarseProgress + chordFraction);
     updateSectionAutomation(section.type, getNextSection().type, progress, chordSec * 0.8);
-
-    if (section.tracks.drone) {
-      const bassNoteName = notes[0].match(/^([A-G]#?)/)[1];
-      const droneNote = `${bassNoteName}2`;
-      triggerDrone(synths, droneNote, chordSec, now);
-    }
   } catch (err) {
-    console.warn('[engine] error triggering chord, continuing:', err);
+    console.warn('[engine] error updating section automation:', err);
   }
 
   // ── Schedule next chord ──
