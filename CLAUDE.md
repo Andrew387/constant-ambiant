@@ -88,7 +88,7 @@ src/
 ├── archive/                   # Archive.org fetcher/player
 ├── freesound/                 # Freesound fetcher/player
 └── ui/                        # Controls, debug panel
-samples/                       # ~1GB of WAV samples (gitignored by size)
+samples/                       # ~1GB of WAV samples (tracked via Git LFS)
 ```
 
 ## Common Tasks
