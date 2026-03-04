@@ -27,6 +27,17 @@ export const SECTION_DURATIONS = {
   outro: 4,
 };
 
+/**
+ * Per-section probability (0–1) that any individual chord in a progression
+ * is skipped (silence instead of playing). Evaluated once per chord per play.
+ * Sections not listed default to 0 (no skipping).
+ */
+export const CHORD_SKIP_PROBABILITY = {
+  transition: 0.30,
+  intro: 0.20,
+  outro: 0.10,
+};
+
 const rulesConfig = {
   tempo: {
     min: 45,

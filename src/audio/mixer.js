@@ -17,6 +17,7 @@ let synths = null;
 let texturePlayer = null;
 let effectsChain = null;
 let effectsEnabled = false;
+let pendingDisposeTimers = [];
 
 let currentLeadId = DEFAULT_LEAD;
 let currentBassId = DEFAULT_BASS;
@@ -100,7 +101,11 @@ async function swapLead(instrumentId) {
 
   if (oldSynth) {
     oldSynth.releaseAll(Tone.now());
-    setTimeout(() => oldSynth.dispose(), 5000);
+    const tid = setTimeout(() => {
+      pendingDisposeTimers = pendingDisposeTimers.filter(t => t !== tid);
+      oldSynth.dispose();
+    }, 5000);
+    pendingDisposeTimers.push(tid);
   }
   console.log(`[mixer] lead swapped to ${config.name}`);
 }
@@ -130,7 +135,11 @@ async function swapBass(instrumentId) {
 
   if (oldSynth) {
     oldSynth.releaseAll(Tone.now());
-    setTimeout(() => oldSynth.dispose(), 5000);
+    const tid = setTimeout(() => {
+      pendingDisposeTimers = pendingDisposeTimers.filter(t => t !== tid);
+      oldSynth.dispose();
+    }, 5000);
+    pendingDisposeTimers.push(tid);
   }
   console.log(`[mixer] bass swapped to ${config.name}`);
 }
@@ -182,6 +191,10 @@ async function setEffectsEnabled(enabled) {
 }
 
 function disposeMixer() {
+  for (const tid of pendingDisposeTimers) {
+    clearTimeout(tid);
+  }
+  pendingDisposeTimers = [];
   disposeSectionAutomation();
   if (texturePlayer) {
     texturePlayer.dispose();

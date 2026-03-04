@@ -14,43 +14,53 @@
 
 /**
  * Plays a chord on the pad synth, releasing any previous chord.
- * Uses playChord (attack/release) for seamless crossfade.
+ * Supports both simultaneous and sequential note scheduling via
+ * a schedule object from the chord playing rule system.
  *
  * @param {object} synths - Object with pad, drone synths
- * @param {string[]} notes - Array of note strings to play
+ * @param {{ simultaneous: string[], sequential: { note: string, timeOffset: number }[] }} schedule
  * @param {number[]} offsets - Per-note timing offsets in seconds (humanization)
  * @param {number} time - Audio-context time from Transport callback
  */
-export function triggerPadChord(synths, notes, offsets, time) {
+export function triggerPadChord(synths, schedule, offsets, time) {
   if (!synths.pad) {
     console.warn('[scheduler] pad synth not available — skipping');
     return;
   }
-  // Apply the largest humanization offset to the whole chord
-  // (individual note staggering within a pad chord creates phasing artifacts
-  //  when using attack/release — better to offset the whole chord slightly)
   const maxOffset = Math.max(0, ...offsets.map(o => Math.abs(o)));
   const t = time + maxOffset;
-  synths.pad.playChord(notes, t);
+
+  synths.pad.playChord(schedule.simultaneous, t);
+
+  for (const { note, timeOffset } of schedule.sequential) {
+    synths.pad.addNotes([note], t + timeOffset);
+  }
 }
 
 /**
- * Plays a chord on the lead sampler, identical to pad behavior.
+ * Plays a chord on the lead sampler.
+ * Supports both simultaneous and sequential note scheduling via
+ * a schedule object from the chord playing rule system.
  *
  * @param {object} synths - Object with lead synth
- * @param {string[]} notes - Array of note strings to play
+ * @param {{ simultaneous: string[], sequential: { note: string, timeOffset: number }[] }} schedule
  * @param {number[]} offsets - Per-note timing offsets in seconds (humanization)
  * @param {number} time - Audio-context time from Transport callback
  */
-export function triggerLeadChord(synths, notes, offsets, time) {
+export function triggerLeadChord(synths, schedule, offsets, time) {
   if (!synths.lead) {
     return;
   }
   const maxOffset = Math.max(0, ...offsets.map(o => Math.abs(o)));
   const t = time + maxOffset;
+
   // Sample instruments play one octave below the pad voicing
-  const lowered = notes.map(dropOctave);
-  synths.lead.playChord(lowered, t);
+  const loweredSim = schedule.simultaneous.map(dropOctave);
+  synths.lead.playChord(loweredSim, t);
+
+  for (const { note, timeOffset } of schedule.sequential) {
+    synths.lead.addNotes([dropOctave(note)], t + timeOffset);
+  }
 }
 
 /**

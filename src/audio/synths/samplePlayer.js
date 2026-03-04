@@ -166,6 +166,7 @@ export function createSampleSynth({ folder, filePrefix, plucked, loopStart, loop
       // sample-accurate on the audio thread with zero jitter.
 
       const segments = new Set();
+      const segTimers = new Set(); // track per-segment cleanup timer IDs
       let batchTimer = null;
       let voiceStopped = false;
       let nextSegIndex = 0; // how many segments have been scheduled total
@@ -215,7 +216,8 @@ export function createSampleSynth({ folder, filePrefix, plucked, loopStart, loop
 
           // Self-cleanup after this segment's audio is done
           const cleanupDelay = (audioTime + loopLen + 0.5 - Tone.now()) * 1000;
-          setTimeout(() => {
+          const timerId = setTimeout(() => {
+            segTimers.delete(timerId);
             if (segments.has(seg)) {
               try { source.stop(); } catch (_) { /* already stopped */ }
               source.dispose();
@@ -223,6 +225,7 @@ export function createSampleSynth({ folder, filePrefix, plucked, loopStart, loop
               segments.delete(seg);
             }
           }, Math.max(100, cleanupDelay));
+          segTimers.add(timerId);
         }
 
         // Schedule the next batch well before this one runs out.
@@ -255,6 +258,10 @@ export function createSampleSynth({ folder, filePrefix, plucked, loopStart, loop
             clearTimeout(batchTimer);
             batchTimer = null;
           }
+          for (const id of segTimers) {
+            clearTimeout(id);
+          }
+          segTimers.clear();
         },
       };
       activeVoices.set(note, voice);
@@ -322,6 +329,16 @@ export function createSampleSynth({ folder, filePrefix, plucked, loopStart, loop
         for (const note of [...activeVoices.keys()]) {
           stopVoice(note);
         }
+        for (const note of notes) {
+          startVoice(note, time);
+        }
+      },
+
+      /**
+       * Adds notes without stopping existing voices.
+       * Used by sequential chord playing rules to bloom higher notes over time.
+       */
+      addNotes(notes, time) {
         for (const note of notes) {
           startVoice(note, time);
         }
