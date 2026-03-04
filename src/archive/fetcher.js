@@ -142,8 +142,16 @@ async function resolveItemAudio(item) {
 
     return audioFiles.map(f => {
       const trackName = f.title || f.name.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' ');
+      // Decode first to undo any pre-existing percent-encoding in the filename,
+      // then re-encode cleanly. This prevents double-encoding (%20 → %2520).
+      let safeName;
+      try {
+        safeName = encodeURIComponent(decodeURIComponent(f.name));
+      } catch {
+        safeName = encodeURIComponent(f.name);
+      }
       return {
-        url: `https://archive.org/download/${identifier}/${encodeURIComponent(f.name)}`,
+        url: `https://archive.org/download/${identifier}/${safeName}`,
         title: `${itemTitle} — ${trackName}`,
         identifier,
       };

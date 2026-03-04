@@ -12,7 +12,7 @@ import {
   advanceSongProgression, getSongState,
 } from './songStructure.js';
 import { updateSectionAutomation } from '../audio/effects/sectionAutomation.js';
-import { pickChordPlayingRule, applyChordPlayingRule, getCurrentRule } from './chordPlayingRule.js';
+import { pickChordPlayingRule, applyChordPlayingRule, getCurrentRule, getBassOffsetBeat } from './chordPlayingRule.js';
 
 let config = { ...rulesConfig };
 let synths = null;
@@ -91,7 +91,7 @@ function swapInstrumentsForCycle() {
 
   if (swaps.length === 0) {
     // No swap callbacks — pick rule with current state
-    pickChordPlayingRule({ leadPlucked: leadIsPlucked });
+    pickChordPlayingRule({ leadPlucked: leadIsPlucked, progressionLength: baseLoop.length });
     return;
   }
 
@@ -102,7 +102,7 @@ function swapInstrumentsForCycle() {
     if (leadResult) leadIsPlucked = leadResult.plucked ?? false;
     if (bassResult) bassIsPlucked = bassResult.plucked ?? false;
 
-    pickChordPlayingRule({ leadPlucked: leadIsPlucked });
+    pickChordPlayingRule({ leadPlucked: leadIsPlucked, bassPlucked: bassIsPlucked, progressionLength: baseLoop.length });
     syncEnvelopesToDuration();
 
     console.log(
@@ -111,7 +111,7 @@ function swapInstrumentsForCycle() {
     );
   }).catch(err => {
     console.warn('[engine] instrument swap error, keeping current rule:', err);
-    pickChordPlayingRule({ leadPlucked: leadIsPlucked });
+    pickChordPlayingRule({ leadPlucked: leadIsPlucked, progressionLength: baseLoop.length });
   });
 }
 
@@ -441,14 +441,13 @@ function scheduleNextChord() {
         const bassNoteName = notes[0].match(/^([A-G]#?)/)[1];
         const droneNote = `${bassNoteName}2`;
 
-        // Plucked bass: 20% chance of delayed entry on a random quarter beat.
-        // Instead of landing on beat 1, the note shifts to beat 2, 3, or 4
-        // of the chord — gives the bass a syncopated, breath-like quality.
+        // Plucked bass: each chord position in the progression has its own
+        // locked beat offset (20% chance per position, decided once at cycle
+        // start in pickChordPlayingRule). The pattern repeats every loop pass.
+        const bassOffset = getBassOffsetBeat(lastPlayedPosition);
         let bassTime = now;
-        if (bassIsPlucked && Math.random() < 0.2) {
-          const beatIndex = 1 + Math.floor(Math.random() * 3); // 1, 2, or 3 → beats 2, 3, 4
-          bassTime = now + (chordSec * beatIndex / 4);
-          console.log(`[engine] plucked bass delayed to beat ${beatIndex + 1}`);
+        if (bassOffset > 0) {
+          bassTime = now + (chordSec * bassOffset / 4);
         }
 
         triggerDrone(synths, droneNote, chordSec, bassTime);

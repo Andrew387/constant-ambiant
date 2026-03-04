@@ -32,6 +32,13 @@ let lockedPartialSeq = null;
 // those indices, so the subset stays musically responsive.
 let lockedPartialSim = null;
 
+// Locked plucked-bass beat offsets (persists for the whole song cycle).
+// Array indexed by chord position in the progression. Each entry is either
+// 0 (bass on beat 1) or 1–3 (delayed to beat 2, 3, or 4).
+// Each position is independently rolled at 20% — the resulting pattern
+// repeats identically every loop pass. null when bass is not plucked.
+let lockedBassOffsets = null;
+
 // ── Helpers ──
 
 /**
@@ -100,6 +107,35 @@ function lockPartialSimultaneousConfig() {
   console.log(`[rule] partial-sim locked — keep indices: ${JSON.stringify(example.keepIndices)} (for 3-note chords)`);
 }
 
+/**
+ * Pre-computes per-chord-position bass beat offsets for this song cycle.
+ * Generates exactly one entry per chord in the progression. Each position
+ * independently: 20% chance of delayed entry on beat 2, 3, or 4.
+ * The pattern repeats identically every loop pass.
+ * Called once per cycle from pickChordPlayingRule.
+ *
+ * @param {boolean} bassPlucked       - Whether the current bass is a plucked instrument
+ * @param {number}  progressionLength - Number of chords in the current progression
+ */
+function lockBassOffsetConfig(bassPlucked, progressionLength) {
+  if (!bassPlucked || progressionLength === 0) {
+    lockedBassOffsets = null;
+    return;
+  }
+
+  lockedBassOffsets = [];
+  for (let i = 0; i < progressionLength; i++) {
+    if (Math.random() < 0.2) {
+      lockedBassOffsets.push(1 + Math.floor(Math.random() * 3)); // 1, 2, or 3 → beats 2, 3, 4
+    } else {
+      lockedBassOffsets.push(0);
+    }
+  }
+
+  const beatNames = lockedBassOffsets.map(b => b === 0 ? '1' : String(b + 1));
+  console.log(`[rule] plucked bass offsets locked — beats [${beatNames.join(', ')}] (${progressionLength} chords)`);
+}
+
 // ── Public API ──
 
 /**
@@ -111,9 +147,11 @@ function lockPartialSimultaneousConfig() {
  * sequential pattern complements their percussive attack.
  *
  * @param {object} [options]
- * @param {boolean} [options.leadPlucked=false] - Whether the current lead is plucked
+ * @param {boolean} [options.leadPlucked=false]       - Whether the current lead is plucked
+ * @param {boolean} [options.bassPlucked=false]        - Whether the current bass is plucked
+ * @param {number}  [options.progressionLength=0]      - Number of chords in the current progression
  */
-export function pickChordPlayingRule({ leadPlucked = false } = {}) {
+export function pickChordPlayingRule({ leadPlucked = false, bassPlucked = false, progressionLength = 0 } = {}) {
   if (leadPlucked) {
     // Plucked lead: 70% sequential (35% each), 30% simultaneous (15% each)
     const roll = Math.random();
@@ -138,6 +176,8 @@ export function pickChordPlayingRule({ leadPlucked = false } = {}) {
     lockedPartialSim = null;
   }
 
+  lockBassOffsetConfig(bassPlucked, progressionLength);
+
   console.log(`[rule] chord playing: ${currentRule}`);
 }
 
@@ -146,6 +186,19 @@ export function pickChordPlayingRule({ leadPlucked = false } = {}) {
  */
 export function getCurrentRule() {
   return currentRule;
+}
+
+/**
+ * Returns the locked bass beat offset for a given chord position.
+ * 0 = on beat (no delay), 1–3 = delayed to that quarter-beat.
+ * Positions beyond the pre-generated array return 0 (on-beat).
+ *
+ * @param {number} chordPosition - Index of the chord in the progression (0-based)
+ * @returns {number}
+ */
+export function getBassOffsetBeat(chordPosition) {
+  if (!lockedBassOffsets) return 0;
+  return lockedBassOffsets[chordPosition] ?? 0;
 }
 
 /**

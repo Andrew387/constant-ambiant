@@ -95,7 +95,14 @@ async function swapLead(instrumentId) {
   const config = LEAD_INSTRUMENTS.find(i => i.id === instrumentId);
   if (!config || instrumentId === currentLeadId) return;
 
-  const newSynth = await createSampleSynth(config, trackGains.lead);
+  let newSynth;
+  try {
+    newSynth = await createSampleSynth(config, trackGains.lead);
+  } catch (err) {
+    console.warn(`[mixer] lead swap to "${config.name}" failed, keeping current:`, err.message);
+    return;
+  }
+
   const oldSynth = synths.lead;
   synths.lead = newSynth;
   currentLeadId = instrumentId;
@@ -146,7 +153,14 @@ async function swapBass(instrumentId) {
   const config = BASS_INSTRUMENTS.find(i => i.id === instrumentId);
   if (!config || instrumentId === currentBassId) return;
 
-  const newSynth = await createSampleSynth(config, trackGains.drone);
+  let newSynth;
+  try {
+    newSynth = await createSampleSynth(config, trackGains.drone);
+  } catch (err) {
+    console.warn(`[mixer] bass swap to "${config.name}" failed, keeping current:`, err.message);
+    return;
+  }
+
   const oldSynth = synths.drone;
   synths.drone = newSynth;
   currentBassId = instrumentId;
