@@ -79,6 +79,7 @@ export async function initMixer() {
     swapLead,
     swapLeadRandom,
     swapBass,
+    swapBassRandom,
     getArchiveGain: () => trackGains.archive,
     getFreesoundGain: () => trackGains.freesound,
     dispose: disposeMixer,
@@ -111,12 +112,29 @@ async function swapLead(instrumentId) {
 }
 
 /**
- * Picks a random lead instrument (different from the current one) and swaps to it.
+ * Picks a random lead instrument and swaps to it.
+ * Allows re-selection of the current instrument (no-op swap).
+ * @returns {{ plucked: boolean }} Whether the selected instrument is plucked
  */
 async function swapLeadRandom() {
-  const candidates = LEAD_INSTRUMENTS.filter(i => i.id !== currentLeadId);
-  const pick = candidates[Math.floor(Math.random() * candidates.length)];
-  await swapLead(pick.id);
+  const pick = LEAD_INSTRUMENTS[Math.floor(Math.random() * LEAD_INSTRUMENTS.length)];
+  if (pick.id !== currentLeadId) {
+    await swapLead(pick.id);
+  }
+  return { plucked: pick.plucked };
+}
+
+/**
+ * Picks a random bass instrument and swaps to it.
+ * Allows re-selection of the current instrument (no-op swap).
+ * @returns {{ plucked: boolean }} Whether the selected instrument is plucked
+ */
+async function swapBassRandom() {
+  const pick = BASS_INSTRUMENTS[Math.floor(Math.random() * BASS_INSTRUMENTS.length)];
+  if (pick.id !== currentBassId) {
+    await swapBass(pick.id);
+  }
+  return { plucked: pick.plucked };
 }
 
 /**

@@ -61,9 +61,14 @@ A **generative ambient music web app** built with **Tone.js** and **vanilla JS (
 - Adding automation to a track = add entries to its profile, no other files change
 
 ### Sample Instruments
-- Located in `samples/Lead/Loopable/` and `samples/Bass/`
+- Located in `samples/Lead/Loopable/`, `samples/Lead/Plucked/`, `samples/Bass/Loopable/`, `samples/Bass/Plucked/`
 - Each instrument = 72 WAV files (C1–B6, files numbered 01–72)
 - Registry in `src/audio/synths/sampleRegistry.js`
+- **Loopable**: crossfaded loop playback (sustained pads/strings)
+- **Plucked**: one-shot playback from start, no loop (percussive attacks)
+- Both lead and bass are randomly swapped per song cycle
+- Plucked lead → sequential chord playing rule has ~70% probability (vs 50% normally)
+- Plucked bass → 20% chance the bass note enters on beat 2, 3, or 4 instead of beat 1
 
 ## Key Patterns & Conventions
 - **Factory functions** for synths/effects: `createPadSynth()`, `createSampleSynth()`, etc.
@@ -90,6 +95,40 @@ src/
 └── ui/                        # Controls, debug panel
 samples/                       # ~1GB of WAV samples (tracked via Git LFS)
 ```
+
+## Sample Volume Normalization (March 2026)
+
+### Problem
+Raw sample instruments had wildly inconsistent loudness — both across notes within a single instrument and across different instruments in the same group (Bass or Lead). Worst offenders: `bloomingbasslong` had a 49 dB range across its 72 notes; `analogbellslong` and `malechoirlong` had ~19 dB ranges. Across instruments, bass ranged from -26.9 to -40.3 avg dBFS; leads ranged from -15.6 to -40.5 avg dBFS.
+
+### Solution — Two-pass normalization
+1. **Intra-instrument** (`normalize_volume.py` Pass 1): Compress each note's RMS toward the instrument's median. Deviation reduced by 60% (`COMPRESSION_RATIO`), gain capped at ±12 dB to avoid inflating noise on out-of-range notes.
+2. **Inter-instrument** (`normalize_volume.py` Pass 2): Flat gain applied per instrument so all instruments in the same group share the same average RMS.
+3. **Peak limiter** at -0.5 dBFS after both passes to prevent clipping.
+
+### Post-normalization state
+| Group | Instrument | Avg RMS | Range | Std Dev |
+|-------|-----------|---------|-------|---------|
+| Bass | bloomingbasslong | -32.0 | 33.0 dB | 9.5 |
+| Bass | basskeylong | -32.0 | 2.8 dB | 0.7 |
+| Bass | jazzSessBass | -32.0 | 12.0 dB | 2.6 |
+| Lead | analogbellslong | -23.5 | 7.5 dB | 1.3 |
+| Lead | brushstringslong | -23.5 | 0.9 dB | 0.3 |
+| Lead | calmbeachlong | -23.5 | 3.9 dB | 1.2 |
+| Lead | crystalbellslong | -23.5 | 3.0 dB | 0.8 |
+| Lead | malechoirlong | -23.5 | 7.8 dB | 1.7 |
+| Lead | silkystringslong | -23.5 | 0.7 dB | 0.2 |
+| Lead | distant bells | -26.3 | 7.1 dB | 1.8 |
+
+`distant bells` sits 2.8 dB below the lead target because its transient peaks hit the -0.5 dBFS ceiling before RMS can fully catch up (typical of plucked sounds). `bloomingbasslong` retains a wide range because notes 67–72 are far outside the bass instrument's natural register.
+
+### Tools
+- `analyze_volume.py` — reads all samples, prints per-instrument stats, saves `volume_analysis.json`
+- `normalize_volume.py` — backs up originals to `samples_backup/`, runs both passes, verifies
+- Both require a Python venv: `python3 -m venv .venv && source .venv/bin/activate && pip install numpy soundfile`
+
+### Backups
+Original pre-normalization samples are preserved in `samples_backup/` with the same directory structure. To restore: `rm -rf samples/Bass samples/Lead && cp -r samples_backup/* samples/`
 
 ## Common Tasks
 - **Add a new synth/instrument**: Create factory in `src/audio/synths/` → add to mixer → schedule in `ruleEngine.js`

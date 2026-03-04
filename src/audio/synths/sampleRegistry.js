@@ -19,11 +19,13 @@ export const LEAD_INSTRUMENTS = [
   { id: 'crystalbellslong', name: 'Crystal Bells', folder: 'Lead/Loopable/crystalbellslong', filePrefix: 'crystalbellslong', plucked: false },
   { id: 'calmbeachlong',    name: 'Calm Beach',    folder: 'Lead/Loopable/calmbeachlong',    filePrefix: 'calmbeachlong',    plucked: false },
   { id: 'silkystringslong', name: 'Silky Strings', folder: 'Lead/Loopable/silkystringslong', filePrefix: 'silkystringslong', plucked: false },
+  { id: 'distantBell',      name: 'Distant Bells', folder: 'Lead/Plucked/distant bells',     filePrefix: 'distantBell',      plucked: true },
 ];
 
 export const BASS_INSTRUMENTS = [
   { id: 'bloomingbasslong', name: 'Blooming Bass', folder: 'Bass/Loopable/bloomingbasslong', filePrefix: 'bloomingbasslong', plucked: false },
-  { id: 'basskeylong',      name: 'Bass Keys',     folder: 'Bass/Plucked/basskeylong',       filePrefix: 'basskeylong',     plucked: true },
+  { id: 'basskeylong',      name: 'Bass Keys',     folder: 'Bass/Plucked/basskeylong',       filePrefix: 'basskeylong',      plucked: true },
+  { id: 'jazzSessBass',     name: 'Jazz Bass',     folder: 'Bass/Plucked/jazzSessBass',      filePrefix: 'JazzSessBass',     plucked: true },
 ];
 
 export const DEFAULT_LEAD = 'malechoirlong';

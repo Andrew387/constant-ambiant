@@ -105,9 +105,26 @@ function lockPartialSimultaneousConfig() {
 /**
  * Randomly picks a chord playing rule for this song cycle.
  * Call once per cycle (at isNewCycle or engine start).
+ *
+ * When the lead is a plucked instrument, sequential rules are heavily
+ * favoured — plucked notes bloom naturally one at a time, so the
+ * sequential pattern complements their percussive attack.
+ *
+ * @param {object} [options]
+ * @param {boolean} [options.leadPlucked=false] - Whether the current lead is plucked
  */
-export function pickChordPlayingRule() {
-  currentRule = RULE_LIST[Math.floor(Math.random() * RULE_LIST.length)];
+export function pickChordPlayingRule({ leadPlucked = false } = {}) {
+  if (leadPlucked) {
+    // Plucked lead: 70% sequential (35% each), 30% simultaneous (15% each)
+    const roll = Math.random();
+    if (roll < 0.15)      currentRule = RULES.PARTIAL_SIMULTANEOUS;
+    else if (roll < 0.50) currentRule = RULES.PARTIAL_SEQUENTIAL;
+    else if (roll < 0.65) currentRule = RULES.COMPLETE_SIMULTANEOUS;
+    else                  currentRule = RULES.COMPLETE_SEQUENTIAL;
+  } else {
+    // Non-plucked: equal 25% probability for each rule
+    currentRule = RULE_LIST[Math.floor(Math.random() * RULE_LIST.length)];
+  }
 
   if (currentRule === RULES.PARTIAL_SEQUENTIAL) {
     lockPartialSequentialConfig();

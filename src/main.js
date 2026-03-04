@@ -51,6 +51,7 @@ async function handleStart() {
 
   start(mixer.synths, mixer.texturePlayer, {
     onSwapLead: mixer.swapLeadRandom,
+    onSwapBass: mixer.swapBassRandom,
   });
   applyDebugOverrides();
 
