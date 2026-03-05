@@ -1,20 +1,18 @@
 {
   "name": "constant-ambiant",
-  "version": "1.0.0",
-  "description": "Generative ambient music web application",
+  "version": "2.0.0",
+  "description": "Generative ambient music — Node.js + SuperCollider headless server",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview"
+    "start": "node src/main.js",
+    "s": "node src/main.js",
+    "dev": "node --watch src/main.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "tone": "^14.9.17"
-  },
-  "devDependencies": {
-    "vite": "^7.3.1"
+    "osc-min": "^1.1.2",
+    "ws": "^8.19.0"
   }
 }

@@ -2,6 +2,8 @@
  * Distributes chord notes across octaves and humanizes timing.
  */
 
+import { HUMANIZE_RANGE } from '../engine/rules.config.js';
+
 const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 
 /**
@@ -41,8 +43,7 @@ export function voiceChord(notes, spread = 2, humanize = true) {
 
   const offsets = voiced.map(() => {
     if (!humanize) return 0;
-    // ±30ms random offset
-    return (Math.random() - 0.5) * 0.06;
+    return (Math.random() - 0.5) * HUMANIZE_RANGE;
   });
 
   return { notes: voiced, offsets };

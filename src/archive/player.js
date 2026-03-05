@@ -1,97 +1,134 @@
+/**
+ * Archive.org ambient texture layer — SuperCollider playback.
+ *
+ * Downloads audio from Archive.org, saves to temp files, loads into
+ * SC buffers, and plays through the \archiveGrain SynthDef for
+ * 800% time-stretch granular processing.
+ *
+ * Crossfades between tracks using gate-based release envelopes.
+ */
+
 import { fetchRandomArchiveAudio, getCacheSize } from './fetcher.js';
-import { processArchiveAudio } from './processor.js';
-import { updateArchiveStatus } from '../ui/debug.js';
+import { synthNew, nodeSet, nodeFree } from '../sc/osc.js';
+import { allocNodeId, GROUPS, BUSES } from '../sc/nodeIds.js';
+import {
+  loadNamedBuffer, freeNamedBuffer, downloadAudioToTemp,
+} from '../sc/bufferManager.js';
+import fs from 'fs';
 
 let activeTrack = null;
 let pendingTrack = null;
 let isActive = false;
 let crossfadeTimer = null;
+const pendingFrees = new Set();
 
 const CROSSFADE_DURATION = 12; // seconds
 const LOAD_RETRIES = 3;
 const LOAD_RETRY_DELAY_MS = 3000;
 
 /**
- * Loads a track (fetch URL + process audio). Retries on failure.
+ * Loads a track: fetch URL → download to temp → load into SC buffer.
  * Does NOT start playback.
  */
-async function loadTrack(destination) {
+async function loadTrack() {
   for (let attempt = 1; attempt <= LOAD_RETRIES; attempt++) {
-    const result = await fetchRandomArchiveAudio();
-    if (!result) {
+    try {
+      const result = await fetchRandomArchiveAudio();
+      if (!result) {
+        if (attempt < LOAD_RETRIES) {
+          await new Promise(r => setTimeout(r, LOAD_RETRY_DELAY_MS));
+        }
+        continue;
+      }
+
+      const { url, title } = result;
+
+      // Download audio to temp file
+      const tmpPath = await downloadAudioToTemp(url);
+
+      // Load into SC buffer
+      const slotName = `archive_${Date.now()}`;
+      const { bufNum } = await loadNamedBuffer(slotName, tmpPath);
+
+      // Clean up temp file after loading
+      try { fs.unlinkSync(tmpPath); } catch {}
+
+      return { bufNum, slotName, title };
+    } catch (err) {
+      console.warn(`[archive] load attempt ${attempt} failed:`, err.message);
       if (attempt < LOAD_RETRIES) {
         await new Promise(r => setTimeout(r, LOAD_RETRY_DELAY_MS));
       }
-      continue;
     }
-
-    const { url, title } = result;
-    const processed = await processArchiveAudio(url, destination);
-    if (!processed) {
-      if (attempt < LOAD_RETRIES) {
-        await new Promise(r => setTimeout(r, LOAD_RETRY_DELAY_MS));
-      }
-      continue;
-    }
-
-    return { ...processed, title, targetVolume: processed.player.volume.value };
   }
 
   console.warn('[archive] all load attempts failed');
   return null;
 }
 
-function fadeIn(track) {
-  track.player.volume.value = -60;
-  track.player.start();
-  track.player.volume.rampTo(track.targetVolume, CROSSFADE_DURATION);
-}
+/**
+ * Starts playback of a loaded track via the \archiveGrain SynthDef.
+ */
+function startPlayback(track) {
+  const nodeId = allocNodeId();
 
-function fadeOutAndDispose(track) {
-  if (!track) return;
-  track.player.volume.rampTo(-60, CROSSFADE_DURATION);
-  setTimeout(() => {
-    try {
-      track.player.stop();
-      track.player.dispose();
-      track.highpass.dispose();
-      track.filter.dispose();
-      track.reverb.dispose();
-    } catch (err) {
-    }
-  }, (CROSSFADE_DURATION + 1) * 1000);
-}
+  synthNew('archiveGrain', nodeId, 0, GROUPS.ARCHIVE, {
+    out: BUSES.ARCHIVE,
+    buf: track.bufNum,
+    gate: 1,
+    amp: 3,
+    grainDur: 0.5,
+    grainRate: 0.125,
+    overlap: 0.15,
+    hpFreq: 250,
+    lpFreq: 3500,
+    atkTime: CROSSFADE_DURATION,
+    relTime: CROSSFADE_DURATION,
+  });
 
-function statusText() {
-  const lines = [];
-  if (activeTrack) lines.push(`Playing: ${activeTrack.title}`);
-  if (pendingTrack) lines.push(`Next: ${pendingTrack.title}`);
-  lines.push(`Cache: ${getCacheSize()} tracks`);
-  return lines.join('\n');
+  track.nodeId = nodeId;
+  console.log(`[archive] Playing: ${track.title}`);
 }
 
 /**
- * Pre-fetches the next track while the current one is still playing.
+ * Fades out and disposes a track.
  */
-async function prefetchNext(destination) {
-  if (!isActive || pendingTrack) return;
+function fadeOutAndDispose(track) {
+  if (!track) return;
 
-  safeUpdateStatus(statusText() + '\nPre-loading next...');
-
-  const track = await loadTrack(destination);
-  if (!track || !isActive) {
-    safeUpdateStatus(statusText() + '\nPre-fetch failed, will retry at crossfade');
-    return;
+  if (track.nodeId) {
+    nodeSet(track.nodeId, { gate: 0 });
   }
 
+  // Free the buffer after the release tail completes, guarded against double-free
+  const slotName = track.slotName;
+  if (pendingFrees.has(slotName)) return;
+  pendingFrees.add(slotName);
+
+  setTimeout(() => {
+    pendingFrees.delete(slotName);
+    freeNamedBuffer(slotName);
+  }, (CROSSFADE_DURATION + 2) * 1000);
+}
+
+/**
+ * Pre-fetches the next track while the current one plays.
+ */
+async function prefetchNext() {
+  if (!isActive || pendingTrack) return;
+
+  console.log('[archive] Pre-loading next track...');
+  const track = await loadTrack();
+  if (!track || !isActive) return;
+
   pendingTrack = track;
-  safeUpdateStatus(statusText());
+  console.log(`[archive] Next ready: ${track.title}`);
 }
 
 /**
  * Crossfades from active to pending, then pre-fetches another.
  */
-function crossfade(destination) {
+function crossfade() {
   if (!isActive) return;
 
   if (activeTrack) {
@@ -102,66 +139,59 @@ function crossfade(destination) {
   if (pendingTrack) {
     activeTrack = pendingTrack;
     pendingTrack = null;
-    fadeIn(activeTrack);
-    safeUpdateStatus(statusText());
+    startPlayback(activeTrack);
   } else {
-    // No pending track ready — load one now (blocking crossfade)
-    safeUpdateStatus('Loading track...');
-    loadTrack(destination).then(track => {
+    // No pending track ready — load one now
+    loadTrack().then(track => {
       if (!track || !isActive) return;
       activeTrack = track;
-      fadeIn(activeTrack);
-      safeUpdateStatus(statusText());
-      prefetchNext(destination);
+      startPlayback(activeTrack);
+      prefetchNext();
     });
   }
 
-  prefetchNext(destination);
-  scheduleCrossfade(destination);
+  prefetchNext();
+  scheduleCrossfade();
 }
 
-function scheduleCrossfade(destination) {
+function scheduleCrossfade() {
   if (!isActive) return;
-  const delay = 90000 + Math.random() * 78000; // 1.5–2.8 min (caps playback under 3 min with crossfade)
-  crossfadeTimer = setTimeout(() => crossfade(destination), delay);
+  const delay = 90000 + Math.random() * 78000; // 1.5–2.8 min
+  crossfadeTimer = setTimeout(() => crossfade(), delay);
 }
 
 /**
  * Starts the Archive.org ambient texture layer.
  */
-export async function startArchiveLayer(destination) {
-  if (isActive) {
-    return;
-  }
+export async function startArchiveLayer() {
+  if (isActive) return;
   isActive = true;
-  safeUpdateStatus('Fetching first track...');
 
-  const track = await loadTrack(destination);
+  console.log('[archive] Starting...');
+
+  const track = await loadTrack();
   if (!track || !isActive) {
     console.warn('[archive] failed to load first track, retrying...');
-    safeUpdateStatus('Failed to load (will keep retrying)');
-    // Schedule a retry instead of giving up
     setTimeout(() => {
       if (isActive) {
-        isActive = false; // reset so startArchiveLayer can re-enter
-        startArchiveLayer(destination);
+        isActive = false;
+        startArchiveLayer();
       }
     }, 10000);
     return;
   }
 
   activeTrack = track;
-  fadeIn(activeTrack);
-  safeUpdateStatus(statusText());
+  startPlayback(activeTrack);
 
-  prefetchNext(destination);
-  scheduleCrossfade(destination);
+  prefetchNext();
+  scheduleCrossfade();
 }
 
 /**
- * Stops the archive layer with a fade-out.
+ * Stops the archive layer.
  */
-export async function stopArchiveLayer() {
+export function stopArchiveLayer() {
   isActive = false;
 
   if (crossfadeTimer) {
@@ -174,23 +204,9 @@ export async function stopArchiveLayer() {
     activeTrack = null;
   }
   if (pendingTrack) {
-    try {
-      pendingTrack.player.dispose();
-      pendingTrack.highpass.dispose();
-      pendingTrack.filter.dispose();
-      pendingTrack.reverb.dispose();
-    } catch (err) {
+    if (!pendingFrees.has(pendingTrack.slotName)) {
+      freeNamedBuffer(pendingTrack.slotName);
     }
     pendingTrack = null;
-  }
-
-  safeUpdateStatus('Stopped');
-}
-
-function safeUpdateStatus(msg) {
-  try {
-    updateArchiveStatus(msg);
-  } catch {
-    // debug panel not initialized yet
   }
 }

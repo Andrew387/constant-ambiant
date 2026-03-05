@@ -1,65 +1,67 @@
 /**
- * Triggers note events using audio-context time.
+ * Triggers note events by sending OSC messages to SuperCollider.
  *
- * TIMING CONTRACT:
- *   Every `time` parameter in this module is AUDIO-CONTEXT time provided by
- *   Tone.Transport callbacks. These times come from Tone.js's lookahead system
- *   and may appear "in the past" relative to Tone.now() when the JS callback
- *   executes — this is NORMAL. The Web Audio API schedules them on the audio
- *   thread at sample-accurate precision. Do NOT clamp or adjust these times.
+ * Replaces the Tone.js-based scheduler. Instead of calling synth methods
+ * directly, we call the pad/lead/drone wrapper objects which send OSC
+ * messages to scsynth.
  *
- *   The ruleEngine is responsible for passing the correct audio-context time
- *   it receives from Transport callbacks. This module never touches Transport time.
+ * TIMING: In the SC architecture, setTimeout drives chord scheduling
+ * from Node.js. Individual note humanization offsets (±30ms) are
+ * applied via setTimeout delays within this module. At 7+ second
+ * chord intervals, this jitter is completely inaudible.
  */
 
 /**
  * Plays a chord on the pad synth, releasing any previous chord.
- * Supports both simultaneous and sequential note scheduling via
- * a schedule object from the chord playing rule system.
  *
- * @param {object} synths - Object with pad, drone synths
+ * @param {object} synths - Object with pad, drone, lead synths
  * @param {{ simultaneous: string[], sequential: { note: string, timeOffset: number }[] }} schedule
  * @param {number[]} offsets - Per-note timing offsets in seconds (humanization)
- * @param {number} time - Audio-context time from Transport callback
  */
-export function triggerPadChord(synths, schedule, offsets, time) {
+export function triggerPadChord(synths, schedule, offsets) {
   if (!synths.pad) {
     console.warn('[scheduler] pad synth not available — skipping');
     return;
   }
-  const maxOffset = Math.max(0, ...offsets.map(o => Math.abs(o)));
-  const t = time + maxOffset;
 
-  synths.pad.playChord(schedule.simultaneous, t);
+  // Play simultaneous notes immediately
+  synths.pad.playChord(schedule.simultaneous);
 
+  // Schedule sequential notes with their time offsets
   for (const { note, timeOffset } of schedule.sequential) {
-    synths.pad.addNotes([note], t + timeOffset);
+    if (timeOffset <= 0) {
+      synths.pad.addNotes([note]);
+    } else {
+      setTimeout(() => {
+        synths.pad?.addNotes([note]);
+      }, timeOffset * 1000);
+    }
   }
 }
 
 /**
  * Plays a chord on the lead sampler.
- * Supports both simultaneous and sequential note scheduling via
- * a schedule object from the chord playing rule system.
  *
  * @param {object} synths - Object with lead synth
  * @param {{ simultaneous: string[], sequential: { note: string, timeOffset: number }[] }} schedule
  * @param {number[]} offsets - Per-note timing offsets in seconds (humanization)
- * @param {number} time - Audio-context time from Transport callback
  */
-export function triggerLeadChord(synths, schedule, offsets, time) {
-  if (!synths.lead) {
-    return;
-  }
-  const maxOffset = Math.max(0, ...offsets.map(o => Math.abs(o)));
-  const t = time + maxOffset;
+export function triggerLeadChord(synths, schedule, offsets) {
+  if (!synths.lead) return;
 
   // Sample instruments play one octave below the pad voicing
   const loweredSim = schedule.simultaneous.map(dropOctave);
-  synths.lead.playChord(loweredSim, t);
+  synths.lead.playChord(loweredSim);
 
   for (const { note, timeOffset } of schedule.sequential) {
-    synths.lead.addNotes([dropOctave(note)], t + timeOffset);
+    const lowered = dropOctave(note);
+    if (timeOffset <= 0) {
+      synths.lead.addNotes([lowered]);
+    } else {
+      setTimeout(() => {
+        synths.lead?.addNotes([lowered]);
+      }, timeOffset * 1000);
+    }
   }
 }
 
@@ -69,14 +71,13 @@ export function triggerLeadChord(synths, schedule, offsets, time) {
  * @param {object} synths
  * @param {string} note - Root note for the drone
  * @param {number} duration - Duration in seconds
- * @param {number} time - Audio-context time from Transport callback
  */
-export function triggerDrone(synths, note, duration, time) {
+export function triggerDrone(synths, note, duration) {
   if (!synths.drone) {
     console.warn('[scheduler] drone synth not available — skipping');
     return;
   }
-  synths.drone.triggerAttackRelease(note, duration, time);
+  synths.drone.triggerAttackRelease(note, duration);
 }
 
 /**

@@ -1,8 +1,22 @@
-import * as Tone from 'tone';
-import rulesConfig, { CHORD_SKIP_PROBABILITY } from './rules.config.js';
+/**
+ * Rule engine — the central brain of the generative system.
+ *
+ * Generates chord progressions, schedules chord events via setTimeout,
+ * manages the song structure state machine, and triggers synths via
+ * the scheduler module (which sends OSC to SuperCollider).
+ *
+ * This module is almost identical to the Tone.js version. The key
+ * differences:
+ *   - No Tone.js imports
+ *   - No audio-context time — just uses setTimeout scheduling
+ *   - Synth triggers don't pass a `time` parameter (SC handles timing)
+ *   - Release calls don't pass a `time` parameter
+ */
+
+import rulesConfig, { CHORD_SKIP_PROBABILITY, TRACK_SKIP_RELEASE } from './rules.config.js';
 import { generateProgression, rebuildChordWithColor, MINOR_KEYS, TICKS_PER_UNIT } from '../harmony/progression.js';
 import { voiceChord } from '../harmony/voicing.js';
-import { triggerPadChord, triggerDrone, triggerLeadChord } from '../rhythm/scheduler.js';
+// Synth triggers are now provided via the chordTriggers registry from mixer
 import {
   startClock, stopClock,
   setTempoImmediate, rampTempo, getTargetBpm,
@@ -12,11 +26,12 @@ import {
   advanceSongProgression, getSongState,
 } from './songStructure.js';
 import { updateSectionAutomation } from '../audio/effects/sectionAutomation.js';
-import { pickChordPlayingRule, applyChordPlayingRule, getCurrentRule, getBassOffsetBeat } from './chordPlayingRule.js';
+import { pickChordPlayingRule, applyChordPlayingRule, getCurrentRule, getBassOffsetBeat, getRuleState } from './chordPlayingRule.js';
 
 let config = { ...rulesConfig };
 let synths = null;
 let texturePlayer = null;
+let chordTriggers = [];
 let swapLeadFn = null;
 let swapBassFn = null;
 let running = false;
@@ -24,84 +39,69 @@ let chordCount = 0;
 let loopTimeoutId = null;
 
 // ── Plucked instrument state ──
-// Updated after each instrument swap; used to apply plucked-specific rules.
 let leadIsPlucked = false;
 let bassIsPlucked = false;
 
 // ── Loop state ──
-// A loop is a variable-length progression that loops continuously.
-// The song structure state machine controls when new progressions are generated
-// (only at the start of each song cycle / transition section).
-let baseLoop = [];       // Original unvaried chord snapshots (source of truth)
-let loop = [];           // Active loop — may be a varied copy of baseLoop
-let loopPosition = 0;    // Current chord within the loop
-let loopPassCount = 0;   // How many full passes of the current loop have played
-let lastPlayedPosition = 0; // Index of the chord that was just played (for progress)
+let baseLoop = [];
+let loop = [];
+let loopPosition = 0;
+let loopPassCount = 0;
+let lastPlayedPosition = 0;
 
 /**
  * Converts chordDuration (in measures of 4/4) to seconds.
- * Uses the TARGET BPM (not the live/ramping value) so calculations are
- * always stable and predictable.
- * @returns {number} duration in seconds
  */
 function chordDurationInSeconds() {
   const bpm = getTargetBpm();
   return config.chordDuration * 4 * (60 / bpm);
 }
 
-/**
- * Picks a base octave, biased toward the higher register (octave 4 ~70%).
- */
 function pickOctave() {
   return Math.random() < 0.7 ? 4 : 3;
 }
 
-/**
- * Only changes root ~30% of cycles to avoid too much key-hopping.
- */
 function maybeChangeRoot() {
   if (Math.random() < 0.3) {
     config.rootNote = MINOR_KEYS[Math.floor(Math.random() * MINOR_KEYS.length)];
   }
 }
 
-/**
- * Gently drifts the tempo within the dark range each cycle.
- */
 function driftTempo() {
   const { min, max } = config.tempo;
-  const drift = (Math.random() - 0.5) * 8; // ±4 BPM
+  const drift = (Math.random() - 0.5) * 8;
   const newBpm = Math.round(Math.min(max, Math.max(min, config.tempo.current + drift)));
   config.tempo.current = newBpm;
   rampTempo(newBpm);
 }
 
-/**
- * Swaps both lead and bass to random instruments, then updates
- * plucked state and re-picks the chord playing rule.
- *
- * The swap functions are async (loading samples) — first few chords of a
- * new cycle may still use the previous instruments while loading completes.
- * This creates a natural cross-fade transition rather than a hard cut.
- */
 function swapInstrumentsForCycle() {
   const swaps = [];
-  if (swapLeadFn) swaps.push(swapLeadFn());
-  if (swapBassFn) swaps.push(swapBassFn());
+  if (swapLeadFn) swaps.push(swapLeadFn().catch(err => { console.warn('[engine] lead swap failed:', err); return null; }));
+  if (swapBassFn) swaps.push(swapBassFn().catch(err => { console.warn('[engine] bass swap failed:', err); return null; }));
 
   if (swaps.length === 0) {
-    // No swap callbacks — pick rule with current state
-    pickChordPlayingRule({ leadPlucked: leadIsPlucked, progressionLength: baseLoop.length });
+    pickChordPlayingRule({ leadPlucked: leadIsPlucked, bassPlucked: bassIsPlucked, progressionLength: baseLoop.length });
     return;
   }
 
   Promise.all(swaps).then(results => {
-    if (!running) return; // engine stopped while loading
+    if (!running) return;
 
-    const [leadResult, bassResult] = results;
-    if (leadResult) leadIsPlucked = leadResult.plucked ?? false;
-    if (bassResult) bassIsPlucked = bassResult.plucked ?? false;
+    // Update plucked state from whichever swaps succeeded
+    for (const result of results) {
+      if (!result) continue;
+      if ('plucked' in result) {
+        // swapLeadRandom returns first, swapBassRandom second
+        if (results.indexOf(result) === 0 && swapLeadFn) {
+          leadIsPlucked = result.plucked ?? false;
+        } else {
+          bassIsPlucked = result.plucked ?? false;
+        }
+      }
+    }
 
+    // Pick rule AFTER swaps complete so plucked state is accurate
     pickChordPlayingRule({ leadPlucked: leadIsPlucked, bassPlucked: bassIsPlucked, progressionLength: baseLoop.length });
     syncEnvelopesToDuration();
 
@@ -109,27 +109,17 @@ function swapInstrumentsForCycle() {
       `[engine] instruments swapped — lead ${leadIsPlucked ? 'plucked' : 'loopable'}, ` +
       `bass ${bassIsPlucked ? 'plucked' : 'loopable'}`
     );
-  }).catch(err => {
-    console.warn('[engine] instrument swap error, keeping current rule:', err);
-    pickChordPlayingRule({ leadPlucked: leadIsPlucked, progressionLength: baseLoop.length });
   });
 }
 
-// Track the last chord so the next progression can chain from it
 let lastChord = null;
 
 // ── Loop variation helpers ──
-// On repeats 2+, apply 1–2 subtle changes so no two passes are identical.
 
-/**
- * Inversion: move the lowest voiced note up one octave.
- * Creates a smoother, lifted voicing without changing the harmony.
- */
 function applyInversion(chord) {
   const voiced = [...chord.voicedNotes];
   if (voiced.length < 2) return chord;
 
-  // Find lowest note by parsing octave numbers
   let lowestIdx = 0;
   let lowestOctave = Infinity;
   voiced.forEach((n, i) => {
@@ -137,39 +127,27 @@ function applyInversion(chord) {
     if (oct < lowestOctave) { lowestOctave = oct; lowestIdx = i; }
   });
 
-  // Shift that note up one octave
   voiced[lowestIdx] = voiced[lowestIdx].replace(/\d+$/, String(lowestOctave + 1));
-
   const label = `${chord.symbol} (inv)`;
   return { ...chord, voicedNotes: voiced, symbol: label };
 }
 
-/**
- * Re-voice: run voiceChord again with a different spread value,
- * giving a new octave distribution of the same pitches.
- */
 function applyRevoice(chord) {
-  const spread = Math.random() < 0.5 ? 1 : 3; // original is 2
+  const spread = Math.random() < 0.5 ? 1 : 3;
   const { notes: revoiced, offsets } = voiceChord(chord.notes, spread, true);
   return { ...chord, voicedNotes: revoiced, offsets };
 }
 
-/**
- * Color toggle: swap between plain / sus2 / add9.
- * Rebuilds the note set from the chord root so intervals are correct.
- */
 function applyColorChange(chord) {
   const currentColor = chord.symbol.includes('sus2') ? 'sus2'
     : chord.symbol.includes('add9') ? 'add9' : '';
 
-  // Pick a different color
   const options = ['', 'sus2', 'add9'].filter(c => c !== currentColor);
   const newColor = options[Math.floor(Math.random() * options.length)];
 
   const { notes } = rebuildChordWithColor(chord.root, chord.quality, newColor, chord.octave);
   const { notes: voicedNotes, offsets } = voiceChord(notes, 2, true);
 
-  // Update symbol
   let symbol = chord.root;
   if (chord.quality === 'min') symbol += ' min';
   else if (chord.quality === 'maj') symbol += ' maj';
@@ -179,12 +157,8 @@ function applyColorChange(chord) {
   return { ...chord, notes, voicedNotes, offsets, symbol: symbol.trim() };
 }
 
-/**
- * Octave shift: transpose all voiced notes up or down one octave.
- * Gives a wider/narrower feel without changing harmony.
- */
 function applyOctaveShift(chord) {
-  const direction = -1; // always drop — never shift up
+  const direction = -1;
   const voiced = chord.voicedNotes.map(n => {
     const oct = Number(n.match(/\d+$/)[0]);
     const newOct = Math.max(2, Math.min(6, oct + direction));
@@ -194,15 +168,10 @@ function applyOctaveShift(chord) {
   return { ...chord, voicedNotes: voiced, symbol: label };
 }
 
-/**
- * Drop fifth: remove the 5th from the voicing for a more open, hollow sound.
- * Only applies when there are 3+ notes so we don't strip too much.
- */
 function applyDropFifth(chord) {
   const voiced = [...chord.voicedNotes];
   if (voiced.length < 3) return chord;
 
-  // Remove one inner note (not root or top) to thin the voicing
   const removeIdx = 1 + Math.floor(Math.random() * (voiced.length - 2));
   voiced.splice(removeIdx, 1);
 
@@ -212,33 +181,20 @@ function applyDropFifth(chord) {
 
 const VARIATION_FNS = [applyInversion, applyRevoice, applyColorChange, applyOctaveShift, applyDropFifth];
 
-/**
- * Creates a varied copy of the base loop for a given repeat.
- * Picks 1–3 random chord positions and applies a random micro-variation
- * to each. The base loop is never mutated.
- *
- * When a sequential chord playing rule is active, variation probability is
- * heavily reduced — the sequential bloom already provides movement, so
- * changing the underlying chord voicings would fight the pattern.
- */
 function createVariedLoop(base) {
   const varied = base.map(c => ({ ...c }));
   const count = varied.length;
   if (count === 0) return varied;
 
-  // Sequential rules already add temporal movement — keep chords stable
   const rule = getCurrentRule();
   const isSequential = rule.includes('sequential');
 
   let numChanges;
   if (count <= 2) {
-    // Small progressions: 0 or 1 change depending on rule
     numChanges = isSequential ? 0 : 1;
   } else if (isSequential) {
-    // Sequential: 70% no change, 30% one subtle change
     numChanges = Math.random() < 0.7 ? 0 : 1;
   } else {
-    // Simultaneous: original behaviour — 1–3 changes
     const roll = Math.random();
     if (roll < 0.25) numChanges = 1;
     else if (roll < 0.65) numChanges = 2;
@@ -252,33 +208,19 @@ function createVariedLoop(base) {
     indices.add(Math.floor(Math.random() * count));
   }
 
-  const changes = [];
   for (const idx of indices) {
     const fn = VARIATION_FNS[Math.floor(Math.random() * VARIATION_FNS.length)];
     varied[idx] = fn(varied[idx]);
-    changes.push(`#${idx + 1}→${varied[idx].symbol}`);
   }
 
   return varied;
 }
 
-/**
- * Generates a fresh loop progression using the taste-profile generator.
- *
- * Each cycle:
- *   - chains from the last chord of the previous progression (smooth transition)
- *   - may shift root note (~30% chance) if no previous chord to chain from
- *   - picks a progression pattern with quality-based chord building + random colors
- *   - gently drifts tempo
- */
 function generateLoopProgression() {
   const loopOctave = pickOctave();
-
   const opts = { octave: loopOctave };
 
   if (lastChord) {
-    // Pass the last chord root — generateProgression will decide whether
-    // to stay in this key or modulate to a related one via pivot chords
     opts.startChordRoot = lastChord.root;
   } else {
     maybeChangeRoot();
@@ -301,11 +243,10 @@ function generateLoopProgression() {
     };
   });
 
-  // Remember the last chord for next cycle's chaining
   lastChord = chords[chords.length - 1];
 
   baseLoop = chords;
-  loop = chords;   // first pass plays the original
+  loop = chords;
   loopPosition = 0;
   loopPassCount = 0;
 
@@ -319,16 +260,7 @@ function generateLoopProgression() {
   );
 }
 
-/**
- * Returns the next chord snapshot from the loop, advancing position.
- *
- * Progression generation is driven by the song structure state machine:
- * a new progression is only generated at the start of each song cycle
- * (when entering the transition section). Between cycles the same
- * progression loops with micro-variations on every pass.
- */
 function advanceLoop() {
-  // First-ever call — need an initial progression
   const needsFirstLoop = loop.length === 0;
 
   if (needsFirstLoop) {
@@ -343,14 +275,11 @@ function advanceLoop() {
     }
   }
 
-  // At the start of each new pass (not the very first), apply variation
-  // and notify the song structure that a pass completed
   if (!needsFirstLoop && loopPosition === 0) {
     loopPassCount++;
     const { sectionChanged, isNewCycle } = advanceSongProgression();
 
     if (isNewCycle) {
-      // New song cycle — generate a fresh chord progression
       try {
         generateLoopProgression();
       } catch (err) {
@@ -359,18 +288,12 @@ function advanceLoop() {
       loopPassCount = 0;
       driftTempo();
 
-      // Swap to a new random texture sample for this cycle
       if (texturePlayer) {
         texturePlayer.swap();
       }
 
-      // Swap both lead and bass to a random instrument for this cycle.
-      // After both swaps complete: update plucked state, re-pick the chord
-      // playing rule (biased toward sequential when lead is plucked), and
-      // re-sync envelopes to the new instruments.
       swapInstrumentsForCycle();
     } else if (loopPassCount > 0) {
-      // Same cycle — apply micro-variations to keep it fresh
       loop = createVariedLoop(baseLoop);
     }
   }
@@ -389,104 +312,86 @@ function advanceLoop() {
 
 /**
  * Core chord event — fires every chordDuration via setTimeout.
- *
- * Uses setTimeout instead of Tone.Transport.scheduleOnce to avoid
- * accumulated timing drift and time-domain mixing between Transport
- * time and audio-context time. For 7+ second chord intervals the
- * ~15ms jitter of setTimeout is completely inaudible.
  */
 function scheduleNextChord() {
   if (!running) return;
 
-  chordCount++;
-  const baseSec = chordDurationInSeconds();
+  let nextDelayMs = 4000; // fallback delay if everything fails
 
-  // ── Get chord from loop ──
-  const chord = advanceLoop();
-  const { voicedNotes, offsets, notes, durationTicks } = chord;
-
-  // Per-chord duration scaled by its rhythm weight
-  const chordSec = baseSec * durationTicks / TICKS_PER_UNIT;
-
-  // ── Section-aware chord skip ──
-  const section = getCurrentSection();
-  const skipChance = CHORD_SKIP_PROBABILITY[section.type] || 0;
-  const skipThisChord = skipChance > 0 && Math.random() < skipChance;
-
-  if (skipThisChord) {
-    console.log(`[engine] skipping chord ${chord.symbol} (${section.type} skip, ${Math.round(skipChance * 100)}%)`);
-
-    // Release held notes so the previous chord doesn't sustain through the gap.
-    // The synths' release envelopes provide a natural fade-out.
-    const now = Tone.now();
-    if (synths.pad && synths.pad.releaseAll)  synths.pad.releaseAll(now);
-    if (synths.lead && synths.lead.releaseAll) synths.lead.releaseAll(now);
-  } else {
-    // ── Apply chord playing rule ──
-    const schedule = applyChordPlayingRule(voicedNotes, chordSec);
-
-    // ── Section-aware instrument triggers ──
-    const now = Tone.now();
-
-    try {
-      if (section.tracks.pad) {
-        triggerPadChord(synths, schedule, offsets, now);
-      }
-
-      if (section.tracks.lead) {
-        triggerLeadChord(synths, schedule, offsets, now);
-      }
-
-      if (section.tracks.drone) {
-        const bassNoteName = notes[0].match(/^([A-G]#?)/)[1];
-        const droneNote = `${bassNoteName}2`;
-
-        // Plucked bass: each chord position in the progression has its own
-        // locked beat offset (20% chance per position, decided once at cycle
-        // start in pickChordPlayingRule). The pattern repeats every loop pass.
-        const bassOffset = getBassOffsetBeat(lastPlayedPosition);
-        let bassTime = now;
-        if (bassOffset > 0) {
-          bassTime = now + (chordSec * bassOffset / 4);
-        }
-
-        triggerDrone(synths, droneNote, chordSec, bassTime);
-      }
-    } catch (err) {
-      console.warn('[engine] error triggering chord, continuing:', err);
-    }
-  }
-
-  // Update dynamic filters on every chord (even skipped ones) so section
-  // automation stays smooth and doesn't stall during silent beats.
   try {
-    const coarseProgress = getSectionProgress();
-    const chordFraction = loop.length > 0 ? ((lastPlayedPosition + 1) / loop.length) / section.duration : 0;
-    const progress = Math.min(1, coarseProgress + chordFraction);
-    updateSectionAutomation(section.type, getNextSection().type, progress, chordSec * 0.8);
+    chordCount++;
+    const baseSec = chordDurationInSeconds();
+
+    const chord = advanceLoop();
+    const { voicedNotes, offsets, notes, durationTicks } = chord;
+
+    const chordSec = baseSec * durationTicks / TICKS_PER_UNIT;
+
+    // ── Section-aware chord skip ──
+    const section = getCurrentSection();
+    const skipChance = CHORD_SKIP_PROBABILITY[section.type] || 0;
+    const skipThisChord = skipChance > 0 && Math.random() < skipChance;
+
+    if (skipThisChord) {
+      console.log(`[engine] skipping chord ${chord.symbol} (${section.type} skip, ${Math.round(skipChance * 100)}%)`);
+
+      // Release held notes on tracks configured for skip release
+      for (const [trackName, synth] of Object.entries(synths)) {
+        if (synth?.releaseAll && TRACK_SKIP_RELEASE[trackName]) {
+          synth.releaseAll();
+        }
+      }
+    } else {
+      const schedule = applyChordPlayingRule(voicedNotes, chordSec);
+
+      // Derive drone context for the bass trigger
+      const bassNoteName = notes[0].match(/^([A-G]#?)/)[1];
+      const droneNote = `${bassNoteName}2`;
+      const bassOffset = getBassOffsetBeat(lastPlayedPosition);
+
+      const triggerCtx = { schedule, offsets, chordSec, droneNote, bassOffset };
+
+      // Fire all registered chord triggers for tracks active in this section
+      for (const entry of chordTriggers) {
+        if (!section.tracks[entry.track]) continue;
+        try {
+          entry.trigger(synths, triggerCtx);
+        } catch (err) {
+          console.warn(`[engine] error triggering ${entry.track}, continuing:`, err);
+        }
+      }
+    }
+
+    // Update section automation on every chord
+    try {
+      const coarseProgress = getSectionProgress();
+      const chordFraction = loop.length > 0 ? ((lastPlayedPosition + 1) / loop.length) / section.duration : 0;
+      const progress = Math.min(1, coarseProgress + chordFraction);
+      updateSectionAutomation(section.type, getNextSection().type, progress, chordSec * 0.8);
+    } catch (err) {
+      console.warn('[engine] error updating section automation:', err);
+    }
+
+    // ── Schedule next chord ──
+    const nextBaseSec = chord._isNewCycle ? chordDurationInSeconds() : baseSec;
+    const nextChordSec = nextBaseSec * durationTicks / TICKS_PER_UNIT;
+    nextDelayMs = nextChordSec * 1000;
   } catch (err) {
-    console.warn('[engine] error updating section automation:', err);
+    console.error('[engine] scheduleNextChord error, recovering:', err);
   }
 
-  // ── Schedule next chord ──
-  // Recalculate base in case driftTempo changed the target BPM
-  const nextBaseSec = chord._isNewCycle ? chordDurationInSeconds() : baseSec;
-  const nextChordSec = nextBaseSec * durationTicks / TICKS_PER_UNIT;
-  loopTimeoutId = setTimeout(scheduleNextChord, nextChordSec * 1000);
+  // Always re-schedule — even after an error — to keep the engine alive
+  loopTimeoutId = setTimeout(scheduleNextChord, nextDelayMs);
 }
 
 /**
  * Starts the generative engine.
- * @param {object} mixerSynths - Synths from the mixer
- * @param {object} [mixerTexturePlayer] - Texture sample player from the mixer
- * @param {object} [callbacks] - Optional callbacks for cycle events
- * @param {Function} [callbacks.onSwapLead] - Called each new cycle to swap lead instrument
- * @param {Function} [callbacks.onSwapBass] - Called each new cycle to swap bass instrument
  */
 export function start(mixerSynths, mixerTexturePlayer, callbacks = {}) {
   if (running) return;
   synths = mixerSynths;
   texturePlayer = mixerTexturePlayer || null;
+  chordTriggers = callbacks.chordTriggers || [];
   swapLeadFn = callbacks.onSwapLead || null;
   swapBassFn = callbacks.onSwapBass || null;
   running = true;
@@ -508,16 +413,13 @@ export function start(mixerSynths, mixerTexturePlayer, callbacks = {}) {
 
   startClock();
 
-  // Start the texture sample layer (loops a random file continuously)
   if (texturePlayer) {
     texturePlayer.start();
   }
 
-  // Swap to random instruments for the first cycle — the default
-  // instruments play the first few chords while the new ones load.
   swapInstrumentsForCycle();
 
-  // First chord after a short delay to let audio context settle
+  // First chord after a short delay
   loopTimeoutId = setTimeout(scheduleNextChord, 100);
 }
 
@@ -536,20 +438,13 @@ export function stop() {
 
   stopClock();
 
-  // Stop the texture sample layer
   if (texturePlayer) {
     texturePlayer.stop();
   }
 
-  if (synths && synths.pad && synths.pad.releaseAll) {
-    synths.pad.releaseAll(Tone.now());
-  }
-  if (synths && synths.lead && synths.lead.releaseAll) {
-    synths.lead.releaseAll(Tone.now());
-  }
-  if (synths && synths.drone && synths.drone.releaseAll) {
-    synths.drone.releaseAll(Tone.now());
-  }
+  if (synths && synths.pad && synths.pad.releaseAll)   synths.pad.releaseAll();
+  if (synths && synths.lead && synths.lead.releaseAll)  synths.lead.releaseAll();
+  if (synths && synths.drone && synths.drone.releaseAll) synths.drone.releaseAll();
 
   chordCount = 0;
   baseLoop = [];
@@ -564,10 +459,6 @@ export function stop() {
   bassIsPlucked = false;
 }
 
-/**
- * Updates the rules configuration. Accepts a partial config.
- * @param {object} partialConfig
- */
 export function updateRules(partialConfig) {
   Object.assign(config, partialConfig);
 
@@ -578,25 +469,51 @@ export function updateRules(partialConfig) {
   syncEnvelopesToDuration();
 }
 
-/**
- * Scales pad and drone envelopes proportionally to chord duration.
- */
 function syncEnvelopesToDuration() {
   if (!synths) return;
   const chordSec = chordDurationInSeconds();
   const atk = config.attackLevel;
   const rel = config.releaseLevel;
-  if (synths.pad && synths.pad.updateEnvelopes) {
-    synths.pad.updateEnvelopes(chordSec, atk, rel);
-  }
-  if (synths.drone && synths.drone.updateEnvelopes) {
-    synths.drone.updateEnvelopes(chordSec, atk, rel);
-  }
-  if (synths.lead && synths.lead.updateEnvelopes) {
-    synths.lead.updateEnvelopes(chordSec, atk, rel);
-  }
+  if (synths.pad && synths.pad.updateEnvelopes)   synths.pad.updateEnvelopes(chordSec, atk, rel);
+  if (synths.drone && synths.drone.updateEnvelopes) synths.drone.updateEnvelopes(chordSec, atk, rel);
+  if (synths.lead && synths.lead.updateEnvelopes)  synths.lead.updateEnvelopes(chordSec, atk, rel);
 }
 
 export function getConfig() {
   return { ...config };
+}
+
+/**
+ * Returns a snapshot of the full engine state for the debug UI.
+ */
+export function getEngineState() {
+  const baseSec = running ? chordDurationInSeconds() : 0;
+  return {
+    running,
+    chordCount,
+    loopPosition,
+    loopLength: loop.length,
+    loopPassCount,
+    lastPlayedPosition,
+    leadIsPlucked,
+    bassIsPlucked,
+    currentRule: getCurrentRule(),
+    ruleState: getRuleState(),
+    baseDurationSec: Math.round(baseSec * 100) / 100,
+    progression: loop.map(c => {
+      const actualSec = baseSec * c.durationTicks / TICKS_PER_UNIT;
+      return {
+        symbol: c.symbol,
+        root: c.root,
+        quality: c.quality,
+        octave: c.octave,
+        voicedNotes: c.voicedNotes,
+        notes: c.notes,
+        durationTicks: c.durationTicks,
+        durationSec: Math.round(actualSec * 100) / 100,
+        rhythmMultiplier: c.durationTicks / TICKS_PER_UNIT,
+      };
+    }),
+    lastChordSymbol: lastChord ? lastChord.symbol : null,
+  };
 }

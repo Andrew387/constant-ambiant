@@ -1,142 +1,93 @@
-import * as Tone from 'tone';
+/**
+ * Freesound SFX layer — SuperCollider playback.
+ *
+ * Downloads short SFX from Freesound, saves to temp files, loads into
+ * SC buffers, and plays through the \sfxPlayer SynthDef.
+ *
+ * Each sound gets its own buffer + synth node. The synth self-frees
+ * when the buffer finishes playing (doneAction: 2 on PlayBuf).
+ */
+
 import { getRandomSound, getCacheSize } from './fetcher.js';
-import { updateFreesoundStatus } from '../ui/debug.js';
+import { synthNew } from '../sc/osc.js';
+import { allocNodeId, GROUPS, BUSES } from '../sc/nodeIds.js';
+import {
+  loadNamedBuffer, freeNamedBuffer, downloadAudioToTemp,
+} from '../sc/bufferManager.js';
+import fs from 'fs';
 
 let isActive = false;
 let triggerTimer = null;
-let destination = null;
-let activeNodes = [];  // Track nodes for cleanup
 let totalPlayed = 0;
+let activeSlots = []; // Track buffer slot names for cleanup
+const pendingFrees = new Set();
 
 const MIN_INTERVAL_MS = 2000;
 const MAX_INTERVAL_MS = 10000;
-const REVERB_DECAY = 20;
-const REVERB_WET = 0.9;
-const REVERB_TAIL_EXTRA = 25; // seconds to wait after play before disposing
-
-function safeUpdateStatus(msg) {
-  try {
-    updateFreesoundStatus(msg);
-  } catch {
-    // debug panel not initialized yet
-  }
-}
-
-function statusText(extra) {
-  const lines = [];
-  lines.push(`Played: ${totalPlayed} sounds`);
-  lines.push(`Active: ${activeNodes.length} (with reverb tails)`);
-  lines.push(`Cache: ${getCacheSize()} sounds`);
-  if (extra) lines.push(extra);
-  return lines.join('\n');
-}
+const DISPOSE_DELAY = 25; // seconds after play before freeing buffer
 
 /**
- * Plays a single sound effect with deep reverb, then disposes all nodes
- * after the reverb tail fades out.
+ * Plays a single sound effect through SuperCollider.
  */
 async function playSoundEffect() {
   if (!isActive) return;
 
   try {
-    safeUpdateStatus(statusText('Fetching sound...'));
     const sound = await getRandomSound();
     if (!sound || !isActive) {
-      safeUpdateStatus(statusText('Fetch failed, retrying...'));
       scheduleNext();
       return;
     }
 
-    safeUpdateStatus(statusText(`Loading: "${sound.name}"`));
+    console.log(`[freesound] Loading: "${sound.name}"`);
 
-    const player = new Tone.Player({
-      url: sound.previewUrl,
-      volume: -12,
-      onload: () => {
-        if (!isActive) {
-          player.dispose();
-          return;
-        }
+    // Download to temp file
+    const tmpPath = await downloadAudioToTemp(sound.previewUrl);
 
-        // Build per-sound effect chain: player → lowpass → reverb → destination
-        const filter = new Tone.Filter({
-          type: 'lowpass',
-          frequency: 2500,
-          Q: 0.5,
-        });
+    if (!isActive) {
+      try { fs.unlinkSync(tmpPath); } catch {}
+      return;
+    }
 
-        const reverb = new Tone.Reverb({
-          decay: REVERB_DECAY,
-          preDelay: 0.5,
-          wet: REVERB_WET,
-        });
+    // Load into SC buffer
+    const slotName = `freesound_${Date.now()}_${sound.id}`;
+    const { bufNum, numChannels } = await loadNamedBuffer(slotName, tmpPath);
+    activeSlots.push(slotName);
 
-        const entry = { player, filter, reverb, name: sound.name, disposed: false };
-        activeNodes.push(entry);
+    // Clean up temp file
+    try { fs.unlinkSync(tmpPath); } catch {}
 
-        // Safety net: force-dispose if entry is still alive after 60s
-        const safetyTimer = setTimeout(() => {
-          if (!entry.disposed) {
-            console.warn(`[freesound] safety dispose for "${sound.name}"`);
-            disposeEntry(entry);
-            safeUpdateStatus(statusText());
-          }
-        }, 60000);
+    if (!isActive) {
+      freeNamedBuffer(slotName);
+      return;
+    }
 
-        reverb.generate().then(() => {
-          if (entry.disposed || !isActive) {
-            clearTimeout(safetyTimer);
-            disposeEntry(entry);
-            return;
-          }
-
-          player.connect(filter);
-          filter.connect(reverb);
-          reverb.connect(destination);
-
-          player.start();
-          totalPlayed++;
-          safeUpdateStatus(statusText(`Playing: "${sound.name}"`));
-
-          // Dispose after reverb tail fades
-          setTimeout(() => {
-            clearTimeout(safetyTimer);
-            disposeEntry(entry);
-            safeUpdateStatus(statusText());
-          }, REVERB_TAIL_EXTRA * 1000);
-        }).catch((err) => {
-          console.warn(`[freesound] reverb.generate() failed for "${sound.name}":`, err);
-          clearTimeout(safetyTimer);
-          disposeEntry(entry);
-          safeUpdateStatus(statusText());
-        });
-      },
-      onerror: (err) => {
-        console.warn(`[freesound] load error for "${sound.name}":`, err);
-        try { player.dispose(); } catch {}
-        safeUpdateStatus(statusText(`Load error: "${sound.name}"`));
-      },
+    // Pick mono or stereo SynthDef based on buffer's actual channel count
+    const defName = numChannels >= 2 ? 'sfxPlayerStereo' : 'sfxPlayer';
+    const nodeId = allocNodeId();
+    synthNew(defName, nodeId, 0, GROUPS.FREESOUND, {
+      out: BUSES.FREESOUND,
+      buf: bufNum,
+      amp: 0.25,
+      lpFreq: 2500,
     });
+
+    totalPlayed++;
+    console.log(`[freesound] Playing: "${sound.name}" (total: ${totalPlayed})`);
+
+    // Free buffer after sound + reverb tail finishes, guarded against double-free
+    pendingFrees.add(slotName);
+    setTimeout(() => {
+      pendingFrees.delete(slotName);
+      freeNamedBuffer(slotName);
+      activeSlots = activeSlots.filter(s => s !== slotName);
+    }, DISPOSE_DELAY * 1000);
+
   } catch (err) {
-    console.warn('[freesound] playSoundEffect error:', err);
-    safeUpdateStatus(statusText('Error, retrying...'));
+    console.warn('[freesound] playSoundEffect error:', err.message);
   }
 
   scheduleNext();
-}
-
-function disposeEntry(entry) {
-  if (entry.disposed) return;
-  entry.disposed = true;
-
-  try {
-    entry.player.stop();
-  } catch {}
-  try { entry.player.dispose(); } catch {}
-  try { entry.filter.dispose(); } catch {}
-  try { entry.reverb.dispose(); } catch {}
-
-  activeNodes = activeNodes.filter(e => e !== entry);
 }
 
 function scheduleNext() {
@@ -147,21 +98,18 @@ function scheduleNext() {
 
 /**
  * Starts the Freesound SFX layer.
- * @param {Tone.ToneAudioNode} dest - Gain node to connect sounds to
  */
-export function startFreesoundLayer(dest) {
+export function startFreesoundLayer() {
   if (isActive) return;
   isActive = true;
-  destination = dest;
   totalPlayed = 0;
-  safeUpdateStatus('Starting...');
 
-  // First sound after a short initial delay
+  console.log('[freesound] Starting...');
   triggerTimer = setTimeout(playSoundEffect, 3000);
 }
 
 /**
- * Stops the Freesound SFX layer and cleans up all active audio nodes.
+ * Stops the Freesound SFX layer.
  */
 export function stopFreesoundLayer() {
   isActive = false;
@@ -171,10 +119,11 @@ export function stopFreesoundLayer() {
     triggerTimer = null;
   }
 
-  // Dispose all active sound nodes
-  for (const entry of [...activeNodes]) {
-    disposeEntry(entry);
+  // Free all active buffers not already pending a delayed free
+  for (const slotName of activeSlots) {
+    if (!pendingFrees.has(slotName)) {
+      freeNamedBuffer(slotName);
+    }
   }
-  activeNodes = [];
-  safeUpdateStatus('Stopped');
+  activeSlots = [];
 }

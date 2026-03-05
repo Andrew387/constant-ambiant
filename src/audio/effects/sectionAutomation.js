@@ -1,27 +1,23 @@
-import { TRACK_PROFILES } from '../trackProfiles.js';
-import { SECTION_DURATIONS } from '../../engine/rules.config.js';
-
 /**
- * Section automation module.
+ * Section automation module — OSC output.
  *
- * Generalizes brightness-based filter + duck gain automation to any
- * number of tracks. Reads automation config from TRACK_PROFILES and
- * operates on node references discovered during init.
+ * Same JS logic as the original: brightness-based filter + duck gain
+ * automation across tracks. But instead of setting Tone.js node params,
+ * we send /n_set OSC messages to SuperCollider effect synth nodes.
  *
  * Each automated track has:
  *   - A dynamic lowpass filter (cutoff mapped from brightness)
  *   - A duck gain (volume reduction mapped from brightness)
  *   - Per-section brightness targets (0 = muffled, 1 = bright)
- *   - Exponential frequency mapping with per-transition randomness
- *   - S-curve interpolation across section boundaries
+ *   - S-curve interpolation with per-transition randomness
  */
 
+import { TRACK_PROFILES } from '../trackProfiles.js';
+import { SECTION_DURATIONS, SECTION_HOLD_UNTIL, SECTION_ORDER } from '../../engine/sections.config.js';
+import { nodeSet } from '../../sc/osc.js';
+
 // ── Per-transition brightness randomness ──
-// Randomize brightness endpoints once per section transition (not per tick).
-// This means e.g. "transition → intro" might target brightness 0.45 instead
-// of 0.50, but that value stays fixed for the entire transition and the
-// interpolation is perfectly smooth.
-const BRIGHTNESS_JITTER = 0.10;  // ±10% range on each endpoint
+const BRIGHTNESS_JITTER = 0.10;
 
 // Cache: track → { key, currentBright, nextBright }
 const _brightCache = {};
@@ -43,39 +39,23 @@ function _getCachedBrightness(trackName, baseCurrent, baseNext, currentSection, 
   return entry;
 }
 
-// ── Hold thresholds ──
-// Fraction of a section's duration to hold at the current brightness
-// before starting to blend toward the next section.
-// 0 = start blending immediately, 0.8 = hold for 80% then blend in the last 20%.
-const HOLD_UNTIL = {
-  transition:      0,
-  intro:           0.5,
-  main:            0.8,
-  innerTransition: 0,
-  main2:           0.8,
-  outro:           0.4,
-};
+// Hold thresholds imported from sections.config.js as SECTION_HOLD_UNTIL
 
 // ── Per-track automation state ──
-// Map<string, { filter, duckGain, config }> populated by init
+// Map<string, { filter: { nodeId }, duckGain: { nodeId }, config }> populated by init
 let automatedTracks = {};
 
+// ── Live state snapshot for UI polling ──
+let _lastLiveState = null;
+
 // ── Deferred fade-in state ──
-// For tracks with deferredFadeIn config, the drone stays silent from the
-// start of each cycle until a random trigger point within the configured
-// window sections, then fades in over fadeDuration.
+// SECTION_ORDER imported from sections.config.js
 
-const SECTION_ORDER = {
-  transition: 0, intro: 1, main: 2, innerTransition: 3, main2: 4, outro: 5,
-};
-
-// Cache: track → { triggerSection, triggerProgress, phase }
-// phase: 'silent' | 'done'
 const _fadeInState = {};
 let _fadeInLastSection = null;
 
 function _resetFadeIn(trackName, fadeConfig) {
-  const { window: sections, fadeDuration } = fadeConfig;
+  const { window: sections } = fadeConfig;
   const triggerSection = sections[Math.floor(Math.random() * sections.length)];
   const triggerProgress = Math.random();
 
@@ -91,10 +71,6 @@ function _resetFadeIn(trackName, fadeConfig) {
   );
 }
 
-/**
- * Resets deferred fade-in state for all applicable tracks when entering
- * a new cycle (transition section). Called once per section boundary.
- */
 function _maybeResetFadeIns(currentSection) {
   if (currentSection === 'transition' && _fadeInLastSection !== 'transition') {
     for (const [name, { config }] of Object.entries(automatedTracks)) {
@@ -107,16 +83,8 @@ function _maybeResetFadeIns(currentSection) {
 }
 
 // ── Gain swell state ──
-// Random moments during eligible sections where a track's gain overrides
-// to a high value (e.g. 0.8–1.0) for 1–3 loops.
-// Cache: track → { section, swells: [{ startLoop, endLoop, gain }] }
 const _swellState = {};
 
-/**
- * Plans random gain swells for a track entering an eligible section.
- * Walks through the section's loops; each non-swell loop has `probability`
- * chance of starting a new swell with random gain and duration.
- */
 function _planSwellsForSection(trackName, swellConfig, sectionType) {
   const duration = SECTION_DURATIONS[sectionType];
   if (!duration || !swellConfig.sections.includes(sectionType)) {
@@ -149,9 +117,6 @@ function _planSwellsForSection(trackName, swellConfig, sectionType) {
   }
 }
 
-/**
- * Returns the swell gain if the track is currently in a swell, or null.
- */
 function _getSwellGain(trackName, sectionType, progress) {
   const state = _swellState[trackName];
   if (!state || state.section !== sectionType) return null;
@@ -169,34 +134,20 @@ function _getSwellGain(trackName, sectionType, progress) {
 
 // ── Helpers ──
 
-/**
- * Smooth S-curve easing so most of the change happens in the middle
- * of the section, not abruptly at the boundary.
- */
 function ease(t) {
   return (1 - Math.cos(t * Math.PI)) / 2;
 }
 
-/**
- * Linearly interpolates between two values.
- */
 function lerp(a, b, t) {
   return a + (b - a) * t;
 }
 
-/**
- * Maps 0–1 brightness to frequency using exponential interpolation.
- */
 function brightnessToFreq(brightness, range) {
   const logMin = Math.log(range.min);
   const logMax = Math.log(range.max);
   return Math.exp(logMin + brightness * (logMax - logMin));
 }
 
-/**
- * Maps 0–1 brightness to duck multiplier (duckFloor–1.0).
- * brightness 1.0 → 1.0 (no ducking), brightness 0.0 → duckFloor.
- */
 function brightnessToDuck(brightness, duckFloor) {
   return duckFloor + brightness * (1.0 - duckFloor);
 }
@@ -204,13 +155,10 @@ function brightnessToDuck(brightness, duckFloor) {
 // ── Public API ──
 
 /**
- * Registers automated tracks by scanning profiles for automation config
- * and matching tagged node references from the built effect groups.
+ * Registers automated tracks by scanning profiles and matching
+ * SC node refs from the built effect groups.
  *
  * @param {Object<string, { refs }>} allTrackEffects
- *   Result of createAllTrackEffects(), keyed by track name.
- *   Each entry's `refs` map must contain 'dynamicFilter' and 'duckGain'
- *   for tracks whose profile has an automation block.
  */
 export function initSectionAutomation(allTrackEffects) {
   automatedTracks = {};
@@ -228,9 +176,7 @@ export function initSectionAutomation(allTrackEffects) {
     const duckGain = fx.refs.duckGain;
 
     if (!duckGain) {
-      console.warn(
-        `[automation] profile "${name}" missing duckGain ref`
-      );
+      console.warn(`[automation] profile "${name}" missing duckGain ref`);
       continue;
     }
 
@@ -245,29 +191,24 @@ export function initSectionAutomation(allTrackEffects) {
  * Updates all automated tracks based on current section, next section,
  * and progress. Called once per chord event from ruleEngine.
  *
- * Interpolates between the current section's brightness and the next
- * section's brightness using S-curve easing, then maps to filter cutoff
- * and duck gain. Brightness endpoints are randomized ±10% once per
- * section transition for variety, then held fixed for smooth interpolation.
+ * Sends /n_set OSC messages to SC effect synth nodes.
  *
- * @param {string} currentSection - e.g. 'main'
- * @param {string} nextSection    - e.g. 'innerTransition'
- * @param {number} progress       - 0–1 through current section
- * @param {number} [rampTime=6]   - Seconds to ramp to new values
+ * @param {string} currentSection
+ * @param {string} nextSection
+ * @param {number} progress - 0–1 through current section
+ * @param {number} [rampTime=6] - Ramp time (informational, SC does instant set)
  */
 export function updateSectionAutomation(currentSection, nextSection, progress, rampTime = 6) {
-  // Reset deferred fade-ins at cycle boundaries
   _maybeResetFadeIns(currentSection);
 
-  // Remap progress: hold at 0 until the hold threshold, then compress
-  // the remaining range into 0–1 so the S-curve only runs at the tail end.
-  const holdUntil = HOLD_UNTIL[currentSection] ?? 0;
+  const holdUntil = SECTION_HOLD_UNTIL[currentSection] ?? 0;
   const remapped = progress <= holdUntil
     ? 0
     : (progress - holdUntil) / (1 - holdUntil);
   const t = ease(remapped);
 
   const debugParts = [];
+  const liveState = {};
 
   for (const [name, { filter, duckGain, config }] of Object.entries(automatedTracks)) {
     const { brightness, freqRange, duckFloor, deferredFadeIn, holdOverride, gainSwells } = config;
@@ -278,8 +219,6 @@ export function updateSectionAutomation(currentSection, nextSection, progress, r
       name, baseCurrent, baseNext, currentSection, nextSection
     );
 
-    // Per-track hold override: recalculate t if this track overrides the
-    // global hold threshold for the current section.
     let trackT = t;
     if (holdOverride && holdOverride[currentSection] !== undefined) {
       const trackHold = holdOverride[currentSection];
@@ -291,12 +230,15 @@ export function updateSectionAutomation(currentSection, nextSection, progress, r
 
     const bright = lerp(currentBright, nextBright, trackT);
 
-    if (filter) {
-      const freq = brightnessToFreq(bright, freqRange);
-      filter.frequency.rampTo(freq, rampTime);
+    // ── Update SC filter frequency via OSC ──
+    let freq = null;
+    if (filter && freqRange) {
+      freq = Math.round(brightnessToFreq(bright, freqRange));
+      nodeSet(filter.nodeId, { freq });
     }
 
     let duck = brightnessToDuck(bright, duckFloor);
+    let trackStatus = 'active';
 
     // ── Deferred fade-in override ──
     const fadeState = _fadeInState[name];
@@ -306,16 +248,18 @@ export function updateSectionAutomation(currentSection, nextSection, progress, r
 
       if (currentIdx > triggerIdx ||
           (currentIdx === triggerIdx && progress >= fadeState.triggerProgress)) {
-        // Trigger point reached — fade in
         fadeState.phase = 'done';
-        duckGain.gain.rampTo(duck, deferredFadeIn.fadeDuration);
-        debugParts.push(`${name}(FADE-IN → duck:${duck.toFixed(2)} over ${deferredFadeIn.fadeDuration}s)`);
+        nodeSet(duckGain.nodeId, { gain: duck });
+        trackStatus = 'fade-in';
+        debugParts.push(`${name}(FADE-IN → duck:${duck.toFixed(2)})`);
+        liveState[name] = { bright, freq, duck, status: trackStatus };
         continue;
       }
 
-      // Still before trigger — stay silent
-      duckGain.gain.rampTo(0, rampTime);
+      nodeSet(duckGain.nodeId, { gain: 0 });
+      trackStatus = 'silent';
       debugParts.push(`${name}(SILENT pre-fade)`);
+      liveState[name] = { bright: 0, freq, duck: 0, status: trackStatus };
       continue;
     }
 
@@ -329,15 +273,21 @@ export function updateSectionAutomation(currentSection, nextSection, progress, r
       if (swellGain !== null) {
         duck = swellGain;
         swellActive = true;
+        trackStatus = 'swell';
       }
     }
 
-    duckGain.gain.rampTo(duck, rampTime);
+    // ── Send duck gain to SC via OSC ──
+    nodeSet(duckGain.nodeId, { gain: duck });
 
-    const freqStr = filter ? ` freq:${Math.round(brightnessToFreq(bright, freqRange))}Hz` : '';
+    liveState[name] = { bright, freq, duck, status: trackStatus };
+
+    const freqStr = freq !== null ? ` freq:${freq}Hz` : '';
     const swellStr = swellActive ? ' SWELL' : '';
     debugParts.push(`${name}(bright:${bright.toFixed(2)}${freqStr} duck:${duck.toFixed(2)}${swellStr})`);
   }
+
+  _lastLiveState = { currentSection, nextSection, progress, tracks: liveState };
 
   console.log(
     `[section] ${currentSection} → ${nextSection} (${(progress * 100).toFixed(0)}%) | ${debugParts.join(' | ')}`
@@ -345,18 +295,21 @@ export function updateSectionAutomation(currentSection, nextSection, progress, r
 }
 
 /**
+ * Returns the last computed automation snapshot for the UI.
+ * @returns {{ currentSection, nextSection, progress, tracks: Object<string, { bright, freq, duck, status }> } | null}
+ */
+export function getAutomationState() {
+  return _lastLiveState;
+}
+
+/**
  * Cleans up references.
  */
 export function disposeSectionAutomation() {
   automatedTracks = {};
-  for (const key of Object.keys(_brightCache)) {
-    delete _brightCache[key];
-  }
-  for (const key of Object.keys(_fadeInState)) {
-    delete _fadeInState[key];
-  }
-  for (const key of Object.keys(_swellState)) {
-    delete _swellState[key];
-  }
+  _lastLiveState = null;
+  for (const key of Object.keys(_brightCache)) delete _brightCache[key];
+  for (const key of Object.keys(_fadeInState)) delete _fadeInState[key];
+  for (const key of Object.keys(_swellState)) delete _swellState[key];
   _fadeInLastSection = null;
 }

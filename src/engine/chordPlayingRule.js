@@ -202,6 +202,22 @@ export function getBassOffsetBeat(chordPosition) {
 }
 
 /**
+ * Returns the full rule state for the debug UI.
+ */
+export function getRuleState() {
+  return {
+    currentRule,
+    bassOffsets: lockedBassOffsets ? [...lockedBassOffsets] : null,
+    partialSeqIndices: lockedPartialSeq
+      ? Object.fromEntries(Object.entries(lockedPartialSeq).map(([k, v]) => [k, v.keepIndices]))
+      : null,
+    partialSimIndices: lockedPartialSim
+      ? Object.fromEntries(Object.entries(lockedPartialSim).map(([k, v]) => [k, v.keepIndices]))
+      : null,
+  };
+}
+
+/**
  * Applies the current chord playing rule to a set of voiced notes.
  *
  * @param {string[]} voicedNotes - Note strings (e.g. ["C3", "Eb4", "G4"])
