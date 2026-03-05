@@ -46,12 +46,18 @@ async function loadTrack() {
       // Download audio to temp file
       const tmpPath = await downloadAudioToTemp(url);
 
-      // Load into SC buffer
+      // Load into SC buffer — MUST be mono for GrainBuf
       const slotName = `archive_${Date.now()}`;
-      const { bufNum } = await loadNamedBuffer(slotName, tmpPath);
+      const { bufNum, numFrames } = await loadNamedBuffer(slotName, tmpPath, { mono: true });
 
       // Clean up temp file after loading
       try { fs.unlinkSync(tmpPath); } catch {}
+
+      if (numFrames === 0) {
+        console.warn(`[archive] buffer loaded with 0 frames — skipping "${title}"`);
+        freeNamedBuffer(slotName);
+        continue;
+      }
 
       return { bufNum, slotName, title };
     } catch (err) {

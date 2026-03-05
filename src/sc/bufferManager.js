@@ -127,19 +127,28 @@ export function freeInstrumentSamples(instrumentId) {
  *
  * @param {string} name - Slot name (e.g. 'texture_current')
  * @param {string} filePath - Absolute path to the audio file
- * @returns {Promise<{ bufNum: number, numChannels: number }>}
+ * @param {object} [opts]
+ * @param {boolean} [opts.mono=false] - Force mono loading (channel 0 only).
+ *   Required for UGens like GrainBuf that only accept mono buffers.
+ * @returns {Promise<{ bufNum: number, numChannels: number, numFrames: number }>}
  */
-export async function loadNamedBuffer(name, filePath) {
+export async function loadNamedBuffer(name, filePath, { mono = false } = {}) {
   // Free previous buffer in this slot
   freeNamedBuffer(name);
 
   const bufNum = allocBufNum();
-  await bufferAllocRead(bufNum, filePath);
+
+  if (mono) {
+    await bufferAllocReadChannel(bufNum, filePath, [0]);
+  } else {
+    await bufferAllocRead(bufNum, filePath);
+  }
+
   namedBuffers.set(name, bufNum);
 
-  // Query channel count so callers can pick the right SynthDef
+  // Query buffer info so callers can check channels / frames
   const info = await bufferQuery(bufNum);
-  return { bufNum, numChannels: info.numChannels };
+  return { bufNum, numChannels: info.numChannels, numFrames: info.numFrames };
 }
 
 /**
