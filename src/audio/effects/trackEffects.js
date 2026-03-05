@@ -26,6 +26,7 @@ const TRACK_BUS_MAP = {
   sampleTexture: BUSES.TEXTURE,
   archive:       BUSES.ARCHIVE,
   freesound:     BUSES.FREESOUND,
+  pedalPad:      BUSES.PEDAL_PAD,
 };
 
 // Map from TRACK_PROFILES track name → which reverb bus to send to
@@ -36,6 +37,7 @@ const TRACK_REVERB_MAP = {
   sampleTexture: BUSES.REVERB_LONG,
   archive:       BUSES.REVERB_LONG,
   freesound:     BUSES.REVERB_LONG,
+  pedalPad:      BUSES.REVERB_LONG,
 };
 
 // Reverb send levels per track (from original effect chains)
@@ -46,6 +48,7 @@ const REVERB_SEND_LEVELS = {
   sampleTexture: 0.55,   // from texture chain: Reverb wet: 0.55
   archive:       0.85,   // heavy reverb wash (matches original Tone.Reverb wet: 0.85)
   freesound:     0.0,    // freesound has its own reverb per-sound
+  pedalPad:      0.45,   // warm reverb wash for pedal tone
 };
 
 /**

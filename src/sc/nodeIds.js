@@ -59,6 +59,7 @@ export const GROUPS = {
   TEXTURE:     113,
   ARCHIVE:     114,
   FREESOUND:   115,
+  PEDAL_PAD:   116,
   EFFECTS:     200,
   REVERBS:     300,
   MASTER:      400,
@@ -76,6 +77,7 @@ export const BUSES = {
   FREESOUND:   14,
   REVERB_SHORT: 16,
   REVERB_LONG:  18,
+  PEDAL_PAD:    20,
 };
 
 // ── Control buses for metering (written by \busMeter synths) ──

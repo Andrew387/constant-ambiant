@@ -22,7 +22,8 @@ import { createPadSynth } from './synths/pad.js';
 import { createSampleSynth } from './synths/samplePlayer.js';
 import { createTexturePlayer } from './synths/texturePlayer.js';
 import {
-  LEAD_INSTRUMENTS, BASS_INSTRUMENTS, DEFAULT_LEAD, DEFAULT_BASS,
+  LEAD_INSTRUMENTS, BASS_INSTRUMENTS, PAD_INSTRUMENTS,
+  DEFAULT_LEAD, DEFAULT_BASS, DEFAULT_PAD_SAMPLE,
 } from './synths/sampleRegistry.js';
 import { freeInstrumentSamples } from '../sc/bufferManager.js';
 
@@ -43,6 +44,7 @@ const TRACK_BUS = {
   sampleTexture: BUSES.TEXTURE,
   archive:       BUSES.ARCHIVE,
   freesound:     BUSES.FREESOUND,
+  pedalPad:      BUSES.PEDAL_PAD,
 };
 
 /**
@@ -125,15 +127,17 @@ export async function initMixer() {
   // ── Initialize synths ──
   const leadConfig = LEAD_INSTRUMENTS.find(i => i.id === leadSlot.getCurrentId());
   const bassConfig = BASS_INSTRUMENTS.find(i => i.id === bassSlot.getCurrentId());
+  const padSampleConfig = PAD_INSTRUMENTS.find(i => i.id === DEFAULT_PAD_SAMPLE);
 
   const pad = createPadSynth({ outBus: BUSES.PAD });
 
-  const [lead, drone] = await Promise.all([
+  const [lead, drone, pedalPad] = await Promise.all([
     createSampleSynth(leadConfig, { outBus: BUSES.LEAD, groupId: GROUPS.LEAD }),
     createSampleSynth(bassConfig, { outBus: BUSES.DRONE, groupId: GROUPS.DRONE }),
+    createSampleSynth(padSampleConfig, { outBus: BUSES.PEDAL_PAD, groupId: GROUPS.PEDAL_PAD }),
   ]);
 
-  synths = { pad, drone, lead };
+  synths = { pad, drone, lead, pedalPad };
 
   // ── Chord trigger registry ──
   // Each entry defines how a track responds to a chord event.

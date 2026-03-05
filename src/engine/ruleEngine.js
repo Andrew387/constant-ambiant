@@ -13,7 +13,7 @@
  *   - Release calls don't pass a `time` parameter
  */
 
-import rulesConfig, { CHORD_SKIP_PROBABILITY, TRACK_SKIP_RELEASE } from './rules.config.js';
+import rulesConfig, { CHORD_SKIP_PROBABILITY, TRACK_SKIP_RELEASE, SECTION_DURATIONS } from './rules.config.js';
 import { generateProgression, rebuildChordWithColor, MINOR_KEYS, TICKS_PER_UNIT } from '../harmony/progression.js';
 import { voiceChord } from '../harmony/voicing.js';
 // Synth triggers are now provided via the chordTriggers registry from mixer
@@ -27,6 +27,10 @@ import {
 } from './songStructure.js';
 import { updateSectionAutomation } from '../audio/effects/sectionAutomation.js';
 import { pickChordPlayingRule, applyChordPlayingRule, getCurrentRule, getBassOffsetBeat, getRuleState } from './chordPlayingRule.js';
+import {
+  setPedalSynth, findPedalNote, startPedalFadeIn,
+  schedulePedalFadeOut, stopPedal,
+} from './pedalTone.js';
 
 let config = { ...rulesConfig };
 let synths = null;
@@ -113,6 +117,9 @@ function swapInstrumentsForCycle() {
 }
 
 let lastChord = null;
+
+// Pre-generated progression for the next song cycle (created during outro)
+let pendingProgression = null;
 
 // ── Loop variation helpers ──
 
@@ -260,6 +267,43 @@ function generateLoopProgression() {
   );
 }
 
+/**
+ * Pre-generates the next progression during the outro so the pedal tone
+ * system can find and start playing a common note before the cycle ends.
+ * Does NOT mutate loop state — stores result in pendingProgression.
+ */
+function preGenerateNextProgression() {
+  const loopOctave = pickOctave();
+  const opts = { octave: loopOctave };
+
+  if (lastChord) {
+    opts.startChordRoot = lastChord.root;
+  } else {
+    opts.key = config.rootNote;
+  }
+
+  const prog = generateProgression(opts);
+  const chords = prog.chords.map((chord, idx) => {
+    const { notes: voicedNotes, offsets } = voiceChord(chord.notes, 2, true);
+    return {
+      symbol: chord.symbol,
+      root: chord.root,
+      quality: chord.quality,
+      octave: loopOctave,
+      notes: chord.notes,
+      voicedNotes,
+      offsets,
+      durationTicks: prog.rhythm[idx],
+    };
+  });
+
+  pendingProgression = { chords, prog };
+
+  const symbols = chords.map(c => c.symbol).join(' → ');
+  console.log(`[pedal] pre-generated next progression: ${prog.key} | ${symbols}`);
+  return { chords, key: prog.key };
+}
+
 function advanceLoop() {
   const needsFirstLoop = loop.length === 0;
 
@@ -279,14 +323,52 @@ function advanceLoop() {
     loopPassCount++;
     const { sectionChanged, isNewCycle } = advanceSongProgression();
 
-    if (isNewCycle) {
+    // Entering the outro → pre-generate next progression and start pedal tone
+    if (sectionChanged && !isNewCycle && getCurrentSection().type === 'outro') {
       try {
-        generateLoopProgression();
+        const { chords, key } = preGenerateNextProgression();
+        const keyRoot = key.replace(' minor', '');
+        const pedalPC = findPedalNote(chords, keyRoot);
+        const baseSec = chordDurationInSeconds();
+        const outroSec = SECTION_DURATIONS.outro * loop.length * baseSec;
+        startPedalFadeIn(pedalPC, outroSec);
       } catch (err) {
-        console.error('[loop] generation failed, replaying previous loop:', err);
+        console.warn('[pedal] pre-generation failed:', err);
+      }
+    }
+
+    if (isNewCycle) {
+      // Use pre-generated progression if available
+      if (pendingProgression) {
+        const { chords, prog } = pendingProgression;
+        baseLoop = chords;
+        loop = chords;
+        loopPosition = 0;
+        lastChord = chords[chords.length - 1];
+
+        const symbols = chords.map(c => c.symbol).join(' → ');
+        const section = getCurrentSection();
+        console.log(
+          `[loop] ── new progression (pre-generated) ──  ${prog.key} | ${symbols} ` +
+          `(${config.tempo.current}bpm) [${section.type}]`
+        );
+        pendingProgression = null;
+      } else {
+        try {
+          generateLoopProgression();
+        } catch (err) {
+          console.error('[loop] generation failed, replaying previous loop:', err);
+        }
       }
       loopPassCount = 0;
       driftTempo();
+
+      // Schedule pedal tone fade-out during intro or main1
+      const baseSec = chordDurationInSeconds();
+      const transitionSec = SECTION_DURATIONS.transition * loop.length * baseSec;
+      const introSec = SECTION_DURATIONS.intro * loop.length * baseSec;
+      const mainSec = SECTION_DURATIONS.main * loop.length * baseSec;
+      schedulePedalFadeOut(transitionSec, introSec, mainSec);
 
       if (texturePlayer) {
         texturePlayer.swap();
@@ -409,6 +491,11 @@ export function start(mixerSynths, mixerTexturePlayer, callbacks = {}) {
   setTempoImmediate(config.tempo.current);
   syncEnvelopesToDuration();
 
+  // Wire up pedal tone synth
+  if (synths.pedalPad) {
+    setPedalSynth(synths.pedalPad);
+  }
+
   console.log(`[engine] starting — ${config.rootNote} minor, ${config.tempo.current}bpm`);
 
   startClock();
@@ -446,6 +533,8 @@ export function stop() {
   if (synths && synths.lead && synths.lead.releaseAll)  synths.lead.releaseAll();
   if (synths && synths.drone && synths.drone.releaseAll) synths.drone.releaseAll();
 
+  stopPedal();
+
   chordCount = 0;
   baseLoop = [];
   loop = [];
@@ -453,6 +542,7 @@ export function stop() {
   loopPassCount = 0;
   lastPlayedPosition = 0;
   lastChord = null;
+  pendingProgression = null;
   swapLeadFn = null;
   swapBassFn = null;
   leadIsPlucked = false;

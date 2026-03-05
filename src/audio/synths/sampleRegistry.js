@@ -22,6 +22,12 @@ export const LEAD_INSTRUMENTS = [
   { id: 'distantBell',      name: 'Distant Bells', folder: 'Lead/Plucked/distant bells',     filePrefix: 'distantBell',      plucked: true },
 ];
 
+export const PAD_INSTRUMENTS = [
+  { id: 'analogWaves', name: 'Analog Waves', folder: 'pad/loopable/analogWaves', filePrefix: 'analogWaves', plucked: false },
+];
+
+export const DEFAULT_PAD_SAMPLE = 'analogWaves';
+
 export const BASS_INSTRUMENTS = [
   { id: 'bloomingbasslong', name: 'Blooming Bass', folder: 'Bass/Loopable/bloomingbasslong', filePrefix: 'bloomingbasslong', plucked: false },
   { id: 'basskeylong',      name: 'Bass Keys',     folder: 'Bass/Plucked/basskeylong',       filePrefix: 'basskeylong',      plucked: true },

@@ -145,6 +145,11 @@ export const TRACK_PROFILES = {
     },
   },
 
+  pedalPad: {
+    gain: 0.35,
+    chain: [],
+  },
+
   sampleTexture: {
     gain: 0.35,
     chain: [
