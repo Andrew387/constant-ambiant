@@ -21,10 +21,10 @@ export const DARK_ROOTS = ['C', 'G', 'D', 'A', 'E', 'F', 'Bb', 'Eb', 'Ab'];
 export const SECTION_DURATIONS = {
   transition: 4,
   intro: 4,
-  main: 8,
+  main: 4,
   innerTransition: 1,
-  main2: 8,
-  outro: 4,
+  main2: 4,
+  outro: 2,
 };
 
 /**

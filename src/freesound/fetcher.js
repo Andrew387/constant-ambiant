@@ -16,34 +16,45 @@ function randomQuery() {
 /**
  * Fetches a page of short sound effects from Freesound.
  * Filters to sounds under 10 seconds for quick loading and punchy SFX.
+ * If the randomly chosen page 404s (beyond total pages), retries with page 1.
  */
 async function searchSounds(query) {
-  const page = Math.floor(Math.random() * MAX_PAGES) + 1;
-  const params = new URLSearchParams({
-    query,
-    token: FREESOUND_API_KEY,
-    fields: 'id,name,previews,duration',
-    page_size: PAGE_SIZE,
-    page,
-    filter: 'duration:[0 TO 10]',
-  });
+  let page = Math.floor(Math.random() * MAX_PAGES) + 1;
 
-  const res = await fetch(`${API_BASE}/search/text/?${params}`);
-  if (!res.ok) {
-    console.warn(`[freesound] search failed (${res.status}): ${query}`);
-    return [];
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const params = new URLSearchParams({
+      query,
+      token: FREESOUND_API_KEY,
+      fields: 'id,name,previews,duration',
+      page_size: PAGE_SIZE,
+      page,
+      filter: 'duration:[0 TO 10]',
+    });
+
+    const res = await fetch(`${API_BASE}/search/text/?${params}`);
+    if (res.status === 404 && page > 1) {
+      // Page out of range — retry with page 1
+      page = 1;
+      continue;
+    }
+    if (!res.ok) {
+      console.warn(`[freesound] search failed (${res.status}): ${query}`);
+      return [];
+    }
+
+    const data = await res.json();
+    if (!data.results || data.results.length === 0) return [];
+
+    return data.results
+      .filter(r => r.previews && r.previews['preview-lq-mp3'])
+      .map(r => ({
+        id: r.id,
+        name: r.name,
+        previewUrl: r.previews['preview-lq-mp3'],
+      }));
   }
 
-  const data = await res.json();
-  if (!data.results || data.results.length === 0) return [];
-
-  return data.results
-    .filter(r => r.previews && r.previews['preview-lq-mp3'])
-    .map(r => ({
-      id: r.id,
-      name: r.name,
-      previewUrl: r.previews['preview-lq-mp3'],
-    }));
+  return [];
 }
 
 /**

@@ -12,15 +12,21 @@ import {
   advanceSongProgression, getSongState,
 } from './songStructure.js';
 import { updateSectionAutomation } from '../audio/effects/sectionAutomation.js';
-import { pickChordPlayingRule, applyChordPlayingRule, getCurrentRule } from './chordPlayingRule.js';
+import { pickChordPlayingRule, applyChordPlayingRule, getCurrentRule, getBassOffsetBeat } from './chordPlayingRule.js';
 
 let config = { ...rulesConfig };
 let synths = null;
 let texturePlayer = null;
 let swapLeadFn = null;
+let swapBassFn = null;
 let running = false;
 let chordCount = 0;
 let loopTimeoutId = null;
+
+// ── Plucked instrument state ──
+// Updated after each instrument swap; used to apply plucked-specific rules.
+let leadIsPlucked = false;
+let bassIsPlucked = false;
 
 // ── Loop state ──
 // A loop is a variable-length progression that loops continuously.
@@ -68,6 +74,45 @@ function driftTempo() {
   const newBpm = Math.round(Math.min(max, Math.max(min, config.tempo.current + drift)));
   config.tempo.current = newBpm;
   rampTempo(newBpm);
+}
+
+/**
+ * Swaps both lead and bass to random instruments, then updates
+ * plucked state and re-picks the chord playing rule.
+ *
+ * The swap functions are async (loading samples) — first few chords of a
+ * new cycle may still use the previous instruments while loading completes.
+ * This creates a natural cross-fade transition rather than a hard cut.
+ */
+function swapInstrumentsForCycle() {
+  const swaps = [];
+  if (swapLeadFn) swaps.push(swapLeadFn());
+  if (swapBassFn) swaps.push(swapBassFn());
+
+  if (swaps.length === 0) {
+    // No swap callbacks — pick rule with current state
+    pickChordPlayingRule({ leadPlucked: leadIsPlucked, progressionLength: baseLoop.length });
+    return;
+  }
+
+  Promise.all(swaps).then(results => {
+    if (!running) return; // engine stopped while loading
+
+    const [leadResult, bassResult] = results;
+    if (leadResult) leadIsPlucked = leadResult.plucked ?? false;
+    if (bassResult) bassIsPlucked = bassResult.plucked ?? false;
+
+    pickChordPlayingRule({ leadPlucked: leadIsPlucked, bassPlucked: bassIsPlucked, progressionLength: baseLoop.length });
+    syncEnvelopesToDuration();
+
+    console.log(
+      `[engine] instruments swapped — lead ${leadIsPlucked ? 'plucked' : 'loopable'}, ` +
+      `bass ${bassIsPlucked ? 'plucked' : 'loopable'}`
+    );
+  }).catch(err => {
+    console.warn('[engine] instrument swap error, keeping current rule:', err);
+    pickChordPlayingRule({ leadPlucked: leadIsPlucked, progressionLength: baseLoop.length });
+  });
 }
 
 // Track the last chord so the next progression can chain from it
@@ -313,18 +358,17 @@ function advanceLoop() {
       }
       loopPassCount = 0;
       driftTempo();
-      pickChordPlayingRule();
 
       // Swap to a new random texture sample for this cycle
       if (texturePlayer) {
         texturePlayer.swap();
       }
 
-      // Swap to a new random lead instrument for this cycle
-      // Re-sync envelopes after swap so attack/release config applies to the new synth
-      if (swapLeadFn) {
-        swapLeadFn().then(() => syncEnvelopesToDuration());
-      }
+      // Swap both lead and bass to a random instrument for this cycle.
+      // After both swaps complete: update plucked state, re-pick the chord
+      // playing rule (biased toward sequential when lead is plucked), and
+      // re-sync envelopes to the new instruments.
+      swapInstrumentsForCycle();
     } else if (loopPassCount > 0) {
       // Same cycle — apply micro-variations to keep it fresh
       loop = createVariedLoop(baseLoop);
@@ -396,7 +440,17 @@ function scheduleNextChord() {
       if (section.tracks.drone) {
         const bassNoteName = notes[0].match(/^([A-G]#?)/)[1];
         const droneNote = `${bassNoteName}2`;
-        triggerDrone(synths, droneNote, chordSec, now);
+
+        // Plucked bass: each chord position in the progression has its own
+        // locked beat offset (20% chance per position, decided once at cycle
+        // start in pickChordPlayingRule). The pattern repeats every loop pass.
+        const bassOffset = getBassOffsetBeat(lastPlayedPosition);
+        let bassTime = now;
+        if (bassOffset > 0) {
+          bassTime = now + (chordSec * bassOffset / 4);
+        }
+
+        triggerDrone(synths, droneNote, chordSec, bassTime);
       }
     } catch (err) {
       console.warn('[engine] error triggering chord, continuing:', err);
@@ -427,12 +481,14 @@ function scheduleNextChord() {
  * @param {object} [mixerTexturePlayer] - Texture sample player from the mixer
  * @param {object} [callbacks] - Optional callbacks for cycle events
  * @param {Function} [callbacks.onSwapLead] - Called each new cycle to swap lead instrument
+ * @param {Function} [callbacks.onSwapBass] - Called each new cycle to swap bass instrument
  */
 export function start(mixerSynths, mixerTexturePlayer, callbacks = {}) {
   if (running) return;
   synths = mixerSynths;
   texturePlayer = mixerTexturePlayer || null;
   swapLeadFn = callbacks.onSwapLead || null;
+  swapBassFn = callbacks.onSwapBass || null;
   running = true;
   chordCount = 0;
   baseLoop = [];
@@ -440,6 +496,8 @@ export function start(mixerSynths, mixerTexturePlayer, callbacks = {}) {
   loopPosition = 0;
   loopPassCount = 0;
   lastPlayedPosition = 0;
+  leadIsPlucked = false;
+  bassIsPlucked = false;
 
   initSongStructure();
   pickChordPlayingRule();
@@ -454,6 +512,10 @@ export function start(mixerSynths, mixerTexturePlayer, callbacks = {}) {
   if (texturePlayer) {
     texturePlayer.start();
   }
+
+  // Swap to random instruments for the first cycle — the default
+  // instruments play the first few chords while the new ones load.
+  swapInstrumentsForCycle();
 
   // First chord after a short delay to let audio context settle
   loopTimeoutId = setTimeout(scheduleNextChord, 100);
@@ -497,6 +559,9 @@ export function stop() {
   lastPlayedPosition = 0;
   lastChord = null;
   swapLeadFn = null;
+  swapBassFn = null;
+  leadIsPlucked = false;
+  bassIsPlucked = false;
 }
 
 /**
