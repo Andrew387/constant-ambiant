@@ -71,6 +71,10 @@ export const TRACK_PROFILES = {
     gain: 0.7,
     chain: [
       {
+        type: 'Compressor',
+        params: { threshold: -20, ratio: 3, attack: 0.05, release: 0.5 },
+      },
+      {
         id: 'duckGain',
         type: 'Gain',
         params: { gain: 1 },
@@ -111,7 +115,7 @@ export const TRACK_PROFILES = {
       {
         type: 'Filter',
         params: { type: 'lowpass', frequency: 3000, Q: 0.7, rolloff: -12 },
-        lfo: { frequency: 0.02, min: 800, max: 6000, type: 'sine', target: 'frequency' },
+        lfo: { frequency: 0.04, min: 800, max: 6000, type: 'sine', target: 'frequency' },
       },
       {
         type: 'PingPongDelay',

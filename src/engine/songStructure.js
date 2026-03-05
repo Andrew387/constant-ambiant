@@ -9,47 +9,10 @@
  * is generated at the start of each cycle (transition) and loops through all
  * sections until the next transition generates a fresh one.
  *
- * Sections carry a `tracks` config that gates which instruments are active.
- * For now all tracks are enabled; per-section sound design will be layered
- * on top of this foundation.
+ * Section definitions are centralized in sections.config.js.
  */
 
-import { SECTION_DURATIONS } from './rules.config.js';
-
-// ── Section definitions ──
-
-const SONG_SECTIONS = [
-  {
-    type: 'transition',
-    duration: SECTION_DURATIONS.transition,
-    tracks: { pad: true, drone: true, archive: true, freesound: true, lead: true },
-  },
-  {
-    type: 'intro',
-    duration: SECTION_DURATIONS.intro,
-    tracks: { pad: true, drone: true, archive: true, freesound: true, lead: true },
-  },
-  {
-    type: 'main',
-    duration: SECTION_DURATIONS.main,
-    tracks: { pad: true, drone: true, archive: true, freesound: true, lead: true },
-  },
-  {
-    type: 'innerTransition',
-    duration: SECTION_DURATIONS.innerTransition,
-    tracks: { pad: true, drone: true, archive: true, freesound: true, lead: true },
-  },
-  {
-    type: 'main2',
-    duration: SECTION_DURATIONS.main2,
-    tracks: { pad: true, drone: true, archive: true, freesound: true, lead: true },
-  },
-  {
-    type: 'outro',
-    duration: SECTION_DURATIONS.outro,
-    tracks: { pad: true, drone: true, archive: true, freesound: true, lead: true },
-  },
-];
+import { SECTIONS } from './sections.config.js';
 
 // ── State ──
 
@@ -64,7 +27,7 @@ export function initSongStructure() {
   currentSectionIndex = 0;
   progressionsInSection = 0;
   cycleCount = 0;
-  console.log(`[song] ── ${SONG_SECTIONS[0].type} ── (cycle 1)`);
+  console.log(`[song] ── ${SECTIONS[0].type} ── (cycle 1)`);
 }
 
 /**
@@ -72,7 +35,7 @@ export function initSongStructure() {
  * @returns {{ type: string, duration: number, tracks: object }}
  */
 export function getCurrentSection() {
-  return SONG_SECTIONS[currentSectionIndex];
+  return SECTIONS[currentSectionIndex];
 }
 
 /**
@@ -85,7 +48,7 @@ export function getCurrentSection() {
 export function advanceSongProgression() {
   progressionsInSection++;
 
-  const section = SONG_SECTIONS[currentSectionIndex];
+  const section = SECTIONS[currentSectionIndex];
 
   if (progressionsInSection < section.duration) {
     return { sectionChanged: false, isNewCycle: false };
@@ -96,13 +59,13 @@ export function advanceSongProgression() {
   currentSectionIndex++;
 
   // Wrap around = new cycle
-  const isNewCycle = currentSectionIndex >= SONG_SECTIONS.length;
+  const isNewCycle = currentSectionIndex >= SECTIONS.length;
   if (isNewCycle) {
     currentSectionIndex = 0;
     cycleCount++;
   }
 
-  const newSection = SONG_SECTIONS[currentSectionIndex];
+  const newSection = SECTIONS[currentSectionIndex];
   console.log(
     `[song] ── ${newSection.type} ── ` +
     `(cycle ${cycleCount + 1}, pass ${progressionsInSection + 1}/${newSection.duration})`
@@ -116,8 +79,8 @@ export function advanceSongProgression() {
  * @returns {{ type: string, duration: number, tracks: object }}
  */
 export function getNextSection() {
-  const nextIndex = (currentSectionIndex + 1) % SONG_SECTIONS.length;
-  return SONG_SECTIONS[nextIndex];
+  const nextIndex = (currentSectionIndex + 1) % SECTIONS.length;
+  return SECTIONS[nextIndex];
 }
 
 /**
@@ -126,7 +89,7 @@ export function getNextSection() {
  * @returns {number}
  */
 export function getSectionProgress() {
-  const section = SONG_SECTIONS[currentSectionIndex];
+  const section = SECTIONS[currentSectionIndex];
   if (section.duration <= 1) return 0.5; // single-pass sections stay at midpoint
   return progressionsInSection / section.duration;
 }
@@ -135,13 +98,13 @@ export function getSectionProgress() {
  * Returns the full song state for logging / debug.
  */
 export function getSongState() {
-  const section = SONG_SECTIONS[currentSectionIndex];
+  const section = SECTIONS[currentSectionIndex];
   return {
     section: section.type,
     sectionIndex: currentSectionIndex,
     progressionsInSection,
     sectionDuration: section.duration,
     cycleCount,
-    totalSections: SONG_SECTIONS.length,
+    totalSections: SECTIONS.length,
   };
 }

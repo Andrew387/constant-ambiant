@@ -1,135 +1,135 @@
-import * as Tone from 'tone';
+/**
+ * Pad synth — OSC wrapper for SuperCollider \padVoice SynthDef.
+ *
+ * Maintains a map of held notes → SC node IDs. When a chord changes:
+ *   - Old notes: send gate=0 (triggers release envelope, SC frees after)
+ *   - New notes: /s_new with gate=1 (starts attack envelope)
+ *
+ * The overlapping attack/release envelopes create the same seamless
+ * crossfade as the original Tone.js implementation.
+ */
+
+import { synthNew, nodeSet, nodeFree } from '../../sc/osc.js';
+import { allocNodeId, GROUPS, BUSES } from '../../sc/nodeIds.js';
+import { ENVELOPE_FLOOR } from '../../engine/rules.config.js';
+
+const MAX_VOICES = 16;
 
 /**
- * Creates a pad synth: very slow attack, long release, detuned oscillators.
- * Uses triggerAttack/triggerRelease (NOT triggerAttackRelease) so each chord
- * sustains indefinitely until the next chord event releases it.
- * Attack and release scale proportionally to chord duration (in seconds),
- * so crossfades stay musical at any BPM and measure count.
+ * Creates a pad synth controller.
  *
- * @param {Tone.ToneAudioNode} destination - Effects chain node to connect to
- * @returns {object}
+ * @param {object} [options]
+ * @param {number} [options.outBus] - Output bus (default: PAD bus)
+ * @returns {object} Pad synth API
  */
-export function createPadSynth(destination) {
-  const synth = new Tone.PolySynth(Tone.Synth, {
-    maxPolyphony: 16,
-    oscillator: {
-      type: 'sine',
-      detune: -8,
-    },
-    envelope: {
-      attack: 8,
-      decay: 4,
-      sustain: 0.7,
-      release: 12,
-      attackCurve: 'linear',
-      releaseCurve: 'exponential',
-    },
-    volume: -26,
-  });
+export function createPadSynth(options = {}) {
+  const outBus = options.outBus ?? BUSES.PAD;
 
-  const synth2 = new Tone.PolySynth(Tone.Synth, {
-    maxPolyphony: 16,
-    oscillator: {
-      type: 'sine',
-      detune: 7,
-    },
-    envelope: {
-      attack: 10,
-      decay: 5,
-      sustain: 0.5,
-      release: 14,
-      attackCurve: 'linear',
-      releaseCurve: 'exponential',
-    },
-    volume: -30,
-  });
+  // Map of note name → { nodeId }
+  const heldNotes = new Map();
 
-  // High-pass filter to cut low frequencies and leave room for the drone
-  const hpFilter = new Tone.Filter({
-    type: 'highpass',
-    frequency: 180,
-    rolloff: -12,
-  });
-  hpFilter.connect(destination);
+  // Current envelope parameters (scaled by ruleEngine)
+  let atk1 = 8, dec1 = 4, sus1 = 0.7, rel1 = 12;
+  let atk2 = 10, dec2 = 5, sus2 = 0.5, rel2 = 14;
 
-  synth.connect(hpFilter);
-  synth2.connect(hpFilter);
+  function noteToFreq(note) {
+    const match = note.match(/^([A-G]#?)(\d+)$/);
+    if (!match) return 440;
+    const noteNames = { 'C': 0, 'C#': 1, 'D': 2, 'D#': 3, 'E': 4, 'F': 5, 'F#': 6, 'G': 7, 'G#': 8, 'A': 9, 'A#': 10, 'B': 11 };
+    const semitone = noteNames[match[1]];
+    const octave = parseInt(match[2]);
+    const midi = (octave + 1) * 12 + semitone;
+    return 440 * Math.pow(2, (midi - 69) / 12);
+  }
 
-  let heldNotes = [];
+  function startVoice(note) {
+    const freq = noteToFreq(note);
+    const nodeId = allocNodeId();
+
+    synthNew('padVoice', nodeId, 0, GROUPS.PAD, {
+      out: outBus,
+      freq,
+      gate: 1,
+      atk1, dec1, sus1, rel1,
+      atk2, dec2, sus2, rel2,
+      amp1: 0.05,
+      amp2: 0.032,
+      detune1: -8,
+      detune2: 7,
+      hpFreq: 180,
+    });
+
+    heldNotes.set(note, { nodeId });
+  }
+
+  function releaseVoice(note) {
+    const voice = heldNotes.get(note);
+    if (!voice) return;
+
+    // Set gate=0 to trigger the release envelope
+    // SC will free the synth via doneAction: 2
+    nodeSet(voice.nodeId, { gate: 0 });
+    heldNotes.delete(note);
+  }
 
   return {
     /**
-     * Scales attack/release envelopes as fractions of chord duration,
-     * further scaled by the user-controlled attack/release levels.
-     *
-     * @param {number} chordSec - Chord duration in seconds (derived from BPM)
-     * @param {number} atkLevel - Attack multiplier (0 = instant, 1.0 = default)
-     * @param {number} relLevel - Release multiplier (0 = instant, 1.0 = default)
+     * Scales attack/release envelopes as fractions of chord duration.
      */
     updateEnvelopes(chordSec, atkLevel = 1.0, relLevel = 1.0) {
-      // Minimum 0.01s to avoid Tone.js zero-length envelope errors
-      const floor = 0.01;
-
-      // Synth 1: base ratios attack=0.8, decay=0.4, release=1.2
-      const s1Attack = Math.max(floor, chordSec * 0.8 * atkLevel);
-      const s1Decay = Math.max(floor, chordSec * 0.4 * atkLevel);
-      const s1Release = Math.max(floor, chordSec * 1.2 * relLevel);
-      synth.set({ envelope: { attack: s1Attack, decay: s1Decay, release: s1Release } });
-
-      // Synth 2: base ratios attack=1.0, decay=0.5, release=1.4
-      const s2Attack = Math.max(floor, chordSec * 1.0 * atkLevel);
-      const s2Decay = Math.max(floor, chordSec * 0.5 * atkLevel);
-      const s2Release = Math.max(floor, chordSec * 1.4 * relLevel);
-      synth2.set({ envelope: { attack: s2Attack, decay: s2Decay, release: s2Release } });
+      const floor = ENVELOPE_FLOOR;
+      atk1 = Math.max(floor, chordSec * 0.8 * atkLevel);
+      dec1 = Math.max(floor, chordSec * 0.4 * atkLevel);
+      rel1 = Math.max(floor, chordSec * 1.2 * relLevel);
+      atk2 = Math.max(floor, chordSec * 1.0 * atkLevel);
+      dec2 = Math.max(floor, chordSec * 0.5 * atkLevel);
+      rel2 = Math.max(floor, chordSec * 1.4 * relLevel);
     },
 
     /**
-     * Releases previous notes and attacks new ones at the same time.
+     * Releases previous notes and attacks new ones.
      * Old release tails blend with new attack ramps = seamless crossfade.
      */
-    playChord(notes, time) {
-      if (heldNotes.length > 0) {
-        synth.triggerRelease(heldNotes, time);
-        synth2.triggerRelease(heldNotes, time);
+    playChord(notes) {
+      // Release all currently held notes
+      for (const note of [...heldNotes.keys()]) {
+        releaseVoice(note);
       }
-      synth.triggerAttack(notes, time);
-      synth2.triggerAttack(notes, time);
-      heldNotes = [...notes];
+      // Start new notes
+      for (const note of notes) {
+        startVoice(note);
+      }
     },
 
     /**
-     * Adds notes to the currently held chord without releasing existing notes.
-     * Used by sequential chord playing rules to bloom higher notes over time.
+     * Adds notes without releasing existing ones (bloom).
      */
-    addNotes(notes, time) {
-      // Cap total held notes at maxPolyphony to prevent unbounded growth.
-      // Release oldest notes first to make room for new ones.
-      const MAX_HELD = 16;
-      const overflow = (heldNotes.length + notes.length) - MAX_HELD;
+    addNotes(notes) {
+      // Cap total held notes at MAX_VOICES
+      const overflow = (heldNotes.size + notes.length) - MAX_VOICES;
       if (overflow > 0) {
-        const toRelease = heldNotes.slice(0, overflow);
-        synth.triggerRelease(toRelease, time);
-        synth2.triggerRelease(toRelease, time);
-        heldNotes = heldNotes.slice(overflow);
+        const keys = [...heldNotes.keys()];
+        for (let i = 0; i < overflow; i++) {
+          releaseVoice(keys[i]);
+        }
       }
-      synth.triggerAttack(notes, time);
-      synth2.triggerAttack(notes, time);
-      heldNotes = [...heldNotes, ...notes];
+      for (const note of notes) {
+        startVoice(note);
+      }
     },
 
-    releaseAll(time) {
-      if (heldNotes.length > 0) {
-        synth.triggerRelease(heldNotes, time);
-        synth2.triggerRelease(heldNotes, time);
-        heldNotes = [];
+    releaseAll() {
+      for (const note of [...heldNotes.keys()]) {
+        releaseVoice(note);
       }
     },
 
     dispose() {
-      synth.dispose();
-      synth2.dispose();
-      hpFilter.dispose();
+      // Force-free all nodes immediately
+      for (const [note, voice] of heldNotes) {
+        nodeFree(voice.nodeId);
+      }
+      heldNotes.clear();
     },
   };
 }

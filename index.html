@@ -3,304 +3,1461 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Constant Ambient</title>
+  <title>Constant Ambient — Debug</title>
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
 
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-      background: #0a0a0f;
-      color: #c8c8d4;
-      display: flex;
-      justify-content: center;
-      align-items: center;
+      font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+      background: #08080e;
+      color: #b0b0c8;
+      font-size: 12px;
+      line-height: 1.5;
+      overflow-x: hidden;
+    }
+
+    /* ── Layout ── */
+    #dashboard {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      grid-template-rows: auto;
+      gap: 1px;
+      background: #1a1a2e;
       min-height: 100vh;
     }
 
-    #app {
-      text-align: center;
-      padding: 2rem;
+    .panel {
+      background: #0c0c14;
+      padding: 12px 14px;
     }
 
-    h1 {
-      font-size: 1.4rem;
-      font-weight: 300;
-      letter-spacing: 0.3em;
+    .panel-title {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.2em;
       text-transform: uppercase;
-      margin-bottom: 2.5rem;
-      color: #8888aa;
+      color: #4a4a6a;
+      margin-bottom: 10px;
+      padding-bottom: 5px;
+      border-bottom: 1px solid #1a1a2e;
     }
 
-    #controls {
+    /* ── Top bar ── */
+    #topbar {
+      grid-column: 1 / -1;
       display: flex;
-      flex-direction: column;
       align-items: center;
-      gap: 1.5rem;
+      justify-content: space-between;
+      padding: 8px 14px;
+      background: #0a0a12;
+      border-bottom: 1px solid #1a1a2e;
     }
+
+    #topbar-left {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    #topbar h1 {
+      font-size: 13px;
+      font-weight: 400;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      color: #5a5a8a;
+    }
+
+    #connection-indicator {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 10px;
+      color: #555577;
+    }
+
+    #conn-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: #553333;
+      transition: background 0.3s;
+    }
+    #conn-dot.ok { background: #33aa55; }
 
     #play-btn {
-      width: 100px;
-      height: 100px;
-      border-radius: 50%;
-      border: 2px solid #444466;
       background: transparent;
-      color: #aaaacc;
-      font-size: 0.85rem;
+      border: 1px solid #333355;
+      color: #8888aa;
+      padding: 4px 18px;
+      font-family: inherit;
+      font-size: 11px;
       letter-spacing: 0.15em;
       text-transform: uppercase;
       cursor: pointer;
-      transition: all 0.4s ease;
+      border-radius: 3px;
+      transition: all 0.3s;
     }
+    #play-btn:hover { border-color: #5555aa; color: #bbbbdd; }
+    #play-btn.active { border-color: #6666bb; color: #ddddff; background: #16162a; }
 
-    #play-btn:hover {
-      border-color: #6666aa;
-      color: #ccccee;
-      box-shadow: 0 0 30px rgba(100, 100, 180, 0.15);
-    }
-
-    #play-btn.active {
-      border-color: #7777bb;
-      box-shadow: 0 0 40px rgba(100, 100, 200, 0.2);
-      color: #ddddff;
-    }
-
-    .control-group {
+    /* ── Data rows ── */
+    .row {
       display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 0.5rem;
+      justify-content: space-between;
+      align-items: baseline;
+      padding: 2px 0;
     }
 
-    label {
-      font-size: 0.7rem;
-      letter-spacing: 0.2em;
+    .row-label {
+      color: #4a4a6a;
+      font-size: 10px;
       text-transform: uppercase;
-      color: #666688;
+      letter-spacing: 0.1em;
+      flex-shrink: 0;
     }
 
-    input[type="range"] {
+    .row-value {
+      color: #9999cc;
+      text-align: right;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 65%;
+    }
+
+    .row-value.bright { color: #ccccff; }
+    .row-value.dim { color: #555577; }
+    .row-value.accent { color: #77aacc; }
+    .row-value.warn { color: #ccaa55; }
+
+    /* ── Progression display ── */
+    #progression-display {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin: 6px 0;
+    }
+
+    .chord-pill {
+      background: #14142a;
+      border: 1px solid #222244;
+      border-radius: 3px;
+      padding: 3px 8px;
+      font-size: 11px;
+      color: #7777aa;
+      transition: all 0.3s;
+    }
+
+    .chord-pill.active {
+      background: #1a1a40;
+      border-color: #5555aa;
+      color: #bbbbee;
+      box-shadow: 0 0 8px rgba(100, 100, 200, 0.15);
+    }
+
+    .chord-pill.played {
+      color: #555577;
+      border-color: #1a1a2e;
+    }
+
+    /* ── Track meters ── */
+    .track-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 3px 0;
+    }
+
+    .track-name {
+      width: 80px;
+      font-size: 10px;
+      color: #5a5a7a;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .track-bar-bg {
+      flex: 1;
+      height: 4px;
+      background: #14142a;
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .track-bar-fill {
+      height: 100%;
+      background: #4a4a8a;
+      border-radius: 2px;
+      transition: width 0.3s;
+    }
+
+    .track-val {
+      width: 30px;
+      text-align: right;
+      font-size: 10px;
+      color: #5a5a7a;
+    }
+
+    /* ── Automation display ── */
+    .auto-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 2px 0;
+      font-size: 10px;
+    }
+
+    .auto-name {
+      width: 70px;
+      color: #4a4a6a;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .auto-bright-bar {
+      width: 50px;
+      height: 3px;
+      background: #14142a;
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .auto-bright-fill {
+      height: 100%;
+      background: #6688aa;
+      border-radius: 2px;
+      transition: width 0.5s;
+    }
+
+    .auto-detail {
+      color: #555577;
+      font-size: 9px;
+    }
+
+    /* ── Effect chain display ── */
+    .effect-chain {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 3px;
+      margin: 3px 0;
+    }
+
+    .effect-tag {
+      background: #12122a;
+      border: 1px solid #1e1e3a;
+      border-radius: 2px;
+      padding: 1px 6px;
+      font-size: 9px;
+      color: #6666aa;
+      transition: border-color 0.3s, color 0.3s, background 0.3s;
+    }
+
+    .effect-tag.automated {
+      border-color: #335577;
+      color: #77aacc;
+    }
+
+    .effect-tag.active {
+      border-color: #447744;
+      color: #88cc88;
+      background: #0f1f0f;
+    }
+
+    .effect-tag.silent {
+      border-color: #442222;
+      color: #664444;
+      background: #0f0808;
+    }
+
+    .effect-tag.swell {
+      border-color: #776633;
+      color: #ccaa55;
+      background: #1a1508;
+    }
+
+    /* ── Live automation values ── */
+    .fx-track {
+      margin-bottom: 8px;
+    }
+
+    .fx-track-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 2px;
+    }
+
+    .fx-track-name {
+      width: 80px;
+      font-size: 10px;
+      color: #5a5a7a;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .fx-live-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-left: 88px;
+      margin-top: 2px;
+    }
+
+    .fx-live-label {
+      font-size: 8px;
+      color: #444466;
+      width: 55px;
+    }
+
+    .fx-live-bar-bg {
+      width: 80px;
+      height: 4px;
+      background: #14142a;
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .fx-live-bar-fill {
+      height: 100%;
+      border-radius: 2px;
+      transition: width 0.3s;
+    }
+
+    .fx-live-bar-fill.bright { background: #6688aa; }
+    .fx-live-bar-fill.duck { background: #88aa66; }
+    .fx-live-bar-fill.freq { background: #aa7766; }
+
+    .fx-live-val {
+      font-size: 9px;
+      color: #5a5a7a;
+      width: 65px;
+      text-align: right;
+    }
+
+    .fx-status-badge {
+      font-size: 8px;
+      padding: 0 4px;
+      border-radius: 2px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .fx-status-badge.active  { color: #448844; }
+    .fx-status-badge.silent  { color: #884444; background: #1a0808; }
+    .fx-status-badge.fade-in { color: #6688aa; background: #0a1018; }
+    .fx-status-badge.swell   { color: #aa8844; background: #1a1508; }
+
+    /* ── Section progress bar ── */
+    .section-progress {
+      width: 100%;
+      height: 3px;
+      background: #14142a;
+      border-radius: 2px;
+      margin: 6px 0;
+      overflow: hidden;
+    }
+
+    .section-progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #3a3a8a, #6a6acc);
+      border-radius: 2px;
+      transition: width 0.5s;
+    }
+
+    /* ── Section map ── */
+    .section-map {
+      display: flex;
+      gap: 2px;
+      margin: 6px 0;
+    }
+
+    .section-block {
+      flex: 1;
+      height: 14px;
+      background: #14142a;
+      border-radius: 2px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 8px;
+      color: #3a3a5a;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      transition: all 0.3s;
+    }
+
+    .section-block.active {
+      background: #1e1e44;
+      color: #9999cc;
+      box-shadow: 0 0 6px rgba(100, 100, 200, 0.1);
+    }
+
+    .section-block.completed {
+      background: #121228;
+      color: #444466;
+    }
+
+    /* ── Sliders ── */
+    .slider-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 0;
+    }
+
+    .slider-row label {
+      width: 85px;
+      font-size: 10px;
+      color: #5a5a7a;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .slider-row input[type="range"] {
       -webkit-appearance: none;
-      width: 180px;
+      flex: 1;
       height: 2px;
-      background: #333355;
+      background: #222244;
       outline: none;
       border-radius: 1px;
     }
 
-    input[type="range"]::-webkit-slider-thumb {
+    .slider-row input[type="range"]::-webkit-slider-thumb {
       -webkit-appearance: none;
-      width: 14px;
-      height: 14px;
+      width: 10px; height: 10px;
       border-radius: 50%;
-      background: #7777aa;
+      background: #6666aa;
       cursor: pointer;
-      transition: background 0.2s;
     }
 
-    input[type="range"]::-webkit-slider-thumb:hover {
-      background: #9999cc;
-    }
-
-    select {
-      background: #12121a;
-      color: #aaaacc;
-      border: 1px solid #333355;
-      padding: 0.4rem 1rem;
-      font-size: 0.8rem;
-      border-radius: 4px;
-      cursor: pointer;
-      outline: none;
-      letter-spacing: 0.1em;
-    }
-
-    select:hover {
-      border-color: #555577;
-    }
-
-    /* Instrument selector buttons */
-    .instrument-group {
-      display: flex;
-      align-items: center;
-      gap: 0.4rem;
-      flex-wrap: wrap;
-      justify-content: center;
-    }
-
-    .instrument-group > label {
-      font-size: 0.65rem;
-      letter-spacing: 0.15em;
-      text-transform: uppercase;
-      color: #666688;
-      min-width: 36px;
-    }
-
-    .instrument-btn {
-      background: #16161e;
-      color: #666688;
-      border: 1px solid #333355;
-      padding: 0.3rem 0.55rem;
-      font-size: 0.6rem;
-      font-family: inherit;
-      letter-spacing: 0.08em;
-      border-radius: 3px;
-      cursor: pointer;
-      transition: all 0.3s ease;
-    }
-
-    .instrument-btn:hover {
-      border-color: #555577;
-      color: #8888aa;
-    }
-
-    .instrument-btn.active {
-      border-color: #6666aa;
-      color: #ccccee;
-      background: #1e1e2e;
-    }
-
-    /* Debug Panel */
-    #debug-toggle {
-      position: fixed;
-      top: 12px;
-      right: 12px;
-      background: #16161e;
-      color: #666688;
-      border: 1px solid #333355;
-      padding: 0.3rem 0.7rem;
-      font-size: 0.65rem;
-      letter-spacing: 0.15em;
-      text-transform: uppercase;
-      border-radius: 3px;
-      cursor: pointer;
-      z-index: 100;
-    }
-
-    #debug-toggle:hover {
-      border-color: #555577;
-      color: #8888aa;
-    }
-
-    #debug-panel {
-      position: fixed;
-      top: 0;
-      right: -340px;
-      width: 320px;
-      height: 100vh;
-      background: #0e0e16;
-      border-left: 1px solid #222244;
-      padding: 50px 16px 16px;
-      overflow-y: auto;
-      transition: right 0.3s ease;
-      z-index: 90;
-      font-size: 0.75rem;
-    }
-
-    #debug-panel.open {
-      right: 0;
-    }
-
-    .debug-section {
-      margin-bottom: 18px;
-    }
-
-    .debug-section-label {
-      font-size: 0.6rem;
-      letter-spacing: 0.2em;
-      text-transform: uppercase;
-      color: #555577;
-      margin-bottom: 8px;
-      border-bottom: 1px solid #1a1a2e;
-      padding-bottom: 4px;
-    }
-
-    #spectrum-canvas {
-      width: 100%;
-      height: 120px;
-      border-radius: 3px;
-      background: #0a0a0f;
-    }
-
-    .meter-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-bottom: 6px;
-    }
-
-    .meter-label {
-      width: 52px;
-      font-size: 0.65rem;
-      color: #666688;
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-    }
-
-    .meter-bg {
-      flex: 1;
-      height: 6px;
-      background: #1a1a2e;
-      border-radius: 3px;
-      overflow: hidden;
-    }
-
-    .meter-fill {
-      height: 100%;
-      width: 0%;
-      background: #4488aa;
-      border-radius: 3px;
-      transition: width 0.1s ease;
-    }
-
-    .meter-value {
-      width: 60px;
-      font-size: 0.6rem;
-      color: #555577;
+    .slider-val {
+      width: 32px;
       text-align: right;
+      font-size: 10px;
+      color: #6666aa;
       font-variant-numeric: tabular-nums;
     }
 
-    .param-row {
-      margin-bottom: 10px;
+    /* ── Instrument buttons ── */
+    .inst-group {
+      margin: 6px 0;
     }
 
-    .param-row label {
-      display: block;
-      font-size: 0.6rem;
-      color: #666688;
-      margin-bottom: 3px;
+    .inst-group-label {
+      font-size: 9px;
+      color: #4a4a6a;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      margin-bottom: 4px;
     }
 
-    .param-row input[type="range"] {
-      width: 100%;
-      height: 2px;
+    .inst-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 3px;
     }
 
-    .param-value {
-      font-size: 0.6rem;
-      color: #7777aa;
-      margin-left: 6px;
-      font-variant-numeric: tabular-nums;
+    .inst-btn {
+      background: #12122a;
+      color: #555577;
+      border: 1px solid #222244;
+      padding: 2px 8px;
+      font-size: 10px;
+      font-family: inherit;
+      border-radius: 2px;
+      cursor: pointer;
+      transition: all 0.2s;
     }
 
-    #archive-status {
-      font-size: 0.7rem;
-      color: #666688;
+    .inst-btn:hover { border-color: #444466; color: #7777aa; }
+    .inst-btn.active { border-color: #5555aa; color: #bbbbdd; background: #1a1a3a; }
+
+    /* ── Log feed ── */
+    #log-feed {
+      font-size: 10px;
+      color: #445566;
+      max-height: 220px;
+      overflow-y: auto;
+      background: #06060c;
+      border-radius: 3px;
+      padding: 6px 8px;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    /* ── Voiced notes display ── */
+    .notes-display {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 3px;
+      margin: 4px 0;
+    }
+
+    .note-tag {
+      background: #14142e;
+      border: 1px solid #222244;
+      border-radius: 2px;
+      padding: 1px 5px;
+      font-size: 10px;
+      color: #7777bb;
+    }
+
+    /* ── Status tags ── */
+    .tag {
+      display: inline-block;
+      padding: 1px 6px;
+      border-radius: 2px;
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .tag.loopable { background: #1a2a1a; color: #55aa77; border: 1px solid #224422; }
+    .tag.plucked { background: #2a2a1a; color: #aaaa55; border: 1px solid #444422; }
+    .tag.running { background: #1a1a2a; color: #5577cc; border: 1px solid #223355; }
+    .tag.stopped { background: #2a1a1a; color: #cc5555; border: 1px solid #442222; }
+
+    /* ── Archive/Freesound status ── */
+    .ext-status {
+      font-size: 10px;
+      color: #556666;
       padding: 4px 0;
       white-space: pre-line;
       line-height: 1.5;
       word-break: break-word;
     }
+
+    /* ── VU Meters ── */
+    .vu-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 0;
+    }
+
+    .vu-name {
+      width: 65px;
+      font-size: 10px;
+      color: #5a5a7a;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .vu-bar-bg {
+      flex: 1;
+      height: 8px;
+      background: #0a0a14;
+      border-radius: 2px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .vu-bar-rms {
+      height: 100%;
+      background: linear-gradient(90deg, #225533, #44aa66, #aacc44, #cc6644);
+      border-radius: 2px;
+      transition: width 0.1s linear;
+      position: absolute;
+      top: 0; left: 0;
+    }
+
+    .vu-bar-peak {
+      position: absolute;
+      top: 0;
+      width: 2px;
+      height: 100%;
+      background: #cccc66;
+      transition: left 0.1s linear;
+      border-radius: 1px;
+    }
+
+    .vu-db {
+      width: 45px;
+      text-align: right;
+      font-size: 9px;
+      color: #5a5a7a;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .vu-db.hot { color: #cc6644; }
+    .vu-db.warm { color: #aacc44; }
+
+    /* ── Spanning panels ── */
+    .span-2 { grid-column: span 2; }
+    .span-3 { grid-column: 1 / -1; }
+
+    /* ── Responsive ── */
+    @media (max-width: 900px) {
+      #dashboard {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+    @media (max-width: 600px) {
+      #dashboard {
+        grid-template-columns: 1fr;
+      }
+    }
   </style>
 </head>
 <body>
-  <div id="app">
-    <h1>Constant Ambient</h1>
-    <div id="controls"></div>
+  <div id="dashboard">
+
+    <!-- Top Bar -->
+    <div id="topbar">
+      <div id="topbar-left">
+        <h1>Constant Ambient</h1>
+        <div id="connection-indicator">
+          <div id="conn-dot"></div>
+          <span id="conn-label">connecting</span>
+        </div>
+      </div>
+      <button id="play-btn">Start</button>
+    </div>
+
+    <!-- Panel 1: Song Structure -->
+    <div class="panel" id="panel-structure">
+      <div class="panel-title">Song Structure</div>
+      <div id="section-map" class="section-map"></div>
+      <div class="section-progress"><div id="section-progress-fill" class="section-progress-fill" style="width:0"></div></div>
+      <div class="row"><span class="row-label">Section</span><span id="v-section" class="row-value bright">-</span></div>
+      <div class="row"><span class="row-label">Cycle</span><span id="v-cycle" class="row-value">-</span></div>
+      <div class="row"><span class="row-label">Pass</span><span id="v-pass" class="row-value">-</span></div>
+      <div class="row"><span class="row-label">Chords Played</span><span id="v-chordcount" class="row-value dim">-</span></div>
+    </div>
+
+    <!-- Panel 2: Progression -->
+    <div class="panel" id="panel-progression">
+      <div class="panel-title">Progression</div>
+      <div class="row"><span class="row-label">Key</span><span id="v-key" class="row-value accent">-</span></div>
+      <div class="row"><span class="row-label">Loop Position</span><span id="v-looppos" class="row-value">-</span></div>
+      <div id="progression-display"></div>
+    </div>
+
+    <!-- Panel 3: Current Chord -->
+    <div class="panel" id="panel-chord">
+      <div class="panel-title">Current Chord</div>
+      <div class="row"><span class="row-label">Symbol</span><span id="v-chordsym" class="row-value bright">-</span></div>
+      <div class="row"><span class="row-label">Root</span><span id="v-chordroot" class="row-value">-</span></div>
+      <div class="row"><span class="row-label">Quality</span><span id="v-chordqual" class="row-value">-</span></div>
+      <div class="row"><span class="row-label">Octave</span><span id="v-chordoct" class="row-value">-</span></div>
+      <div class="row"><span class="row-label">Duration</span><span id="v-chorddursec" class="row-value accent">-</span></div>
+      <div class="row"><span class="row-label">Rhythm</span><span id="v-chordrhythm" class="row-value">-</span></div>
+      <div style="margin-top:4px">
+        <span class="row-label">Voiced Notes</span>
+        <div id="v-voicednotes" class="notes-display"></div>
+      </div>
+    </div>
+
+    <!-- Panel 4: Engine -->
+    <div class="panel" id="panel-engine">
+      <div class="panel-title">Engine</div>
+      <div class="row"><span class="row-label">Status</span><span id="v-running" class="row-value">-</span></div>
+      <div class="row"><span class="row-label">Tempo</span><span id="v-tempo" class="row-value accent">-</span></div>
+      <div class="row"><span class="row-label">Chord Duration</span><span id="v-chorddur" class="row-value">-</span></div>
+      <div class="row"><span class="row-label">Base Duration</span><span id="v-basedursec" class="row-value dim">-</span></div>
+      <div class="row"><span class="row-label">Attack Level</span><span id="v-attack" class="row-value">-</span></div>
+      <div class="row"><span class="row-label">Release Level</span><span id="v-release" class="row-value">-</span></div>
+    </div>
+
+    <!-- Panel 5: Rules -->
+    <div class="panel" id="panel-rules">
+      <div class="panel-title">Chord Rule</div>
+      <div class="row"><span class="row-label">Rule</span><span id="v-rule" class="row-value bright">-</span></div>
+      <div class="row"><span class="row-label">Lead Type</span><span id="v-leadtype" class="row-value">-</span></div>
+      <div class="row"><span class="row-label">Bass Type</span><span id="v-basstype" class="row-value">-</span></div>
+      <div class="row"><span class="row-label">Note Indices</span><span id="v-noteindices" class="row-value dim">-</span></div>
+      <div style="margin-top:6px">
+        <span class="row-label">Bass Beat Offsets</span>
+        <div id="v-bassoffsets" class="notes-display" style="margin-top:3px"></div>
+      </div>
+    </div>
+
+    <!-- Panel 6: Instruments -->
+    <div class="panel" id="panel-instruments">
+      <div class="panel-title">Instruments</div>
+      <div class="row"><span class="row-label">Lead</span><span id="v-lead" class="row-value bright">-</span></div>
+      <div class="row"><span class="row-label">Bass</span><span id="v-bass" class="row-value bright">-</span></div>
+      <div id="instrument-selectors"></div>
+    </div>
+
+    <!-- Panel 7: Track Volumes (sliders) -->
+    <div class="panel" id="panel-volumes">
+      <div class="panel-title">Track Volumes</div>
+      <div id="volume-sliders"></div>
+    </div>
+
+    <!-- Panel 7b: VU Meters -->
+    <div class="panel" id="panel-meters">
+      <div class="panel-title">Live Levels</div>
+      <div id="vu-meters"></div>
+    </div>
+
+    <!-- Panel 8: Track Effects & Automation -->
+    <div class="panel span-2" id="panel-effects">
+      <div class="panel-title">Effects & Section Automation</div>
+      <div id="effects-display"></div>
+    </div>
+
+    <!-- Panel 9: Parameters -->
+    <div class="panel" id="panel-params">
+      <div class="panel-title">Parameters</div>
+      <div id="param-sliders"></div>
+    </div>
+
+    <!-- Panel 10: Archive & Freesound -->
+    <div class="panel" id="panel-external">
+      <div class="panel-title">External Layers</div>
+      <div style="margin-bottom:8px">
+        <span class="row-label">Archive.org</span>
+        <div id="archive-status" class="ext-status">Waiting...</div>
+      </div>
+      <div>
+        <span class="row-label">Freesound</span>
+        <div id="freesound-status" class="ext-status">Waiting...</div>
+      </div>
+    </div>
+
+    <!-- Panel 11: Log -->
+    <div class="panel span-3" id="panel-log">
+      <div class="panel-title">Console Log</div>
+      <div id="log-feed"></div>
+    </div>
+
   </div>
-  <script type="module" src="/src/main.js"></script>
+
+  <script>
+    /* ================================================================ */
+    /*  State                                                            */
+    /* ================================================================ */
+
+    let ws = null;
+    let serverState = null;
+    let logLines = [];
+    const SECTION_ORDER = ['transition', 'intro', 'main', 'innerTransition', 'main2', 'outro'];
+
+    /* ================================================================ */
+    /*  WebSocket                                                        */
+    /* ================================================================ */
+
+    function connect() {
+      const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+      ws = new WebSocket(`${proto}://${location.host}`);
+      ws.onopen = () => {
+        setConn(true);
+        send({ type: 'getState' });
+      };
+      ws.onclose = () => { setConn(false); setTimeout(connect, 2000); };
+      ws.onerror = () => ws.close();
+      ws.onmessage = (ev) => {
+        try { handleMessage(JSON.parse(ev.data)); } catch {}
+      };
+    }
+
+    function send(obj) {
+      if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(obj));
+    }
+
+    function setConn(ok) {
+      document.getElementById('conn-dot').className = ok ? 'ok' : '';
+      document.getElementById('conn-label').textContent = ok ? 'connected' : 'reconnecting';
+    }
+
+    /* ================================================================ */
+    /*  Message handling                                                  */
+    /* ================================================================ */
+
+    function handleMessage(msg) {
+      switch (msg.type) {
+        case 'fullState':
+          serverState = msg;
+          buildUI(msg);
+          applyStatus(msg.status, msg.engine, msg.song, msg.mixer);
+          break;
+        case 'status':
+          applyStatus(msg, msg.engine, msg.song, msg.mixer);
+          break;
+        case 'levels':
+          applyLevels(msg.levels);
+          if (msg.automation) applyAutomation(msg.automation);
+          break;
+        case 'log':
+          addLogLine(msg.text);
+          break;
+      }
+    }
+
+    /* ================================================================ */
+    /*  Build UI (one-time on connect)                                    */
+    /* ================================================================ */
+
+    let uiBuilt = false;
+
+    function buildUI(state) {
+      if (uiBuilt) return;
+      uiBuilt = true;
+
+      // Play button
+      document.getElementById('play-btn').addEventListener('click', function () {
+        send({ type: this._isPlaying ? 'stop' : 'start' });
+      });
+
+      // Section map
+      const mapEl = document.getElementById('section-map');
+      for (const s of SECTION_ORDER) {
+        const block = document.createElement('div');
+        block.className = 'section-block';
+        block.dataset.section = s;
+        block.textContent = s === 'innerTransition' ? 'inner' : s.slice(0, 5);
+        mapEl.appendChild(block);
+      }
+
+      // Volume sliders
+      buildVolumeSliders(state.debugState);
+
+      // Parameter sliders
+      buildParamSliders(state.config, state.debugState);
+
+      // Instrument selectors
+      buildInstrumentSelectors(state.instruments);
+
+      // Effects display (live from server)
+      buildEffectsDisplay(state.effectChains);
+
+      // VU meters
+      buildVUMeters();
+    }
+
+    function buildVolumeSliders(debugState) {
+      const container = document.getElementById('volume-sliders');
+      const tracks = [
+        { param: 'padVolume', label: 'Pad', def: 0.45 },
+        { param: 'droneVolume', label: 'Drone', def: 0.5 },
+        { param: 'leadVolume', label: 'Lead', def: 0.4 },
+        { param: 'sampleTextureVolume', label: 'Texture', def: 0.35 },
+        { param: 'archiveVolume', label: 'Archive', def: 0.7 },
+        { param: 'freesoundVolume', label: 'Freesound', def: 0.4 },
+      ];
+
+      for (const t of tracks) {
+        const val = (debugState && debugState[t.param] !== null) ? debugState[t.param] : t.def;
+        const row = document.createElement('div');
+        row.className = 'slider-row';
+
+        const label = document.createElement('label');
+        label.textContent = t.label;
+
+        const slider = document.createElement('input');
+        slider.type = 'range'; slider.min = '0'; slider.max = '1'; slider.step = '0.05'; slider.value = val;
+
+        const valSpan = document.createElement('span');
+        valSpan.className = 'slider-val';
+        valSpan.textContent = Number(val).toFixed(2);
+
+        slider.addEventListener('input', () => {
+          const v = Number(slider.value);
+          valSpan.textContent = v.toFixed(2);
+          send({ type: 'param', param: t.param, value: v });
+        });
+
+        row.appendChild(label);
+        row.appendChild(slider);
+        row.appendChild(valSpan);
+        container.appendChild(row);
+      }
+    }
+
+    function buildParamSliders(config, debugState) {
+      const container = document.getElementById('param-sliders');
+      const params = [
+        { param: 'chordDuration', label: 'Chord Len', min: 0.25, max: 3, step: 0.25, def: config.chordDuration },
+        { param: 'attackLevel', label: 'Attack', min: 0, max: 1.5, step: 0.05, def: config.attackLevel || 1.0 },
+        { param: 'releaseLevel', label: 'Release', min: 0, max: 1.5, step: 0.05, def: config.releaseLevel || 1.0 },
+      ];
+
+      for (const p of params) {
+        const val = (debugState && debugState[p.param] !== null) ? debugState[p.param] : p.def;
+        const row = document.createElement('div');
+        row.className = 'slider-row';
+
+        const label = document.createElement('label');
+        label.textContent = p.label;
+
+        const slider = document.createElement('input');
+        slider.type = 'range'; slider.min = p.min; slider.max = p.max; slider.step = p.step; slider.value = val;
+
+        const valSpan = document.createElement('span');
+        valSpan.className = 'slider-val';
+        valSpan.textContent = Number(val).toFixed(2);
+
+        slider.addEventListener('input', () => {
+          const v = Number(slider.value);
+          valSpan.textContent = v.toFixed(2);
+          send({ type: 'param', param: p.param, value: v });
+        });
+
+        row.appendChild(label);
+        row.appendChild(slider);
+        row.appendChild(valSpan);
+        container.appendChild(row);
+      }
+
+      // Master volume
+      const masterRow = document.createElement('div');
+      masterRow.className = 'slider-row';
+      const masterLabel = document.createElement('label');
+      masterLabel.textContent = 'Master Vol';
+      const masterSlider = document.createElement('input');
+      masterSlider.type = 'range'; masterSlider.min = '0'; masterSlider.max = '1'; masterSlider.step = '0.05'; masterSlider.value = '0.8';
+      const masterVal = document.createElement('span');
+      masterVal.className = 'slider-val';
+      masterVal.textContent = '0.80';
+      masterSlider.addEventListener('input', () => {
+        const v = Number(masterSlider.value);
+        masterVal.textContent = v.toFixed(2);
+        send({ type: 'masterVolume', value: v });
+      });
+      masterRow.appendChild(masterLabel);
+      masterRow.appendChild(masterSlider);
+      masterRow.appendChild(masterVal);
+      container.appendChild(masterRow);
+    }
+
+    function buildInstrumentSelectors(instruments) {
+      const container = document.getElementById('instrument-selectors');
+      if (!instruments) return;
+
+      if (instruments.lead) {
+        const group = document.createElement('div');
+        group.className = 'inst-group';
+        const label = document.createElement('div');
+        label.className = 'inst-group-label';
+        label.textContent = 'Lead Instruments';
+        group.appendChild(label);
+        const btns = document.createElement('div');
+        btns.className = 'inst-buttons';
+        btns.id = 'lead-buttons';
+        for (const inst of instruments.lead) {
+          const btn = document.createElement('button');
+          btn.className = 'inst-btn';
+          btn.textContent = inst.name;
+          btn.dataset.id = inst.id;
+          btn.addEventListener('click', () => {
+            btns.querySelectorAll('.inst-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            send({ type: 'swapLead', instrumentId: inst.id });
+          });
+          btns.appendChild(btn);
+        }
+        group.appendChild(btns);
+        container.appendChild(group);
+      }
+
+      if (instruments.bass) {
+        const group = document.createElement('div');
+        group.className = 'inst-group';
+        const label = document.createElement('div');
+        label.className = 'inst-group-label';
+        label.textContent = 'Bass Instruments';
+        group.appendChild(label);
+        const btns = document.createElement('div');
+        btns.className = 'inst-buttons';
+        btns.id = 'bass-buttons';
+        for (const inst of instruments.bass) {
+          const btn = document.createElement('button');
+          btn.className = 'inst-btn';
+          btn.textContent = inst.name;
+          btn.dataset.id = inst.id;
+          btn.addEventListener('click', () => {
+            btns.querySelectorAll('.inst-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            send({ type: 'swapBass', instrumentId: inst.id });
+          });
+          btns.appendChild(btn);
+        }
+        group.appendChild(btns);
+        container.appendChild(group);
+      }
+    }
+
+    // Effect chain info — populated from server on connect
+    let effectChainInfo = null;
+    const FX_TRACK_ORDER = ['pad', 'drone', 'lead', 'sampleTexture', 'archive', 'freesound'];
+
+    function effectLabel(fx) {
+      if (fx.type === 'Filter' && fx.subtype === 'highpass') return 'HPF';
+      if (fx.type === 'Filter' && fx.lfo) return 'LPF~LFO';
+      if (fx.type === 'Filter') return fx.id === 'dynamicFilter' ? 'LPF [auto]' : 'LPF';
+      if (fx.type === 'Gain') return fx.id === 'duckGain' ? 'Duck [auto]' : 'Gain';
+      if (fx.type === 'PingPongDelay') return 'Delay';
+      if (fx.type === 'Compressor') return 'Comp';
+      return fx.type;
+    }
+
+    function buildEffectsDisplay(chains) {
+      effectChainInfo = chains || {};
+      const container = document.getElementById('effects-display');
+      container.innerHTML = '';
+
+      for (const name of FX_TRACK_ORDER) {
+        const info = effectChainInfo[name];
+        if (!info) continue;
+
+        const track = document.createElement('div');
+        track.className = 'fx-track';
+        track.id = `fx-track-${name}`;
+
+        // Header: track name + effect chain tags + reverb send
+        const header = document.createElement('div');
+        header.className = 'fx-track-header';
+
+        const label = document.createElement('span');
+        label.className = 'fx-track-name';
+        label.textContent = name === 'sampleTexture' ? 'texture' : name;
+        header.appendChild(label);
+
+        const chain = document.createElement('div');
+        chain.className = 'effect-chain';
+
+        if (info.effects.length > 0) {
+          for (const fx of info.effects) {
+            const tag = document.createElement('span');
+            tag.className = 'effect-tag' + (fx.id ? ' automated' : '');
+            tag.textContent = effectLabel(fx);
+            chain.appendChild(tag);
+          }
+        }
+
+        // Reverb send tag
+        if (info.reverbSend > 0) {
+          const revTag = document.createElement('span');
+          revTag.className = 'effect-tag';
+          revTag.textContent = `Rev ${info.reverbBus} ${(info.reverbSend * 100).toFixed(0)}%`;
+          chain.appendChild(revTag);
+        }
+
+        if (info.effects.length === 0 && info.reverbSend <= 0) {
+          const pass = document.createElement('span');
+          pass.style.fontSize = '9px';
+          pass.style.color = '#333355';
+          pass.textContent = '(pass-through)';
+          chain.appendChild(pass);
+        }
+
+        header.appendChild(chain);
+        track.appendChild(header);
+
+        // Live automation bars (brightness, filter freq, duck gain)
+        const liveRow = document.createElement('div');
+        liveRow.className = 'fx-live-row';
+        liveRow.id = `fx-live-${name}`;
+
+        // Brightness bar
+        liveRow.innerHTML = `
+          <span class="fx-live-label">bright</span>
+          <div class="fx-live-bar-bg"><div class="fx-live-bar-fill bright" id="fx-bright-${name}" style="width:0%"></div></div>
+          <span class="fx-live-val" id="fx-bright-val-${name}">-</span>
+          <span class="fx-live-label" style="margin-left:6px">duck</span>
+          <div class="fx-live-bar-bg"><div class="fx-live-bar-fill duck" id="fx-duck-${name}" style="width:0%"></div></div>
+          <span class="fx-live-val" id="fx-duck-val-${name}">-</span>
+          <span class="fx-status-badge" id="fx-status-${name}"></span>
+        `;
+        track.appendChild(liveRow);
+
+        // Filter freq bar (only for tracks with dynamicFilter)
+        const hasDynFilter = info.effects.some(fx => fx.id === 'dynamicFilter');
+        if (hasDynFilter) {
+          const freqRow = document.createElement('div');
+          freqRow.className = 'fx-live-row';
+          freqRow.innerHTML = `
+            <span class="fx-live-label">filter</span>
+            <div class="fx-live-bar-bg" style="width:160px"><div class="fx-live-bar-fill freq" id="fx-freq-${name}" style="width:0%"></div></div>
+            <span class="fx-live-val" id="fx-freq-val-${name}">-</span>
+          `;
+          track.appendChild(freqRow);
+        }
+
+        // Static brightness rule overview per section
+        if (info.automation && info.automation.brightness) {
+          const ruleRow = document.createElement('div');
+          ruleRow.className = 'fx-live-row';
+          ruleRow.style.gap = '4px';
+
+          const ruleLabel = document.createElement('span');
+          ruleLabel.className = 'fx-live-label';
+          ruleLabel.textContent = 'rule';
+          ruleRow.appendChild(ruleLabel);
+
+          for (const s of SECTION_ORDER) {
+            const bright = info.automation.brightness[s] ?? 0.5;
+            const cell = document.createElement('div');
+            cell.style.flex = '1';
+            cell.style.textAlign = 'center';
+
+            const bar = document.createElement('div');
+            bar.className = 'auto-bright-bar';
+            bar.style.margin = '0 auto';
+            const fill = document.createElement('div');
+            fill.className = 'auto-bright-fill';
+            fill.style.width = (bright * 100) + '%';
+            bar.appendChild(fill);
+
+            const sLabel = document.createElement('div');
+            sLabel.style.fontSize = '7px';
+            sLabel.style.color = '#333355';
+            sLabel.textContent = s === 'innerTransition' ? 'inner' : s.slice(0, 5);
+
+            cell.appendChild(bar);
+            cell.appendChild(sLabel);
+            ruleRow.appendChild(cell);
+          }
+
+          if (info.automation.duckFloor !== undefined) {
+            const floor = document.createElement('span');
+            floor.style.fontSize = '8px';
+            floor.style.color = '#444466';
+            floor.style.marginLeft = '6px';
+            floor.textContent = `floor:${info.automation.duckFloor}`;
+            ruleRow.appendChild(floor);
+          }
+
+          track.appendChild(ruleRow);
+        }
+
+        container.appendChild(track);
+      }
+    }
+
+    function applyAutomation(automation) {
+      if (!automation || !automation.tracks) return;
+
+      for (const name of FX_TRACK_ORDER) {
+        const data = automation.tracks[name];
+
+        const brightEl = document.getElementById(`fx-bright-${name}`);
+        const brightVal = document.getElementById(`fx-bright-val-${name}`);
+        const duckEl = document.getElementById(`fx-duck-${name}`);
+        const duckVal = document.getElementById(`fx-duck-val-${name}`);
+        const statusEl = document.getElementById(`fx-status-${name}`);
+        const freqEl = document.getElementById(`fx-freq-${name}`);
+        const freqVal = document.getElementById(`fx-freq-val-${name}`);
+
+        if (!data) {
+          // No automation for this track — show as pass-through
+          if (brightEl) brightEl.style.width = '0%';
+          if (brightVal) brightVal.textContent = '-';
+          if (duckEl) duckEl.style.width = '0%';
+          if (duckVal) duckVal.textContent = '-';
+          if (statusEl) { statusEl.textContent = ''; statusEl.className = 'fx-status-badge'; }
+          if (freqEl) freqEl.style.width = '0%';
+          if (freqVal) freqVal.textContent = '-';
+          continue;
+        }
+
+        if (brightEl) brightEl.style.width = (data.bright * 100) + '%';
+        if (brightVal) brightVal.textContent = data.bright.toFixed(2);
+
+        if (duckEl) duckEl.style.width = (data.duck * 100) + '%';
+        if (duckVal) duckVal.textContent = data.duck.toFixed(2);
+
+        if (statusEl) {
+          statusEl.textContent = data.status !== 'active' ? data.status : '';
+          statusEl.className = 'fx-status-badge ' + data.status;
+        }
+
+        if (freqEl && data.freq !== null) {
+          // Log scale mapping: 200 Hz → 0%, 18000 Hz → 100%
+          const logMin = Math.log(200), logMax = Math.log(18000);
+          const pct = Math.max(0, Math.min(100, ((Math.log(data.freq) - logMin) / (logMax - logMin)) * 100));
+          freqEl.style.width = pct + '%';
+        }
+        if (freqVal && data.freq !== null) freqVal.textContent = data.freq + ' Hz';
+      }
+    }
+
+    /* ================================================================ */
+    /*  VU Meters                                                        */
+    /* ================================================================ */
+
+    const VU_TRACKS = ['pad', 'drone', 'lead', 'texture', 'archive', 'freesound', 'master'];
+
+    function buildVUMeters() {
+      const container = document.getElementById('vu-meters');
+      for (const name of VU_TRACKS) {
+        const row = document.createElement('div');
+        row.className = 'vu-row';
+
+        const label = document.createElement('span');
+        label.className = 'vu-name';
+        label.textContent = name;
+
+        const barBg = document.createElement('div');
+        barBg.className = 'vu-bar-bg';
+
+        const rmsBar = document.createElement('div');
+        rmsBar.className = 'vu-bar-rms';
+        rmsBar.id = `vu-rms-${name}`;
+        rmsBar.style.width = '0%';
+
+        const peakBar = document.createElement('div');
+        peakBar.className = 'vu-bar-peak';
+        peakBar.id = `vu-peak-${name}`;
+        peakBar.style.left = '0%';
+
+        barBg.appendChild(rmsBar);
+        barBg.appendChild(peakBar);
+
+        const dbLabel = document.createElement('span');
+        dbLabel.className = 'vu-db';
+        dbLabel.id = `vu-db-${name}`;
+        dbLabel.textContent = '-inf';
+
+        row.appendChild(label);
+        row.appendChild(barBg);
+        row.appendChild(dbLabel);
+        container.appendChild(row);
+      }
+    }
+
+    function applyLevels(levels) {
+      if (!levels) return;
+      for (const name of VU_TRACKS) {
+        const data = levels[name];
+        if (!data) continue;
+
+        // Map RMS to percentage (0 = -60dB, 100 = 0dB)
+        const dbClamped = Math.max(-60, Math.min(0, data.db));
+        const pct = ((dbClamped + 60) / 60) * 100;
+
+        // Peak percentage
+        const peakDb = data.peak > 0.00001 ? 20 * Math.log10(data.peak) : -100;
+        const peakClamped = Math.max(-60, Math.min(0, peakDb));
+        const peakPct = ((peakClamped + 60) / 60) * 100;
+
+        const rmsEl = document.getElementById(`vu-rms-${name}`);
+        const peakEl = document.getElementById(`vu-peak-${name}`);
+        const dbEl = document.getElementById(`vu-db-${name}`);
+
+        if (rmsEl) rmsEl.style.width = pct + '%';
+        if (peakEl) peakEl.style.left = Math.min(peakPct, 99) + '%';
+        if (dbEl) {
+          dbEl.textContent = data.db > -100 ? data.db.toFixed(1) + ' dB' : '-inf';
+          dbEl.className = 'vu-db' + (data.db > -6 ? ' hot' : data.db > -18 ? ' warm' : '');
+        }
+      }
+    }
+
+    /* ================================================================ */
+    /*  Apply status updates                                             */
+    /* ================================================================ */
+
+    function applyStatus(s, engine, song, mixer) {
+      // Play button
+      const playBtn = document.getElementById('play-btn');
+      if (playBtn) {
+        playBtn.textContent = s.running ? 'Stop' : 'Start';
+        playBtn.className = s.running ? 'active' : '';
+        playBtn._isPlaying = s.running;
+      }
+
+      // Running status
+      setText('v-running', s.running
+        ? '<span class="tag running">running</span>'
+        : '<span class="tag stopped">stopped</span>', true);
+
+      // Tempo
+      if (s.currentTempo) setText('v-tempo', s.currentTempo + ' bpm');
+
+      // Current chord from status string
+      if (s.currentChord) addLogLine(s.currentChord);
+
+      // Archive/freesound
+      if (s.archiveStatus) setText('archive-status', s.archiveStatus);
+      if (s.freesoundStatus) setText('freesound-status', s.freesoundStatus);
+
+      // Song state
+      if (song) {
+        setText('v-section', song.section);
+        setText('v-cycle', `${song.cycleCount + 1}`);
+        setText('v-pass', `${song.progressionsInSection + 1} / ${song.sectionDuration}`);
+
+        // Section progress bar
+        const progress = song.sectionDuration > 1
+          ? song.progressionsInSection / song.sectionDuration
+          : 0.5;
+        const progressEl = document.getElementById('section-progress-fill');
+        if (progressEl) progressEl.style.width = (progress * 100) + '%';
+
+        // Section map highlighting
+        const sectionIdx = song.sectionIndex;
+        document.querySelectorAll('.section-block').forEach((block, i) => {
+          block.className = 'section-block' +
+            (i === sectionIdx ? ' active' : '') +
+            (i < sectionIdx ? ' completed' : '');
+        });
+      }
+
+      // Engine state
+      if (engine) {
+        setText('v-chordcount', engine.chordCount);
+        setText('v-rule', engine.currentRule);
+        setText('v-looppos', `${engine.lastPlayedPosition + 1} / ${engine.loopLength}`);
+        setText('v-leadtype', engine.leadIsPlucked
+          ? '<span class="tag plucked">plucked</span>'
+          : '<span class="tag loopable">loopable</span>', true);
+        setText('v-basstype', engine.bassIsPlucked
+          ? '<span class="tag plucked">plucked</span>'
+          : '<span class="tag loopable">loopable</span>', true);
+
+        // Progression pills
+        const progEl = document.getElementById('progression-display');
+        if (progEl && engine.progression && engine.progression.length > 0) {
+          // Only rebuild if chord count changed
+          const pills = progEl.children;
+          const needsRebuild = pills.length !== engine.progression.length ||
+            Array.from(pills).some((p, i) => p.dataset.sym !== engine.progression[i].symbol);
+
+          if (needsRebuild) {
+            progEl.innerHTML = '';
+            for (let i = 0; i < engine.progression.length; i++) {
+              const chord = engine.progression[i];
+              const pill = document.createElement('div');
+              pill.className = 'chord-pill';
+              pill.dataset.sym = chord.symbol;
+              // Show rhythm multiplier if not 1x
+              const mult = chord.rhythmMultiplier;
+              pill.textContent = chord.symbol + (mult !== 1 ? ` (${mult}x)` : '');
+              // Show duration on hover
+              pill.title = `${chord.durationSec}s | ${mult}x base`;
+              progEl.appendChild(pill);
+            }
+          }
+
+          // Highlight active
+          Array.from(progEl.children).forEach((pill, i) => {
+            if (i === engine.lastPlayedPosition) {
+              pill.className = 'chord-pill active';
+            } else if (i < engine.lastPlayedPosition) {
+              pill.className = 'chord-pill played';
+            } else {
+              pill.className = 'chord-pill';
+            }
+          });
+
+          // Current chord details
+          const current = engine.progression[engine.lastPlayedPosition];
+          if (current) {
+            setText('v-chordsym', current.symbol);
+            setText('v-chordroot', current.root);
+            setText('v-chordqual', current.quality);
+            setText('v-chordoct', current.octave);
+            setText('v-chorddursec', current.durationSec + 's');
+            setText('v-chordrhythm', current.rhythmMultiplier + 'x base (' + current.durationTicks + ' ticks)');
+            setText('v-key', current.root + ' minor');
+
+            // Voiced notes
+            const notesEl = document.getElementById('v-voicednotes');
+            if (notesEl) {
+              notesEl.innerHTML = '';
+              for (const note of current.voicedNotes) {
+                const tag = document.createElement('span');
+                tag.className = 'note-tag';
+                tag.textContent = note;
+                notesEl.appendChild(tag);
+              }
+            }
+          }
+        }
+
+        // Base duration in seconds
+        if (engine.baseDurationSec) {
+          setText('v-basedursec', engine.baseDurationSec + 's');
+        }
+
+        // Rule state details
+        if (engine.ruleState) {
+          // Bass offsets
+          const offsetsEl = document.getElementById('v-bassoffsets');
+          if (offsetsEl) {
+            offsetsEl.innerHTML = '';
+            if (engine.ruleState.bassOffsets) {
+              engine.ruleState.bassOffsets.forEach((offset, i) => {
+                const tag = document.createElement('span');
+                tag.className = 'note-tag';
+                tag.style.background = offset > 0 ? '#2a2a1a' : '#14142e';
+                tag.style.color = offset > 0 ? '#ccaa55' : '#555577';
+                tag.style.borderColor = offset > 0 ? '#444422' : '#222244';
+                tag.textContent = 'beat ' + (offset === 0 ? '1' : (offset + 1));
+                tag.title = `Chord ${i + 1}: bass enters on beat ${offset === 0 ? '1' : (offset + 1)}`;
+                offsetsEl.appendChild(tag);
+              });
+            } else {
+              const tag = document.createElement('span');
+              tag.className = 'note-tag';
+              tag.style.color = '#444466';
+              tag.textContent = 'all on beat 1';
+              offsetsEl.appendChild(tag);
+            }
+          }
+
+          // Partial note indices
+          const indices = engine.ruleState.partialSeqIndices || engine.ruleState.partialSimIndices;
+          if (indices) {
+            const example = indices['3'] || indices['4'] || Object.values(indices)[0];
+            setText('v-noteindices', 'keep [' + (example || []).join(', ') + '] of 3-note');
+          } else {
+            setText('v-noteindices', 'all notes (complete)');
+          }
+        }
+
+        // Config values
+        const config = serverState ? serverState.config : null;
+        if (config) {
+          setText('v-chorddur', config.chordDuration + ' measures');
+          setText('v-attack', config.attackLevel?.toFixed(2) ?? '-');
+          setText('v-release', config.releaseLevel?.toFixed(2) ?? '-');
+        }
+      }
+
+      // Mixer state
+      if (mixer) {
+        setText('v-lead', mixer.currentLeadName);
+        setText('v-bass', mixer.currentBassName);
+
+        // Highlight active instrument buttons
+        highlightInstButton('lead-buttons', mixer.currentLeadId);
+        highlightInstButton('bass-buttons', mixer.currentBassId);
+      }
+    }
+
+    function setText(id, value, isHTML) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      if (isHTML) { el.innerHTML = value; } else { el.textContent = value ?? '-'; }
+    }
+
+    function highlightInstButton(containerId, activeId) {
+      const container = document.getElementById(containerId);
+      if (!container) return;
+      container.querySelectorAll('.inst-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.id === activeId);
+      });
+    }
+
+    function addLogLine(text) {
+      if (!text) return;
+      const feed = document.getElementById('log-feed');
+      if (!feed) return;
+      logLines.push(text);
+      if (logLines.length > 80) logLines.shift();
+      feed.textContent = logLines.join('\n');
+      feed.scrollTop = feed.scrollHeight;
+    }
+
+    /* ================================================================ */
+    /*  Init                                                             */
+    /* ================================================================ */
+
+    connect();
+  </script>
 </body>
 </html>
