@@ -15,7 +15,9 @@ const EFFECT_REGISTRY = [
     type: 'Gain',
     defName: 'fxGain',
     mapParams(spec) {
-      return { gain: spec.params?.gain ?? 1 };
+      const params = { gain: spec.params?.gain ?? 1 };
+      if (spec.params?.lagTime !== undefined) params.lagTime = spec.params.lagTime;
+      return params;
     },
   },
   {
@@ -44,7 +46,9 @@ const EFFECT_REGISTRY = [
     type: 'Filter',
     defName: 'fxLPF',
     mapParams(spec) {
-      return { freq: spec.params.frequency ?? 18000 };
+      const params = { freq: spec.params.frequency ?? 18000 };
+      if (spec.params?.lagTime !== undefined) params.lagTime = spec.params.lagTime;
+      return params;
     },
   },
   {
@@ -76,6 +80,18 @@ const EFFECT_REGISTRY = [
         ratio: spec.params.ratio ?? 4,
         atkTime: spec.params.attack ?? 0.01,
         relTime: spec.params.release ?? 0.3,
+      };
+    },
+  },
+  {
+    type: 'AGC',
+    defName: 'fxAGC',
+    mapParams(spec) {
+      return {
+        targetAmp: spec.params?.targetAmp ?? 0.3,
+        atkTime: spec.params?.attack ?? 0.5,
+        relTime: spec.params?.release ?? 3,
+        maxGain: spec.params?.maxGain ?? 20,
       };
     },
   },

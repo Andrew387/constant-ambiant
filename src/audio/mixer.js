@@ -226,11 +226,13 @@ function createSwappableSlot({ label, synthKey, instruments, defaultId, outBus, 
 
     if (oldSynth) {
       oldSynth.releaseAll();
+      // Wait longer than the longest release envelope (rel2 ≈ chordSec * 1.4)
+      // to ensure all voices have fully faded before freeing their buffers.
       const tid = setTimeout(() => {
         pendingDisposeTimers = pendingDisposeTimers.filter(t => t !== tid);
         oldSynth.dispose();
         freeInstrumentSamples(oldId);
-      }, 5000);
+      }, 15000);
       pendingDisposeTimers.push(tid);
     }
     console.log(`[mixer] ${label} swapped to ${config.name}`);

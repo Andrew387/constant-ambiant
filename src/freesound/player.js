@@ -68,7 +68,7 @@ async function playSoundEffect() {
     synthNew(defName, nodeId, 0, GROUPS.FREESOUND, {
       out: BUSES.FREESOUND,
       buf: bufNum,
-      amp: 0.25,
+      amp: 0.15,
       lpFreq: 2500,
     });
 

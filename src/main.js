@@ -111,8 +111,28 @@ async function boot() {
   // 6. Start SC health check (periodic /sync ping)
   startHealthCheck({
     interval: 15000,
-    onDead() {
-      _origLog('[WARN] scsynth appears dead after 3 failed pings');
+    async onDead() {
+      _origLog('[WARN] scsynth appears dead after 3 failed pings — attempting recovery...');
+      try {
+        stopEngine();
+        if (mixer) { mixer.dispose(); mixer = null; }
+        closeOSC();
+        killSuperCollider();
+
+        await sleep(2000);
+
+        await bootSuperCollider({ timeout: 45000, verbose: true });
+        _origLog('[recovery] SuperCollider rebooted.');
+        await initOSC();
+        await waitForScsynth();
+
+        mixer = await initMixer();
+        _origLog('[recovery] Mixer re-initialized. Restarting engine...');
+        startEngine();
+        _origLog('[recovery] Engine restarted successfully.');
+      } catch (err) {
+        _origLog('[recovery] Failed to recover:', err.message);
+      }
     },
   });
 

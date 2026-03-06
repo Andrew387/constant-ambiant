@@ -45,8 +45,8 @@ const REVERB_SEND_LEVELS = {
   pad:           0.35,   // gentle reverb wash for warmth
   drone:         0.2,    // subtle reverb to fill low end
   lead:          0.45,   // from lead chain: Reverb wet: 0.45
-  sampleTexture: 0.55,   // from texture chain: Reverb wet: 0.55
-  archive:       0.85,   // heavy reverb wash (matches original Tone.Reverb wet: 0.85)
+  sampleTexture: 0.25,   // lowered — AGC already normalizes levels
+  archive:       0.3,    // moderate reverb (lowered — AGC already normalizes levels)
   freesound:     0.0,    // freesound has its own reverb per-sound
   pedalPad:      0.45,   // warm reverb wash for pedal tone
 };
