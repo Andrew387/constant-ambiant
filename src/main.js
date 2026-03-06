@@ -140,6 +140,7 @@ function startEngine() {
     chordTriggers: mixer.chordTriggers,
     onSwapLead: mixer.swapLeadRandom,
     onSwapBass: mixer.swapBassRandom,
+    onSwapPedalPad: mixer.swapPedalPadRandom,
   });
   isRunning = true;
   status.running = true;

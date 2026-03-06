@@ -38,6 +38,7 @@ let texturePlayer = null;
 let chordTriggers = [];
 let swapLeadFn = null;
 let swapBassFn = null;
+let swapPedalPadFn = null;
 let running = false;
 let chordCount = 0;
 let loopTimeoutId = null;
@@ -323,17 +324,30 @@ function advanceLoop() {
     loopPassCount++;
     const { sectionChanged, isNewCycle } = advanceSongProgression();
 
-    // Entering the outro → pre-generate next progression and start pedal tone
+    // Entering the outro → swap pad, pre-generate next progression, start pedal tone
     if (sectionChanged && !isNewCycle && getCurrentSection().type === 'outro') {
+      let pedalPC, outroSec;
       try {
         const { chords, key } = preGenerateNextProgression();
         const keyRoot = key.replace(' minor', '');
-        const pedalPC = findPedalNote(chords, keyRoot);
+        pedalPC = findPedalNote(chords, keyRoot);
         const baseSec = chordDurationInSeconds();
-        const outroSec = SECTION_DURATIONS.outro * loop.length * baseSec;
-        startPedalFadeIn(pedalPC, outroSec);
+        outroSec = SECTION_DURATIONS.outro * loop.length * baseSec;
       } catch (err) {
         console.warn('[pedal] pre-generation failed:', err);
+      }
+
+      // Swap pad sample first, then start pedal tone on the new instrument
+      const swapDone = swapPedalPadFn
+        ? swapPedalPadFn().catch(err => { console.warn('[engine] pedalPad swap failed:', err); })
+        : Promise.resolve();
+
+      if (pedalPC) {
+        swapDone.then(() => {
+          if (!running) return;
+          if (synths.pedalPad) setPedalSynth(synths.pedalPad);
+          startPedalFadeIn(pedalPC, outroSec);
+        });
       }
     }
 
@@ -476,6 +490,7 @@ export function start(mixerSynths, mixerTexturePlayer, callbacks = {}) {
   chordTriggers = callbacks.chordTriggers || [];
   swapLeadFn = callbacks.onSwapLead || null;
   swapBassFn = callbacks.onSwapBass || null;
+  swapPedalPadFn = callbacks.onSwapPedalPad || null;
   running = true;
   chordCount = 0;
   baseLoop = [];
@@ -545,6 +560,7 @@ export function stop() {
   pendingProgression = null;
   swapLeadFn = null;
   swapBassFn = null;
+  swapPedalPadFn = null;
   leadIsPlucked = false;
   bassIsPlucked = false;
 }

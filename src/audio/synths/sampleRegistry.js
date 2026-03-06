@@ -19,11 +19,15 @@ export const LEAD_INSTRUMENTS = [
   { id: 'crystalbellslong', name: 'Crystal Bells', folder: 'Lead/Loopable/crystalbellslong', filePrefix: 'crystalbellslong', plucked: false },
   { id: 'calmbeachlong',    name: 'Calm Beach',    folder: 'Lead/Loopable/calmbeachlong',    filePrefix: 'calmbeachlong',    plucked: false },
   { id: 'silkystringslong', name: 'Silky Strings', folder: 'Lead/Loopable/silkystringslong', filePrefix: 'silkystringslong', plucked: false },
+  { id: 'DataStreamPad',    name: 'Data Stream',   folder: 'Lead/Loopable/DataStreamPad',    filePrefix: 'DataStreamPad',    plucked: false },
   { id: 'distantBell',      name: 'Distant Bells', folder: 'Lead/Plucked/distant bells',     filePrefix: 'distantBell',      plucked: true },
 ];
 
 export const PAD_INSTRUMENTS = [
-  { id: 'analogWaves', name: 'Analog Waves', folder: 'pad/loopable/analogWaves', filePrefix: 'analogWaves', plucked: false },
+  { id: 'analogWaves',    name: 'Analog Waves',     folder: 'pad/loopable/analogWaves',      filePrefix: 'analogWaves',    plucked: false },
+  { id: 'aquticVoices',   name: 'Aqutic Voices',    folder: 'pad/loopable/aqutic voices',    filePrefix: 'aquticVoices',   plucked: false },
+  { id: 'autumnHaze',     name: 'Autumn Haze',      folder: 'pad/loopable/autumnHaze',       filePrefix: 'AutumnHaze',     plucked: false },
+  { id: 'beyondDeepSkies', name: 'Beyond Deep Skies', folder: 'pad/loopable/beyondDeepSkies', filePrefix: 'BeyondDeepSkies', plucked: false },
 ];
 
 export const DEFAULT_PAD_SAMPLE = 'analogWaves';

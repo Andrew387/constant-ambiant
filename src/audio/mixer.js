@@ -127,7 +127,7 @@ export async function initMixer() {
   // ── Initialize synths ──
   const leadConfig = LEAD_INSTRUMENTS.find(i => i.id === leadSlot.getCurrentId());
   const bassConfig = BASS_INSTRUMENTS.find(i => i.id === bassSlot.getCurrentId());
-  const padSampleConfig = PAD_INSTRUMENTS.find(i => i.id === DEFAULT_PAD_SAMPLE);
+  const padSampleConfig = PAD_INSTRUMENTS.find(i => i.id === pedalPadSlot.getCurrentId());
 
   const pad = createPadSynth({ outBus: BUSES.PAD });
 
@@ -186,6 +186,7 @@ export async function initMixer() {
     swapLeadRandom: leadSlot.swapRandom,
     swapBass: bassSlot.swap,
     swapBassRandom: bassSlot.swapRandom,
+    swapPedalPadRandom: pedalPadSlot.swapRandom,
     pollLevels,
     dispose: disposeMixer,
   };
@@ -248,7 +249,7 @@ function createSwappableSlot({ label, synthKey, instruments, defaultId, outBus, 
   return { swap, swapRandom, getCurrentId };
 }
 
-// Create swappable slots for lead and bass (add more here for new instruments)
+// Create swappable slots for lead, bass, and pedal pad
 const leadSlot = createSwappableSlot({
   label: 'lead', synthKey: 'lead',
   instruments: LEAD_INSTRUMENTS, defaultId: DEFAULT_LEAD,
@@ -258,6 +259,11 @@ const bassSlot = createSwappableSlot({
   label: 'bass', synthKey: 'drone',
   instruments: BASS_INSTRUMENTS, defaultId: DEFAULT_BASS,
   outBus: BUSES.DRONE, groupId: GROUPS.DRONE,
+});
+const pedalPadSlot = createSwappableSlot({
+  label: 'pedalPad', synthKey: 'pedalPad',
+  instruments: PAD_INSTRUMENTS, defaultId: DEFAULT_PAD_SAMPLE,
+  outBus: BUSES.PEDAL_PAD, groupId: GROUPS.PEDAL_PAD,
 });
 
 /**
