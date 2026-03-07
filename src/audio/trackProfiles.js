@@ -35,18 +35,13 @@
  */
 
 export const TRACK_PROFILES = {
-  pad: {
-    gain: 0.45,
-    chain: [],
-  },
-
   drone: {
     gain: 0.5,
     chain: [
       {
         id: 'duckGain',
         type: 'Gain',
-        params: { gain: 0, lagTime: 12 },
+        params: { gain: 0, lagTime: 4 },
       },
     ],
     automation: {
@@ -77,7 +72,7 @@ export const TRACK_PROFILES = {
       {
         id: 'duckGain',
         type: 'Gain',
-        params: { gain: 1, lagTime: 12 },
+        params: { gain: 1, lagTime: 4 },
       },
     ],
     automation: {
@@ -109,7 +104,7 @@ export const TRACK_PROFILES = {
       {
         id: 'dynamicFilter',
         type: 'Filter',
-        params: { type: 'lowpass', frequency: 18000, Q: 0.7, rolloff: -12, lagTime: 10 },
+        params: { type: 'lowpass', frequency: 18000, Q: 0.7, rolloff: -12, lagTime: 3 },
       },
       {
         type: 'Filter',
@@ -127,7 +122,7 @@ export const TRACK_PROFILES = {
       {
         id: 'duckGain',
         type: 'Gain',
-        params: { gain: 1, lagTime: 12 },
+        params: { gain: 1, lagTime: 4 },
       },
     ],
     automation: {
@@ -159,7 +154,7 @@ export const TRACK_PROFILES = {
       {
         id: 'dynamicFilter',
         type: 'Filter',
-        params: { type: 'lowpass', frequency: 16000, Q: 0.7, rolloff: -12, lagTime: 10 },
+        params: { type: 'lowpass', frequency: 16000, Q: 0.7, rolloff: -12, lagTime: 3 },
       },
       {
         type: 'AGC',
@@ -176,7 +171,7 @@ export const TRACK_PROFILES = {
       {
         id: 'duckGain',
         type: 'Gain',
-        params: { gain: 1, lagTime: 12 },
+        params: { gain: 1, lagTime: 4 },
       },
     ],
     automation: {

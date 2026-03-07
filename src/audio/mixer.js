@@ -17,8 +17,8 @@ import { allocNodeId, GROUPS, BUSES, METER_CTL_BUSES, METER_CTL_START, METER_CTL
 import { createAllTrackEffects } from './effects/trackEffects.js';
 import { initSectionAutomation, disposeSectionAutomation } from './effects/sectionAutomation.js';
 import { TRACK_PROFILES } from './trackProfiles.js';
-import { triggerPadChord, triggerLeadChord, triggerDrone } from '../rhythm/scheduler.js';
-import { createPadSynth } from './synths/pad.js';
+import { triggerLeadChord, triggerDrone } from '../rhythm/scheduler.js';
+import { createSineSynth } from './synths/sineSynth.js';
 import { createSampleSynth } from './synths/samplePlayer.js';
 import { createTexturePlayer } from './synths/texturePlayer.js';
 import {
@@ -38,7 +38,6 @@ let meterNodeIds = [];
 
 // Map from track name → SC bus for gain synths
 const TRACK_BUS = {
-  pad:           BUSES.PAD,
   drone:         BUSES.DRONE,
   lead:          BUSES.LEAD,
   sampleTexture: BUSES.TEXTURE,
@@ -102,7 +101,6 @@ export async function initMixer() {
   // ── Per-track bus meters (at tail of effects group for track buses) ──
   meterNodeIds = [];
   const trackMeters = [
-    { audioBus: BUSES.PAD,       ctlBus: METER_CTL_BUSES.PAD },
     { audioBus: BUSES.DRONE,     ctlBus: METER_CTL_BUSES.DRONE },
     { audioBus: BUSES.LEAD,      ctlBus: METER_CTL_BUSES.LEAD },
     { audioBus: BUSES.TEXTURE,   ctlBus: METER_CTL_BUSES.TEXTURE },
@@ -129,26 +127,21 @@ export async function initMixer() {
   const bassConfig = BASS_INSTRUMENTS.find(i => i.id === bassSlot.getCurrentId());
   const padSampleConfig = PAD_INSTRUMENTS.find(i => i.id === pedalPadSlot.getCurrentId());
 
-  const pad = createPadSynth({ outBus: BUSES.PAD });
+  const lead = leadConfig.type === 'sine'
+    ? createSineSynth({ outBus: BUSES.LEAD, groupId: GROUPS.LEAD })
+    : await createSampleSynth(leadConfig, { outBus: BUSES.LEAD, groupId: GROUPS.LEAD });
 
-  const [lead, drone, pedalPad] = await Promise.all([
-    createSampleSynth(leadConfig, { outBus: BUSES.LEAD, groupId: GROUPS.LEAD }),
+  const [drone, pedalPad] = await Promise.all([
     createSampleSynth(bassConfig, { outBus: BUSES.DRONE, groupId: GROUPS.DRONE }),
     createSampleSynth(padSampleConfig, { outBus: BUSES.PEDAL_PAD, groupId: GROUPS.PEDAL_PAD }),
   ]);
 
-  synths = { pad, drone, lead, pedalPad };
+  synths = { drone, lead, pedalPad };
 
   // ── Chord trigger registry ──
   // Each entry defines how a track responds to a chord event.
   // To add a new triggered instrument, push to this array — no ruleEngine edits needed.
   const chordTriggers = [
-    {
-      track: 'pad',
-      trigger(synthsRef, { schedule, offsets }) {
-        triggerPadChord(synthsRef, schedule, offsets);
-      },
-    },
     {
       track: 'lead',
       trigger(synthsRef, { schedule, offsets }) {
@@ -213,7 +206,11 @@ function createSwappableSlot({ label, synthKey, instruments, defaultId, outBus, 
 
     let newSynth;
     try {
-      newSynth = await createSampleSynth(config, { outBus, groupId });
+      if (config.type === 'sine') {
+        newSynth = createSineSynth({ outBus, groupId });
+      } else {
+        newSynth = await createSampleSynth(config, { outBus, groupId });
+      }
     } catch (err) {
       console.warn(`[mixer] ${label} swap to "${config.name}" failed:`, err.message);
       return;
@@ -231,7 +228,10 @@ function createSwappableSlot({ label, synthKey, instruments, defaultId, outBus, 
       const tid = setTimeout(() => {
         pendingDisposeTimers = pendingDisposeTimers.filter(t => t !== tid);
         oldSynth.dispose();
-        freeInstrumentSamples(oldId);
+        const oldConfig = instruments.find(i => i.id === oldId);
+        if (oldConfig && oldConfig.type !== 'sine') {
+          freeInstrumentSamples(oldId);
+        }
       }, 15000);
       pendingDisposeTimers.push(tid);
     }
@@ -308,7 +308,16 @@ export function getMixerState() {
   };
 }
 
-const METER_NAMES = ['pad', 'drone', 'lead', 'texture', 'archive', 'freesound', 'master'];
+// Map meter names to their control bus offset within the METER_CTL block.
+// Each meter writes 2 values (rms, peak), so DRONE at ctl bus 102 = offset 2.
+const METER_LAYOUT = [
+  { name: 'drone',     offset: (METER_CTL_BUSES.DRONE     - METER_CTL_START) },
+  { name: 'lead',      offset: (METER_CTL_BUSES.LEAD      - METER_CTL_START) },
+  { name: 'texture',   offset: (METER_CTL_BUSES.TEXTURE   - METER_CTL_START) },
+  { name: 'archive',   offset: (METER_CTL_BUSES.ARCHIVE   - METER_CTL_START) },
+  { name: 'freesound', offset: (METER_CTL_BUSES.FREESOUND - METER_CTL_START) },
+  { name: 'master',    offset: (METER_CTL_BUSES.MASTER    - METER_CTL_START) },
+];
 
 /**
  * Polls all bus meter control buses and returns per-track levels.
@@ -320,11 +329,11 @@ export async function pollLevels() {
     // args = [busIndex, count, val0, val1, val2, ...]
     const values = args.slice(2); // skip busIndex and count
     const levels = {};
-    for (let i = 0; i < METER_NAMES.length; i++) {
-      const rms = values[i * 2] || 0;
-      const peak = values[i * 2 + 1] || 0;
+    for (const { name, offset } of METER_LAYOUT) {
+      const rms = values[offset] || 0;
+      const peak = values[offset + 1] || 0;
       const db = rms > 0.00001 ? 20 * Math.log10(rms) : -100;
-      levels[METER_NAMES[i]] = { rms, peak, db: Math.round(db * 10) / 10 };
+      levels[name] = { rms, peak, db: Math.round(db * 10) / 10 };
     }
     return levels;
   } catch {

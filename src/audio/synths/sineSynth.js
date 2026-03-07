@@ -1,29 +1,32 @@
 /**
- * Pad synth — OSC wrapper for SuperCollider \padVoice SynthDef.
+ * Sine synth — OSC wrapper for SuperCollider \padVoice SynthDef.
+ *
+ * Dual detuned sine voices with overlapping attack/release envelopes
+ * for seamless crossfades between chords. Selectable as a lead
+ * instrument alongside sample-based leads.
  *
  * Maintains a map of held notes → SC node IDs. When a chord changes:
  *   - Old notes: send gate=0 (triggers release envelope, SC frees after)
  *   - New notes: /s_new with gate=1 (starts attack envelope)
- *
- * The overlapping attack/release envelopes create the same seamless
- * crossfade as the original Tone.js implementation.
  */
 
 import { synthNew, nodeSet, nodeFree } from '../../sc/osc.js';
-import { allocNodeId, GROUPS, BUSES } from '../../sc/nodeIds.js';
+import { allocNodeId, GROUPS } from '../../sc/nodeIds.js';
 import { ENVELOPE_FLOOR } from '../../engine/rules.config.js';
 
 const MAX_VOICES = 16;
 
 /**
- * Creates a pad synth controller.
+ * Creates a sine synth controller.
  *
  * @param {object} [options]
- * @param {number} [options.outBus] - Output bus (default: PAD bus)
- * @returns {object} Pad synth API
+ * @param {number} [options.outBus] - Output bus
+ * @param {number} [options.groupId] - SC group for synth nodes
+ * @returns {object} Sine synth API (same interface as samplePlayer)
  */
-export function createPadSynth(options = {}) {
-  const outBus = options.outBus ?? BUSES.PAD;
+export function createSineSynth(options = {}) {
+  const outBus = options.outBus;
+  const groupId = options.groupId ?? GROUPS.LEAD;
 
   // Map of note name → { nodeId }
   const heldNotes = new Map();
@@ -46,7 +49,7 @@ export function createPadSynth(options = {}) {
     const freq = noteToFreq(note);
     const nodeId = allocNodeId();
 
-    synthNew('padVoice', nodeId, 0, GROUPS.PAD, {
+    synthNew('padVoice', nodeId, 0, groupId, {
       out: outBus,
       freq,
       gate: 1,
@@ -91,11 +94,9 @@ export function createPadSynth(options = {}) {
      * Old release tails blend with new attack ramps = seamless crossfade.
      */
     playChord(notes) {
-      // Release all currently held notes
       for (const note of [...heldNotes.keys()]) {
         releaseVoice(note);
       }
-      // Start new notes
       for (const note of notes) {
         startVoice(note);
       }
@@ -105,7 +106,6 @@ export function createPadSynth(options = {}) {
      * Adds notes without releasing existing ones (bloom).
      */
     addNotes(notes) {
-      // Cap total held notes at MAX_VOICES
       const overflow = (heldNotes.size + notes.length) - MAX_VOICES;
       if (overflow > 0) {
         const keys = [...heldNotes.keys()];
@@ -125,7 +125,6 @@ export function createPadSynth(options = {}) {
     },
 
     dispose() {
-      // Force-free all nodes immediately
       for (const [note, voice] of heldNotes) {
         nodeFree(voice.nodeId);
       }

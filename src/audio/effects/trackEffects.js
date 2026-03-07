@@ -20,7 +20,6 @@ import { resolveEffect } from './effectRegistry.js';
 
 // Map from TRACK_PROFILES track name → SC bus number
 const TRACK_BUS_MAP = {
-  pad:           BUSES.PAD,
   drone:         BUSES.DRONE,
   lead:          BUSES.LEAD,
   sampleTexture: BUSES.TEXTURE,
@@ -31,7 +30,6 @@ const TRACK_BUS_MAP = {
 
 // Map from TRACK_PROFILES track name → which reverb bus to send to
 const TRACK_REVERB_MAP = {
-  pad:           BUSES.REVERB_LONG,
   drone:         BUSES.REVERB_LONG,
   lead:          BUSES.REVERB_SHORT,
   sampleTexture: BUSES.REVERB_LONG,
@@ -42,7 +40,6 @@ const TRACK_REVERB_MAP = {
 
 // Reverb send levels per track (from original effect chains)
 const REVERB_SEND_LEVELS = {
-  pad:           0.35,   // gentle reverb wash for warmth
   drone:         0.2,    // subtle reverb to fill low end
   lead:          0.45,   // from lead chain: Reverb wet: 0.45
   sampleTexture: 0.25,   // lowered — AGC already normalizes levels

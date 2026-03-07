@@ -80,6 +80,49 @@ function driftTempo() {
   rampTempo(newBpm);
 }
 
+/**
+ * Randomizes chordDuration, attackLevel, and releaseLevel per song cycle.
+ *
+ * Shorter chords get sharper (faster) attack/release; longer chords get
+ * slower, more gradual envelopes. The ranges interpolate linearly across
+ * the full [0.25, 2] chordDuration span for smooth granularity.
+ *
+ * No glitch risk: envelope params only affect newly-triggered notes.
+ * Currently-sounding notes keep their old release tails, so the
+ * transition section naturally crossfades between old and new character.
+ */
+function randomizeChordCharacter() {
+  const prevDuration = config.chordDuration;
+  const prevAttack = config.attackLevel;
+  const prevRelease = config.releaseLevel;
+
+  // Pick new chord duration in [0.25, 2]
+  const newDuration = 0.25 + Math.random() * 1.75;
+
+  // Normalize t ∈ [0, 1] across the full range
+  const t = (newDuration - 0.25) / 1.75;
+
+  // Interpolate attack bounds:  t=0 → [0, 0.5],  t=1 → [0.3, 1.0]
+  const atkMin = 0 + t * 0.3;
+  const atkMax = 0.5 + t * 0.5;
+  const newAttack = atkMin + Math.random() * (atkMax - atkMin);
+
+  // Interpolate release bounds: t=0 → [0.1, 1.0], t=1 → [0.7, 2.0]
+  const relMin = 0.1 + t * 0.6;
+  const relMax = 1.0 + t * 1.0;
+  const newRelease = relMin + Math.random() * (relMax - relMin);
+
+  config.chordDuration = newDuration;
+  config.attackLevel = newAttack;
+  config.releaseLevel = newRelease;
+
+  console.log(
+    `[engine] chord character — duration ${prevDuration.toFixed(2)}→${newDuration.toFixed(2)} measures, ` +
+    `attack ${prevAttack.toFixed(2)}→${newAttack.toFixed(2)}, ` +
+    `release ${prevRelease.toFixed(2)}→${newRelease.toFixed(2)}`
+  );
+}
+
 function swapInstrumentsForCycle() {
   const swaps = [];
   if (swapLeadFn) swaps.push(swapLeadFn().catch(err => { console.warn('[engine] lead swap failed:', err); return null; }));
@@ -375,7 +418,9 @@ function advanceLoop() {
         }
       }
       loopPassCount = 0;
+      randomizeChordCharacter();
       driftTempo();
+      syncEnvelopesToDuration();
 
       // Schedule pedal tone fade-out during intro or main1
       const baseSec = chordDurationInSeconds();
@@ -503,6 +548,7 @@ export function start(mixerSynths, mixerTexturePlayer, callbacks = {}) {
 
   initSongStructure();
   pickChordPlayingRule();
+  randomizeChordCharacter();
   setTempoImmediate(config.tempo.current);
   syncEnvelopesToDuration();
 
@@ -544,7 +590,6 @@ export function stop() {
     texturePlayer.stop();
   }
 
-  if (synths && synths.pad && synths.pad.releaseAll)   synths.pad.releaseAll();
   if (synths && synths.lead && synths.lead.releaseAll)  synths.lead.releaseAll();
   if (synths && synths.drone && synths.drone.releaseAll) synths.drone.releaseAll();
 
@@ -580,7 +625,6 @@ function syncEnvelopesToDuration() {
   const chordSec = chordDurationInSeconds();
   const atk = config.attackLevel;
   const rel = config.releaseLevel;
-  if (synths.pad && synths.pad.updateEnvelopes)   synths.pad.updateEnvelopes(chordSec, atk, rel);
   if (synths.drone && synths.drone.updateEnvelopes) synths.drone.updateEnvelopes(chordSec, atk, rel);
   if (synths.lead && synths.lead.updateEnvelopes)  synths.lead.updateEnvelopes(chordSec, atk, rel);
 }
@@ -606,6 +650,9 @@ export function getEngineState() {
     currentRule: getCurrentRule(),
     ruleState: getRuleState(),
     baseDurationSec: Math.round(baseSec * 100) / 100,
+    chordDuration: Math.round(config.chordDuration * 100) / 100,
+    attackLevel: Math.round(config.attackLevel * 100) / 100,
+    releaseLevel: Math.round(config.releaseLevel * 100) / 100,
     progression: loop.map(c => {
       const actualSec = baseSec * c.durationTicks / TICKS_PER_UNIT;
       return {

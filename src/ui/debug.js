@@ -6,6 +6,7 @@ let animFrameId = null;
 let canvas = null;
 let canvasCtx = null;
 let paramChangeHandler = null;
+let getConfigFn = null;
 
 /**
  * Creates the debug panel UI with toggle button, spectrum placeholder,
@@ -18,6 +19,7 @@ let paramChangeHandler = null;
  */
 export function createDebugPanel({ onParamChange, getConfig }) {
   paramChangeHandler = onParamChange;
+  getConfigFn = getConfig;
 
   const panel = document.createElement('div');
   panel.id = 'debug-panel';
@@ -62,7 +64,7 @@ export function createDebugPanel({ onParamChange, getConfig }) {
   metersLabel.textContent = 'Track Levels';
   metersSection.appendChild(metersLabel);
 
-  const trackNames = ['pad', 'drone', 'lead', 'archive', 'freesound', 'sampleTexture'];
+  const trackNames = ['drone', 'lead', 'archive', 'freesound', 'sampleTexture'];
   const trackDisplayNames = { sampleTexture: 'smpTxtr' };
   trackNames.forEach(name => {
     const row = document.createElement('div');
@@ -137,7 +139,6 @@ export function createDebugPanel({ onParamChange, getConfig }) {
     { id: 'chord-interval', label: 'Chord Length (measures)', param: 'chordDuration', min: 0.25, max: 3, step: 0.25, value: config.chordDuration },
     { id: 'attack', label: 'Attack', param: 'attackLevel', min: 0, max: 1.5, step: 0.05, value: config.attackLevel || 1.0 },
     { id: 'release', label: 'Release', param: 'releaseLevel', min: 0, max: 1.5, step: 0.05, value: config.releaseLevel || 1.0 },
-    { id: 'pad-vol', label: 'Pad Volume', param: 'padVolume', min: 0, max: 1, step: 0.05, value: 0.45 },
     { id: 'drone-vol', label: 'Drone Volume', param: 'droneVolume', min: 0, max: 1, step: 0.05, value: 0.5 },
     { id: 'lead-vol', label: 'Lead Volume', param: 'leadVolume', min: 0, max: 1, step: 0.05, value: 0.4 },
     { id: 'archive-vol', label: 'Archive Volume', param: 'archiveVolume', min: 0, max: 1, step: 0.05, value: 0.7 },
@@ -178,6 +179,23 @@ export function createDebugPanel({ onParamChange, getConfig }) {
   });
 
   panel.appendChild(paramsSection);
+
+  // --- Chord Character Readout ---
+  const charSection = document.createElement('div');
+  charSection.className = 'debug-section';
+
+  const charLabel = document.createElement('div');
+  charLabel.className = 'debug-section-label';
+  charLabel.textContent = 'Chord Character';
+  charSection.appendChild(charLabel);
+
+  const charReadout = document.createElement('div');
+  charReadout.id = 'chord-character-readout';
+  charReadout.style.cssText = 'font-size:12px;line-height:1.6;color:#aaa;font-family:monospace;';
+  charReadout.textContent = '—';
+  charSection.appendChild(charReadout);
+
+  panel.appendChild(charSection);
 
   // --- Archive Status ---
   const archiveSection = document.createElement('div');
@@ -226,7 +244,7 @@ export function connectDebugAudio(trackEffects) {
   Tone.getDestination().connect(analyser);
 
   // Create a Tone.Meter for each track, connected post-effects
-  const meterTrackNames = ['pad', 'drone', 'lead', 'archive', 'freesound', 'sampleTexture'];
+  const meterTrackNames = ['drone', 'lead', 'archive', 'freesound', 'sampleTexture'];
   meterTrackNames.forEach(name => {
     if (trackEffects[name]) {
       const meter = new Tone.Meter({ smoothing: 0.8 });
@@ -290,6 +308,19 @@ function startAnimation() {
         const lightness = 30 + norm * 40;     // 30-70%
         canvasCtx.fillStyle = `hsla(${hue}, ${saturation}%, ${lightness}%, 0.95)`;
         canvasCtx.fillRect(bar * barWidth, canvas.height - height, barWidth - 1, height);
+      }
+    }
+
+    // Update chord character readout
+    if (getConfigFn) {
+      const cfg = getConfigFn();
+      const el = document.getElementById('chord-character-readout');
+      if (el) {
+        el.textContent =
+          `Duration: ${cfg.chordDuration.toFixed(2)} measures\n` +
+          `Attack:   ${cfg.attackLevel.toFixed(2)}\n` +
+          `Release:  ${cfg.releaseLevel.toFixed(2)}`;
+        el.style.whiteSpace = 'pre';
       }
     }
 

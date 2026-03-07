@@ -13,6 +13,7 @@
  */
 
 export const LEAD_INSTRUMENTS = [
+  { id: 'sine',             name: 'Sine',          type: 'sine',                                                             plucked: false },
   { id: 'malechoirlong',    name: 'Male Choir',    folder: 'Lead/Loopable/malechoirlong',    filePrefix: 'malechoirlong',    plucked: false },
   { id: 'brushstringslong', name: 'Brush Strings', folder: 'Lead/Loopable/brushstringslong', filePrefix: 'brushstringslong', plucked: false },
   { id: 'analogbellslong',  name: 'Analog Bells',  folder: 'Lead/Loopable/analogbellslong',  filePrefix: 'analogbellslong',  plucked: false },
@@ -33,9 +34,12 @@ export const PAD_INSTRUMENTS = [
 export const DEFAULT_PAD_SAMPLE = 'analogWaves';
 
 export const BASS_INSTRUMENTS = [
-  { id: 'bloomingbasslong', name: 'Blooming Bass', folder: 'Bass/Loopable/bloomingbasslong', filePrefix: 'bloomingbasslong', plucked: false },
-  { id: 'basskeylong',      name: 'Bass Keys',     folder: 'Bass/Plucked/basskeylong',       filePrefix: 'basskeylong',      plucked: true },
-  { id: 'jazzSessBass',     name: 'Jazz Bass',     folder: 'Bass/Plucked/jazzSessBass',      filePrefix: 'JazzSessBass',     plucked: true },
+  { id: 'bloomingbasslong', name: 'Blooming Bass',   folder: 'Bass/Loopable/bloomingbasslong', filePrefix: 'bloomingbasslong', plucked: false },
+  { id: 'bytebass',         name: 'Byte Bass',       folder: 'Bass/Loopable/bytebass',         filePrefix: 'bytebass',         plucked: false },
+  { id: 'darkglidebass',    name: 'Dark Glide Bass', folder: 'Bass/Loopable/darkglidebass',    filePrefix: 'darkglidebass',    plucked: false },
+  { id: 'basskeylong',      name: 'Bass Keys',       folder: 'Bass/Plucked/basskeylong',       filePrefix: 'basskeylong',      plucked: true },
+  { id: 'heavyHandedbass',  name: 'Heavy Handed',    folder: 'Bass/Plucked/heavyHandedbass',   filePrefix: 'heavyhandedbass',  plucked: true },
+  { id: 'jazzSessBass',     name: 'Jazz Bass',       folder: 'Bass/Plucked/jazzSessBass',      filePrefix: 'JazzSessBass',     plucked: true },
 ];
 
 export const DEFAULT_LEAD = 'malechoirlong';

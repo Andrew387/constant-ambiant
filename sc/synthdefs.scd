@@ -240,7 +240,7 @@ SynthDef(\sfxPlayerStereo, { |out=0, buf=0, amp=0.25, lpFreq=2500|
 // Lag3 (3rd-order) produces smooth S-curve transitions instead of
 // the abrupt exponential onset of .lag(). lagTime controls ramp
 // duration — duck gains use longer times for gradual section fades.
-SynthDef(\fxGain, { |bus=0, gain=1, lagTime=8|
+SynthDef(\fxGain, { |bus=0, gain=1, lagTime=4|
     ReplaceOut.ar(bus, In.ar(bus, 2) * Lag3.kr(gain, lagTime));
 }).add;
 
@@ -251,7 +251,7 @@ SynthDef(\fxHPF, { |bus=0, freq=180|
 
 // ── LOWPASS FILTER (automation target) ──────────────────────
 // Lag3 smooths section automation sweeps with an S-curve shape.
-SynthDef(\fxLPF, { |bus=0, freq=18000, lagTime=8|
+SynthDef(\fxLPF, { |bus=0, freq=18000, lagTime=3|
     ReplaceOut.ar(bus, LPF.ar(In.ar(bus, 2), Lag3.kr(freq, lagTime)));
 }).add;
 
@@ -309,13 +309,13 @@ SynthDef(\fxAGC, { |bus=0, targetAmp=0.3, atkTime=0.5, relTime=3, maxGain=20|
 // ── REVERB SEND ─────────────────────────────────────────────
 // Sends a scaled copy of the signal to a reverb bus.
 // Uses Out (additive) so signal accumulates on the reverb bus.
-SynthDef(\fxReverbSend, { |bus=0, sendBus=16, level=0.5, lagTime=8|
+SynthDef(\fxReverbSend, { |bus=0, sendBus=16, level=0.5, lagTime=4|
     Out.ar(sendBus, In.ar(bus, 2) * Lag3.kr(level, lagTime));
 }).add;
 
 // ── TRACK OUTPUT ────────────────────────────────────────────
 // Routes processed track signal to the master bus.
-SynthDef(\fxTrackOut, { |bus=0, masterBus=2, gain=1, lagTime=8|
+SynthDef(\fxTrackOut, { |bus=0, masterBus=2, gain=1, lagTime=4|
     Out.ar(masterBus, In.ar(bus, 2) * Lag3.kr(gain, lagTime));
 }).add;
 

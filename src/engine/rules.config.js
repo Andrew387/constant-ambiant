@@ -26,7 +26,6 @@ export const DARK_ROOTS = ['C', 'G', 'D', 'A', 'E', 'F', 'Bb', 'Eb', 'Ab'];
  * false = sustain through skip (continuous pad/drone).
  */
 export const TRACK_SKIP_RELEASE = {
-  pad: true,
   lead: true,
   drone: false,
 };

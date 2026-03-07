@@ -19,42 +19,42 @@ export const SECTIONS = [
     duration: 4,           // loop passes
     holdUntil: 0,          // automation hold threshold (0–1)
     chordSkipProbability: 0.30,
-    tracks: { pad: true, drone: true, archive: true, freesound: true, lead: true },
+    tracks: { drone: true, archive: true, freesound: true, lead: true },
   },
   {
     type: 'intro',
     duration: 4,
     holdUntil: 0.5,
     chordSkipProbability: 0.20,
-    tracks: { pad: true, drone: true, archive: true, freesound: true, lead: true },
+    tracks: { drone: true, archive: true, freesound: true, lead: true },
   },
   {
     type: 'main',
     duration: 4,
     holdUntil: 0.8,
     chordSkipProbability: 0,
-    tracks: { pad: true, drone: true, archive: true, freesound: true, lead: true },
+    tracks: { drone: true, archive: true, freesound: true, lead: true },
   },
   {
     type: 'innerTransition',
     duration: 1,
     holdUntil: 0,
     chordSkipProbability: 0,
-    tracks: { pad: true, drone: true, archive: true, freesound: true, lead: true },
+    tracks: { drone: true, archive: true, freesound: true, lead: true },
   },
   {
     type: 'main2',
     duration: 4,
     holdUntil: 0.8,
     chordSkipProbability: 0,
-    tracks: { pad: true, drone: true, archive: true, freesound: true, lead: true },
+    tracks: { drone: true, archive: true, freesound: true, lead: true },
   },
   {
     type: 'outro',
     duration: 2,
     holdUntil: 0.4,
     chordSkipProbability: 0.10,
-    tracks: { pad: true, drone: true, archive: true, freesound: true, lead: true },
+    tracks: { drone: true, archive: true, freesound: true, lead: true },
   },
 ];
 

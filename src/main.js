@@ -18,7 +18,7 @@
  *   PORT         - Web UI port (default 4000)
  */
 
-import { initOSC, closeOSC, sync, startHealthCheck, stopHealthCheck } from './sc/osc.js';
+import { initOSC, closeOSC, sync, queryStatus, startHealthCheck, stopHealthCheck } from './sc/osc.js';
 import { bootSuperCollider, killSuperCollider } from './sc/boot.js';
 import { initMixer, setMasterVolume, setTrackVolume, getMixerState } from './audio/mixer.js';
 import { start, stop, updateRules, getConfig, getEngineState } from './engine/ruleEngine.js';
@@ -44,7 +44,6 @@ const debugState = {
   chordDuration: null,
   attackLevel: null,
   releaseLevel: null,
-  padVolume: null,
   droneVolume: null,
   leadVolume: null,
   archiveVolume: null,
@@ -108,30 +107,30 @@ async function boot() {
   // 5. Install the log interceptor (captures engine state for UI)
   installLogInterceptor();
 
-  // 6. Start SC health check (periodic /sync ping)
+  // 6. Start SC health check (periodic /sync ping + /status query)
   startHealthCheck({
     interval: 15000,
     async onDead() {
       _origLog('[WARN] scsynth appears dead after 3 failed pings — attempting recovery...');
+      await recoverSuperCollider();
+    },
+    async onSleepWake() {
+      _origLog(`[recovery] System woke from sleep — checking scsynth audio state...`);
+      // Give CoreAudio a moment to reinitialize
+      await sleep(2000);
       try {
-        stopEngine();
-        if (mixer) { mixer.dispose(); mixer = null; }
-        closeOSC();
-        killSuperCollider();
+        const st = await queryStatus(5000);
+        _origLog(`[recovery] Post-wake status: synths:${st.numSynths} UGens:${st.numUGens} SR:${st.actualSR}/${st.nominalSR} CPU:${st.avgCPU.toFixed(1)}%`);
 
-        await sleep(2000);
-
-        await bootSuperCollider({ timeout: 45000, verbose: true });
-        _origLog('[recovery] SuperCollider rebooted.');
-        await initOSC();
-        await waitForScsynth();
-
-        mixer = await initMixer();
-        _origLog('[recovery] Mixer re-initialized. Restarting engine...');
-        startEngine();
-        _origLog('[recovery] Engine restarted successfully.');
-      } catch (err) {
-        _origLog('[recovery] Failed to recover:', err.message);
+        if (st.actualSR === 0 || st.numUGens === 0) {
+          _origLog('[recovery] Audio device appears dead after sleep — rebooting scsynth...');
+          await recoverSuperCollider();
+        } else {
+          _origLog('[recovery] scsynth audio looks OK after wake.');
+        }
+      } catch {
+        _origLog('[recovery] Cannot reach scsynth after wake — rebooting...');
+        await recoverSuperCollider();
       }
     },
   });
@@ -147,6 +146,39 @@ async function boot() {
   _origLog('  Press Ctrl+C to stop gracefully.');
   _origLog('  -----------------------------------------------');
   _origLog('');
+}
+
+/* ------------------------------------------------------------------ */
+/*  SuperCollider recovery                                             */
+/* ------------------------------------------------------------------ */
+
+let recovering = false;
+
+async function recoverSuperCollider() {
+  if (recovering) return;
+  recovering = true;
+  try {
+    stopEngine();
+    if (mixer) { mixer.dispose(); mixer = null; }
+    closeOSC();
+    killSuperCollider();
+
+    await sleep(2000);
+
+    await bootSuperCollider({ timeout: 45000, verbose: true });
+    _origLog('[recovery] SuperCollider rebooted.');
+    await initOSC();
+    await waitForScsynth();
+
+    mixer = await initMixer();
+    _origLog('[recovery] Mixer re-initialized. Restarting engine...');
+    startEngine();
+    _origLog('[recovery] Engine restarted successfully.');
+  } catch (err) {
+    _origLog('[recovery] Failed to recover:', err.message);
+  } finally {
+    recovering = false;
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -259,7 +291,6 @@ function handleParamChange(param, value) {
     case 'chordDuration':       updateRules({ chordDuration: value }); break;
     case 'attackLevel':         updateRules({ attackLevel: value });   break;
     case 'releaseLevel':        updateRules({ releaseLevel: value });  break;
-    case 'padVolume':           setTrackVolume('pad', value);           break;
     case 'droneVolume':         setTrackVolume('drone', value);         break;
     case 'leadVolume':          setTrackVolume('lead', value);          break;
     case 'archiveVolume':       setTrackVolume('archive', value);       break;
@@ -276,7 +307,6 @@ function applyDebugOverrides() {
   if (debugState.releaseLevel !== null)  ruleOverrides.releaseLevel  = debugState.releaseLevel;
   if (Object.keys(ruleOverrides).length > 0) updateRules(ruleOverrides);
 
-  if (debugState.padVolume !== null)           setTrackVolume('pad', debugState.padVolume);
   if (debugState.droneVolume !== null)         setTrackVolume('drone', debugState.droneVolume);
   if (debugState.leadVolume !== null)          setTrackVolume('lead', debugState.leadVolume);
   if (debugState.archiveVolume !== null)       setTrackVolume('archive', debugState.archiveVolume);

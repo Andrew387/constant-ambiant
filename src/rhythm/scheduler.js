@@ -12,34 +12,6 @@
  */
 
 /**
- * Plays a chord on the pad synth, releasing any previous chord.
- *
- * @param {object} synths - Object with pad, drone, lead synths
- * @param {{ simultaneous: string[], sequential: { note: string, timeOffset: number }[] }} schedule
- * @param {number[]} offsets - Per-note timing offsets in seconds (humanization)
- */
-export function triggerPadChord(synths, schedule, offsets) {
-  if (!synths.pad) {
-    console.warn('[scheduler] pad synth not available — skipping');
-    return;
-  }
-
-  // Play simultaneous notes immediately
-  synths.pad.playChord(schedule.simultaneous);
-
-  // Schedule sequential notes with their time offsets
-  for (const { note, timeOffset } of schedule.sequential) {
-    if (timeOffset <= 0) {
-      synths.pad.addNotes([note]);
-    } else {
-      setTimeout(() => {
-        synths.pad?.addNotes([note]);
-      }, timeOffset * 1000);
-    }
-  }
-}
-
-/**
  * Plays a chord on the lead sampler.
  *
  * @param {object} synths - Object with lead synth
