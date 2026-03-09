@@ -193,6 +193,7 @@ function startEngine() {
     onSwapLead: mixer.swapLeadRandom,
     onSwapBass: mixer.swapBassRandom,
     onSwapPedalPad: mixer.swapPedalPadRandom,
+    onSwapBassSupport: mixer.swapBassSupportRandom,
   });
   isRunning = true;
   status.running = true;

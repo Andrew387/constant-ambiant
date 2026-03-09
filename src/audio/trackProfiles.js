@@ -139,13 +139,40 @@ export const TRACK_PROFILES = {
     },
   },
 
+  bassSupport: {
+    gain: 0.15,
+    chain: [
+      {
+        id: 'duckGain',
+        type: 'Gain',
+        params: { gain: 0, lagTime: 4 },
+      },
+    ],
+    automation: {
+      brightness: {
+        transition:      0,
+        intro:           1.0,
+        main:            1.0,
+        innerTransition: 1.0,
+        main2:           1.0,
+        outro:           1.0,
+      },
+      duckFloor: 0,
+      holdOverride: { outro: 0 },
+      deferredFadeIn: {
+        window: ['intro', 'main'],
+        fadeDuration: 10,
+      },
+    },
+  },
+
   pedalPad: {
     gain: 0.35,
     chain: [],
   },
 
   sampleTexture: {
-    gain: 0.2,
+    gain: 0.05,
     chain: [
       {
         type: 'Filter',
@@ -158,7 +185,7 @@ export const TRACK_PROFILES = {
       },
       {
         type: 'AGC',
-        params: { targetAmp: 0.03, attack: 0.5, release: 3, maxGain: 10 },
+        params: { targetAmp: 0.015, attack: 0.5, release: 3, maxGain: 6 },
       },
       {
         type: 'PingPongDelay',

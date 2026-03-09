@@ -39,6 +39,7 @@ let chordTriggers = [];
 let swapLeadFn = null;
 let swapBassFn = null;
 let swapPedalPadFn = null;
+let swapBassSupportFn = null;
 let running = false;
 let chordCount = 0;
 let loopTimeoutId = null;
@@ -127,6 +128,11 @@ function swapInstrumentsForCycle() {
   const swaps = [];
   if (swapLeadFn) swaps.push(swapLeadFn().catch(err => { console.warn('[engine] lead swap failed:', err); return null; }));
   if (swapBassFn) swaps.push(swapBassFn().catch(err => { console.warn('[engine] bass swap failed:', err); return null; }));
+
+  // Swap bass-support pad independently (fire-and-forget)
+  if (swapBassSupportFn) {
+    swapBassSupportFn().catch(err => { console.warn('[engine] bassSupport swap failed:', err); });
+  }
 
   if (swaps.length === 0) {
     pickChordPlayingRule({ leadPlucked: leadIsPlucked, bassPlucked: bassIsPlucked, progressionLength: baseLoop.length });
@@ -490,7 +496,7 @@ function scheduleNextChord() {
       const droneNote = `${bassNoteName}2`;
       const bassOffset = getBassOffsetBeat(lastPlayedPosition);
 
-      const triggerCtx = { schedule, offsets, chordSec, droneNote, bassOffset };
+      const triggerCtx = { schedule, offsets, chordSec, droneNote, bassOffset, bassIsPlucked };
 
       // Fire all registered chord triggers for tracks active in this section
       for (const entry of chordTriggers) {
@@ -536,6 +542,7 @@ export function start(mixerSynths, mixerTexturePlayer, callbacks = {}) {
   swapLeadFn = callbacks.onSwapLead || null;
   swapBassFn = callbacks.onSwapBass || null;
   swapPedalPadFn = callbacks.onSwapPedalPad || null;
+  swapBassSupportFn = callbacks.onSwapBassSupport || null;
   running = true;
   chordCount = 0;
   baseLoop = [];
@@ -606,6 +613,7 @@ export function stop() {
   swapLeadFn = null;
   swapBassFn = null;
   swapPedalPadFn = null;
+  swapBassSupportFn = null;
   leadIsPlucked = false;
   bassIsPlucked = false;
 }
@@ -627,6 +635,7 @@ function syncEnvelopesToDuration() {
   const rel = config.releaseLevel;
   if (synths.drone && synths.drone.updateEnvelopes) synths.drone.updateEnvelopes(chordSec, atk, rel);
   if (synths.lead && synths.lead.updateEnvelopes)  synths.lead.updateEnvelopes(chordSec, atk, rel);
+  if (synths.bassSupport && synths.bassSupport.updateEnvelopes) synths.bassSupport.updateEnvelopes(chordSec, atk, rel);
 }
 
 export function getConfig() {

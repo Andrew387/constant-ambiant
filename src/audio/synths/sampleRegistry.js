@@ -35,10 +35,10 @@ export const DEFAULT_PAD_SAMPLE = 'analogWaves';
 
 export const BASS_INSTRUMENTS = [
   { id: 'bloomingbasslong', name: 'Blooming Bass',   folder: 'Bass/Loopable/bloomingbasslong', filePrefix: 'bloomingbasslong', plucked: false },
-  { id: 'bytebass',         name: 'Byte Bass',       folder: 'Bass/Loopable/bytebass',         filePrefix: 'bytebass',         plucked: false },
+  { id: 'bytebass',         name: 'Byte Bass',       folder: 'Bass/Loopable/bytebass',         filePrefix: 'bytebass',         plucked: false, gain: 0.7 },
   { id: 'darkglidebass',    name: 'Dark Glide Bass', folder: 'Bass/Loopable/darkglidebass',    filePrefix: 'darkglidebass',    plucked: false },
   { id: 'basskeylong',      name: 'Bass Keys',       folder: 'Bass/Plucked/basskeylong',       filePrefix: 'basskeylong',      plucked: true },
-  { id: 'heavyHandedbass',  name: 'Heavy Handed',    folder: 'Bass/Plucked/heavyHandedbass',   filePrefix: 'heavyhandedbass',  plucked: true },
+  { id: 'heavyHandedbass',  name: 'Heavy Handed',    folder: 'Bass/Plucked/heavyHandedbass',   filePrefix: 'heavyhandedbass',  plucked: true, gain: 0.5 },
   { id: 'jazzSessBass',     name: 'Jazz Bass',       folder: 'Bass/Plucked/jazzSessBass',      filePrefix: 'JazzSessBass',     plucked: true },
 ];
 

@@ -44,6 +44,7 @@ const TRACK_BUS = {
   archive:       BUSES.ARCHIVE,
   freesound:     BUSES.FREESOUND,
   pedalPad:      BUSES.PEDAL_PAD,
+  bassSupport:   BUSES.BASS_SUPPORT,
 };
 
 /**
@@ -131,12 +132,15 @@ export async function initMixer() {
     ? createSineSynth({ outBus: BUSES.LEAD, groupId: GROUPS.LEAD })
     : await createSampleSynth(leadConfig, { outBus: BUSES.LEAD, groupId: GROUPS.LEAD });
 
-  const [drone, pedalPad] = await Promise.all([
+  const bassSupportConfig = PAD_INSTRUMENTS.find(i => i.id === bassSupportSlot.getCurrentId());
+
+  const [drone, pedalPad, bassSupport] = await Promise.all([
     createSampleSynth(bassConfig, { outBus: BUSES.DRONE, groupId: GROUPS.DRONE }),
     createSampleSynth(padSampleConfig, { outBus: BUSES.PEDAL_PAD, groupId: GROUPS.PEDAL_PAD }),
+    createSampleSynth(bassSupportConfig, { outBus: BUSES.BASS_SUPPORT, groupId: GROUPS.BASS_SUPPORT }),
   ]);
 
-  synths = { drone, lead, pedalPad };
+  synths = { drone, lead, pedalPad, bassSupport };
 
   // ── Chord trigger registry ──
   // Each entry defines how a track responds to a chord event.
@@ -161,6 +165,16 @@ export async function initMixer() {
         }
       },
     },
+    {
+      track: 'bassSupport',
+      trigger(synthsRef, { droneNote, chordSec, bassIsPlucked }) {
+        if (!bassIsPlucked || !synthsRef.bassSupport) return;
+        // Drop one octave below the drone (e.g. C2 → C1) for low pad support
+        const match = droneNote.match(/^([A-G]#?)(\d+)$/);
+        const lowNote = match ? `${match[1]}${Math.max(1, Number(match[2]) - 1)}` : droneNote;
+        synthsRef.bassSupport.triggerAttackRelease(lowNote, chordSec);
+      },
+    },
   ];
 
   // ── Texture player ──
@@ -180,6 +194,7 @@ export async function initMixer() {
     swapBass: bassSlot.swap,
     swapBassRandom: bassSlot.swapRandom,
     swapPedalPadRandom: pedalPadSlot.swapRandom,
+    swapBassSupportRandom: bassSupportSlot.swapRandom,
     pollLevels,
     dispose: disposeMixer,
   };
@@ -266,6 +281,11 @@ const pedalPadSlot = createSwappableSlot({
   label: 'pedalPad', synthKey: 'pedalPad',
   instruments: PAD_INSTRUMENTS, defaultId: DEFAULT_PAD_SAMPLE,
   outBus: BUSES.PEDAL_PAD, groupId: GROUPS.PEDAL_PAD,
+});
+const bassSupportSlot = createSwappableSlot({
+  label: 'bassSupport', synthKey: 'bassSupport',
+  instruments: PAD_INSTRUMENTS, defaultId: DEFAULT_PAD_SAMPLE,
+  outBus: BUSES.BASS_SUPPORT, groupId: GROUPS.BASS_SUPPORT,
 });
 
 /**

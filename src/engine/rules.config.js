@@ -28,6 +28,7 @@ export const DARK_ROOTS = ['C', 'G', 'D', 'A', 'E', 'F', 'Bb', 'Eb', 'Ab'];
 export const TRACK_SKIP_RELEASE = {
   lead: true,
   drone: false,
+  bassSupport: false,
 };
 
 /** Humanization: random timing offset range in seconds (±half this value). */
