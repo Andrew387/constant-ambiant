@@ -220,6 +220,9 @@ function stopEngine() {
   broadcastStatus();
 }
 
+let lastDiagnosticLog = 0;
+const DIAGNOSTIC_INTERVAL = 30000; // log bus levels every 30s
+
 function startLevelPolling() {
   if (levelPollTimer) return;
   levelPollTimer = setInterval(async () => {
@@ -228,6 +231,16 @@ function startLevelPolling() {
     if (levels) {
       const automation = getAutomationState();
       broadcast({ type: 'levels', levels, automation });
+
+      // Periodic diagnostic: log bus signal levels to console
+      const now = Date.now();
+      if (now - lastDiagnosticLog >= DIAGNOSTIC_INTERVAL) {
+        lastDiagnosticLog = now;
+        const parts = Object.entries(levels).map(([name, { db }]) =>
+          `${name}:${db > -100 ? db.toFixed(1) : '---'}dB`
+        );
+        _origLog(`[meters] ${parts.join('  ')}`);
+      }
     }
   }, 150);
 }

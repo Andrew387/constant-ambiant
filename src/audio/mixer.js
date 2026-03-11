@@ -238,8 +238,10 @@ function createSwappableSlot({ label, synthKey, instruments, defaultId, outBus, 
 
     if (oldSynth) {
       oldSynth.releaseAll();
-      // Wait longer than the longest release envelope (rel2 ≈ chordSec * 1.4)
-      // to ensure all voices have fully faded before freeing their buffers.
+      // Wait longer than the longest possible release envelope.
+      // Release time = chordSec * 1.2 * relLevel, where chordSec can
+      // reach ~10.7s and relLevel up to 2.0 → ~25.6s max.
+      // Use 45s to be safe — the only cost is keeping buffers in memory longer.
       const tid = setTimeout(() => {
         pendingDisposeTimers = pendingDisposeTimers.filter(t => t !== tid);
         oldSynth.dispose();
@@ -247,7 +249,7 @@ function createSwappableSlot({ label, synthKey, instruments, defaultId, outBus, 
         if (oldConfig && oldConfig.type !== 'sine') {
           freeInstrumentSamples(oldId);
         }
-      }, 15000);
+      }, 45000);
       pendingDisposeTimers.push(tid);
     }
     console.log(`[mixer] ${label} swapped to ${config.name}`);

@@ -116,7 +116,7 @@ function fadeOutAndDispose(track) {
   setTimeout(() => {
     pendingFrees.delete(slotName);
     freeNamedBuffer(slotName);
-  }, (CROSSFADE_DURATION + 2) * 1000);
+  }, (CROSSFADE_DURATION + 8) * 1000); // generous margin over release time
 }
 
 /**
