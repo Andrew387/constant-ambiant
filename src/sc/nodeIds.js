@@ -42,7 +42,8 @@ export function allocNodeIds(count) {
 }
 
 /**
- * Resets the allocator (for testing only).
+ * Resets the allocator. Called during recovery after scsynth restart
+ * so node IDs start fresh (the new server has no knowledge of old IDs).
  */
 export function resetNodeIds() {
   nextId = 2000;

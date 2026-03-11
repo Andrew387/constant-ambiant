@@ -246,3 +246,17 @@ export function freeAllBuffers() {
   nextBufNum = 100;
   console.log('[bufferManager] All buffers freed');
 }
+
+/**
+ * Resets all JS-side buffer tracking WITHOUT sending /b_free to scsynth.
+ * Use this after scsynth has been rebooted — the server already lost all
+ * buffers, so we only need to clear our stale references.
+ */
+export function resetBufferState() {
+  allocatedBuffers.clear();
+  instrumentBuffers.clear();
+  instrumentRefCounts.clear();
+  namedBuffers.clear();
+  nextBufNum = 100;
+  console.log('[bufferManager] Buffer state reset (server restarted)');
+}

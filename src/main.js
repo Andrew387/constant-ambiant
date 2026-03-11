@@ -18,7 +18,7 @@
  *   PORT         - Web UI port (default 4000)
  */
 
-import { initOSC, closeOSC, sync, queryStatus, startHealthCheck, stopHealthCheck } from './sc/osc.js';
+import { initOSC, closeOSC, sync, startHealthCheck, stopHealthCheck, resetHealthCheckFailures } from './sc/osc.js';
 import { bootSuperCollider, killSuperCollider } from './sc/boot.js';
 import { initMixer, setMasterVolume, setTrackVolume, getMixerState } from './audio/mixer.js';
 import { start, stop, updateRules, getConfig, getEngineState } from './engine/ruleEngine.js';
@@ -31,6 +31,8 @@ import {
 } from './audio/synths/sampleRegistry.js';
 import { getAutomationState } from './audio/effects/sectionAutomation.js';
 import { getEffectChainInfo } from './audio/effects/trackEffects.js';
+import { resetBufferState } from './sc/bufferManager.js';
+import { resetNodeIds } from './sc/nodeIds.js';
 
 let mixer = null;
 let isRunning = false;
@@ -115,23 +117,14 @@ async function boot() {
       await recoverSuperCollider();
     },
     async onSleepWake() {
-      _origLog(`[recovery] System woke from sleep — checking scsynth audio state...`);
-      // Give CoreAudio a moment to reinitialize
-      await sleep(2000);
-      try {
-        const st = await queryStatus(5000);
-        _origLog(`[recovery] Post-wake status: synths:${st.numSynths} UGens:${st.numUGens} SR:${st.actualSR}/${st.nominalSR} CPU:${st.avgCPU.toFixed(1)}%`);
-
-        if (st.actualSR === 0 || st.numUGens === 0) {
-          _origLog('[recovery] Audio device appears dead after sleep — rebooting scsynth...');
-          await recoverSuperCollider();
-        } else {
-          _origLog('[recovery] scsynth audio looks OK after wake.');
-        }
-      } catch {
-        _origLog('[recovery] Cannot reach scsynth after wake — rebooting...');
-        await recoverSuperCollider();
-      }
+      // Always do a full recovery after sleep/wake. Even if scsynth is
+      // still responding (sclang may have auto-rebooted it), all our
+      // synth nodes, effect chains, and buffers are gone from the fresh
+      // server. Trying to detect "is it OK?" is unreliable and the cost
+      // of a full recovery (~3s of silence) is much lower than getting
+      // stuck in a broken state with no sound.
+      _origLog('[recovery] System woke from sleep — performing full recovery...');
+      await recoverSuperCollider();
     },
   });
 
@@ -163,6 +156,11 @@ async function recoverSuperCollider() {
     closeOSC();
     killSuperCollider();
 
+    // Reset JS-side state that was tied to the old scsynth process.
+    // The server lost all buffers and nodes on crash — our tracking is stale.
+    resetBufferState();
+    resetNodeIds();
+
     await sleep(2000);
 
     await bootSuperCollider({ timeout: 45000, verbose: true });
@@ -173,6 +171,7 @@ async function recoverSuperCollider() {
     mixer = await initMixer();
     _origLog('[recovery] Mixer re-initialized. Restarting engine...');
     startEngine();
+    resetHealthCheckFailures();
     _origLog('[recovery] Engine restarted successfully.');
   } catch (err) {
     _origLog('[recovery] Failed to recover:', err.message);

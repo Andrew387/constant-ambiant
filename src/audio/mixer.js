@@ -172,6 +172,7 @@ export async function initMixer() {
         // Drop one octave below the drone (e.g. C2 → C1) for low pad support
         const match = droneNote.match(/^([A-G]#?)(\d+)$/);
         const lowNote = match ? `${match[1]}${Math.max(1, Number(match[2]) - 1)}` : droneNote;
+        console.log(`[mixer] bassSupport trigger → ${lowNote} (${chordSec.toFixed(1)}s)`);
         synthsRef.bassSupport.triggerAttackRelease(lowNote, chordSec);
       },
     },
@@ -256,10 +257,11 @@ function createSwappableSlot({ label, synthKey, instruments, defaultId, outBus, 
   }
 
   async function swapRandom() {
-    const pick = instruments[Math.floor(Math.random() * instruments.length)];
-    if (pick.id !== currentId) {
-      await swap(pick.id);
-    }
+    const others = instruments.filter(i => i.id !== currentId);
+    const pick = others.length > 0
+      ? others[Math.floor(Math.random() * others.length)]
+      : instruments[0];
+    await swap(pick.id);
     return { plucked: pick.plucked };
   }
 

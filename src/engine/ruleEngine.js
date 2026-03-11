@@ -13,7 +13,7 @@
  *   - Release calls don't pass a `time` parameter
  */
 
-import rulesConfig, { CHORD_SKIP_PROBABILITY, TRACK_SKIP_RELEASE, SECTION_DURATIONS } from './rules.config.js';
+import rulesConfig, { CHORD_SKIP_PROBABILITY, TRACK_SKIP_RELEASE, SECTION_DURATIONS, scaleSectionDurations } from './rules.config.js';
 import { generateProgression, rebuildChordWithColor, MINOR_KEYS, TICKS_PER_UNIT } from '../harmony/progression.js';
 import { voiceChord } from '../harmony/voicing.js';
 // Synth triggers are now provided via the chordTriggers registry from mixer
@@ -425,6 +425,7 @@ function advanceLoop() {
       }
       loopPassCount = 0;
       randomizeChordCharacter();
+      scaleSectionDurations(config.chordDuration);
       driftTempo();
       syncEnvelopesToDuration();
 

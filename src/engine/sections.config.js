@@ -77,3 +77,29 @@ export const SECTION_HOLD_UNTIL = Object.fromEntries(
 export const CHORD_SKIP_PROBABILITY = Object.fromEntries(
   SECTIONS.filter(s => s.chordSkipProbability > 0).map(s => [s.type, s.chordSkipProbability])
 );
+
+// ── Dynamic duration scaling ──
+
+const BASE_DURATIONS = SECTIONS.map(s => s.duration);
+const REFERENCE_CHORD_DURATION = 1.0;
+
+/**
+ * Scales section durations inversely with chord duration.
+ * Longer chords → fewer loops; short chords stay at base (cap).
+ * Mutates SECTIONS[].duration and SECTION_DURATIONS in place.
+ *
+ * @param {number} chordDuration — current chord duration in measures
+ */
+export function scaleSectionDurations(chordDuration) {
+  const ratio = REFERENCE_CHORD_DURATION / chordDuration;
+
+  SECTIONS.forEach((section, i) => {
+    const base = BASE_DURATIONS[i];
+    const scaled = Math.max(1, Math.min(base, Math.round(base * ratio)));
+    section.duration = scaled;
+    SECTION_DURATIONS[section.type] = scaled;
+  });
+
+  const summary = SECTIONS.map(s => `${s.type}:${s.duration}`).join(', ');
+  console.log(`[song] section durations scaled (chord ${chordDuration.toFixed(2)}m) → ${summary}`);
+}

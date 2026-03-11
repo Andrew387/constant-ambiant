@@ -552,3 +552,12 @@ export function stopHealthCheck() {
     healthCheckTimer = null;
   }
 }
+
+/**
+ * Resets the consecutive failure counter.
+ * Call after a successful recovery so the health check doesn't
+ * immediately re-trigger onDead from stale failure counts.
+ */
+export function resetHealthCheckFailures() {
+  consecutiveFailures = 0;
+}
