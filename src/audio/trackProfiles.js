@@ -102,6 +102,10 @@ export const TRACK_PROFILES = {
     gain: 0.4,
     chain: [
       {
+        type: 'VinylWobble',
+        params: { density: 0.12, depth: 0.004 },
+      },
+      {
         id: 'dynamicFilter',
         type: 'Filter',
         params: { type: 'lowpass', frequency: 18000, Q: 0.7, rolloff: -12, lagTime: 3 },
@@ -168,7 +172,12 @@ export const TRACK_PROFILES = {
 
   pedalPad: {
     gain: 0.35,
-    chain: [],
+    chain: [
+      {
+        type: 'VinylWobble',
+        params: { density: 0.1, depth: 0.003 },
+      },
+    ],
   },
 
   sampleTexture: {

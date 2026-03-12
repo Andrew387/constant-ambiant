@@ -96,6 +96,16 @@ const EFFECT_REGISTRY = [
     },
   },
   {
+    type: 'VinylWobble',
+    defName: 'fxVinylWobble',
+    mapParams(spec) {
+      return {
+        density: spec.params?.density ?? 0.12,
+        depth: spec.params?.depth ?? 0.004,
+      };
+    },
+  },
+  {
     type: 'Reverb',
     skip: true, // reverb is handled via sends, not in-place
   },

@@ -236,6 +236,26 @@ SynthDef(\sfxPlayerStereo, { |out=0, buf=0, amp=0.25, lpFreq=2500|
 //  EFFECT SYNTHDEFS — in-place processing on track buses
 // ════════════════════════════════════════════════════════════
 
+// ── VINYL WOBBLE (punctual pitch drift) ─────────────────────
+// Occasional smooth pitch bumps via delay-line modulation.
+// Random Dust triggers → percussive envelope → modulates a short
+// delay time. While delay grows the pitch drops; while it shrinks
+// the pitch rises back — like a finger brushing a spinning record.
+// density = avg bumps per second, depth = max delay excursion (s).
+SynthDef(\fxVinylWobble, { |bus=0, density=0.12, depth=0.004|
+    var sig = In.ar(bus, 2);
+    var trig = Dust.kr(density);
+    // Direction: randomly pitch up or down each bump
+    var dir = TRand.kr(-1, 1, trig).sign;
+    // Smooth bump envelope: ~0.5s rise, ~1.5s fall
+    var env = EnvGen.kr(Env.perc(0.5, 1.5, 1, -4), trig);
+    var mod = env * dir * depth;
+    // Base delay keeps signal centred; modulation swings around it
+    var delTime = (0.005 + mod).clip(0.0001, 0.02);
+    var wet = DelayC.ar(sig, 0.02, delTime);
+    ReplaceOut.ar(bus, wet);
+}).add;
+
 // ── GAIN (track gain, duck gain) ────────────────────────────
 // Lag3 (3rd-order) produces smooth S-curve transitions instead of
 // the abrupt exponential onset of .lag(). lagTime controls ramp

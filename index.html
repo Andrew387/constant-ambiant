@@ -1210,7 +1210,7 @@
         const wetVal = document.getElementById('mfx-reverb-wet-val');
         const decayVal = document.getElementById('mfx-reverb-decay-val');
         const dampVal = document.getElementById('mfx-reverb-damp-val');
-        if (wetEl) wetEl.style.width = (mfx.reverb.wet * 100 / 0.6) + '%'; // 0.6 = max
+        if (wetEl) wetEl.style.width = (mfx.reverb.wet * 100 / 0.7) + '%'; // 0.7 = max
         if (wetVal) wetVal.textContent = (mfx.reverb.wet * 100).toFixed(0) + '%';
         if (decayVal) decayVal.textContent = mfx.reverb.decay.toFixed(1) + 's';
         if (dampVal) dampVal.textContent = mfx.reverb.damp.toFixed(2);
