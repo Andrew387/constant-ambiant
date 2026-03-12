@@ -675,6 +675,55 @@
       <div id="effects-display"></div>
     </div>
 
+    <!-- Panel 8b: Master Effects -->
+    <div class="panel" id="panel-master-fx">
+      <div class="panel-title">Master Effects</div>
+      <div id="master-fx-display">
+        <div class="fx-track" style="margin-bottom:6px">
+          <div class="fx-track-header"><span class="fx-track-name">reverb</span></div>
+          <div class="fx-live-row">
+            <span class="fx-live-label">wet</span>
+            <div class="fx-live-bar-bg"><div class="fx-live-bar-fill bright" id="mfx-reverb-wet" style="width:0%"></div></div>
+            <span class="fx-live-val" id="mfx-reverb-wet-val">-</span>
+          </div>
+          <div class="fx-live-row">
+            <span class="fx-live-label">decay</span>
+            <span class="fx-live-val" id="mfx-reverb-decay-val">-</span>
+            <span class="fx-live-label" style="margin-left:8px">damp</span>
+            <span class="fx-live-val" id="mfx-reverb-damp-val">-</span>
+          </div>
+        </div>
+        <div class="fx-track" style="margin-bottom:6px">
+          <div class="fx-track-header"><span class="fx-track-name">delay</span></div>
+          <div class="fx-live-row">
+            <span class="fx-live-label">wet</span>
+            <div class="fx-live-bar-bg"><div class="fx-live-bar-fill duck" id="mfx-delay-wet" style="width:0%"></div></div>
+            <span class="fx-live-val" id="mfx-delay-wet-val">-</span>
+          </div>
+          <div class="fx-live-row">
+            <span class="fx-live-label">time</span>
+            <span class="fx-live-val" id="mfx-delay-time-val">-</span>
+            <span class="fx-live-label" style="margin-left:8px">fb</span>
+            <span class="fx-live-val" id="mfx-delay-fb-val">-</span>
+          </div>
+        </div>
+        <div class="fx-track">
+          <div class="fx-track-header"><span class="fx-track-name">filter LFO</span></div>
+          <div class="fx-live-row">
+            <span class="fx-live-label">depth</span>
+            <div class="fx-live-bar-bg"><div class="fx-live-bar-fill freq" id="mfx-filter-depth" style="width:0%"></div></div>
+            <span class="fx-live-val" id="mfx-filter-depth-val">-</span>
+          </div>
+          <div class="fx-live-row">
+            <span class="fx-live-label">rate</span>
+            <span class="fx-live-val" id="mfx-filter-rate-val">-</span>
+            <span class="fx-live-label" style="margin-left:8px">center</span>
+            <span class="fx-live-val" id="mfx-filter-center-val">-</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Panel 9: Parameters -->
     <div class="panel" id="panel-params">
       <div class="panel-title">Parameters</div>
@@ -756,6 +805,7 @@
         case 'levels':
           applyLevels(msg.levels);
           if (msg.automation) applyAutomation(msg.automation);
+          if (msg.masterFX) applyMasterFX(msg.masterFX);
           break;
         case 'log':
           addLogLine(msg.text);
@@ -1148,6 +1198,46 @@
           freqEl.style.width = pct + '%';
         }
         if (freqVal && data.freq !== null) freqVal.textContent = data.freq + ' Hz';
+      }
+    }
+
+    function applyMasterFX(mfx) {
+      if (!mfx) return;
+
+      // Reverb
+      if (mfx.reverb) {
+        const wetEl = document.getElementById('mfx-reverb-wet');
+        const wetVal = document.getElementById('mfx-reverb-wet-val');
+        const decayVal = document.getElementById('mfx-reverb-decay-val');
+        const dampVal = document.getElementById('mfx-reverb-damp-val');
+        if (wetEl) wetEl.style.width = (mfx.reverb.wet * 100 / 0.6) + '%'; // 0.6 = max
+        if (wetVal) wetVal.textContent = (mfx.reverb.wet * 100).toFixed(0) + '%';
+        if (decayVal) decayVal.textContent = mfx.reverb.decay.toFixed(1) + 's';
+        if (dampVal) dampVal.textContent = mfx.reverb.damp.toFixed(2);
+      }
+
+      // Delay
+      if (mfx.delay) {
+        const wetEl = document.getElementById('mfx-delay-wet');
+        const wetVal = document.getElementById('mfx-delay-wet-val');
+        const timeVal = document.getElementById('mfx-delay-time-val');
+        const fbVal = document.getElementById('mfx-delay-fb-val');
+        if (wetEl) wetEl.style.width = (mfx.delay.wet * 100 / 0.4) + '%'; // 0.4 = max
+        if (wetVal) wetVal.textContent = (mfx.delay.wet * 100).toFixed(0) + '%';
+        if (timeVal) timeVal.textContent = mfx.delay.delayTime.toFixed(1) + 's';
+        if (fbVal) fbVal.textContent = mfx.delay.feedback.toFixed(2);
+      }
+
+      // Filter LFO
+      if (mfx.filter) {
+        const depthEl = document.getElementById('mfx-filter-depth');
+        const depthVal = document.getElementById('mfx-filter-depth-val');
+        const rateVal = document.getElementById('mfx-filter-rate-val');
+        const centerVal = document.getElementById('mfx-filter-center-val');
+        if (depthEl) depthEl.style.width = (mfx.filter.depth * 100 / 0.55) + '%'; // 0.55 = max
+        if (depthVal) depthVal.textContent = mfx.filter.depth.toFixed(2);
+        if (rateVal) rateVal.textContent = mfx.filter.lfoRate.toFixed(3) + ' Hz';
+        if (centerVal) centerVal.textContent = Math.round(mfx.filter.centerFreq) + ' Hz';
       }
     }
 

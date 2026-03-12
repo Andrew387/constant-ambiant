@@ -16,6 +16,7 @@ import { synthNew, nodeSet, nodeFree, sync, controlBusGetN } from '../sc/osc.js'
 import { allocNodeId, GROUPS, BUSES, METER_CTL_BUSES, METER_CTL_START, METER_CTL_COUNT } from '../sc/nodeIds.js';
 import { createAllTrackEffects } from './effects/trackEffects.js';
 import { initSectionAutomation, disposeSectionAutomation } from './effects/sectionAutomation.js';
+import { initMasterEffects, randomizeMasterEffects, disposeMasterEffects, getMasterEffectsState } from './effects/masterEffects.js';
 import { TRACK_PROFILES } from './trackProfiles.js';
 import { triggerLeadChord, triggerDrone } from '../rhythm/scheduler.js';
 import { createSineSynth } from './synths/sineSynth.js';
@@ -79,21 +80,24 @@ export async function initMixer() {
   synthNew('reverbShort', shortReverbId, 0, GROUPS.REVERBS, {
     inBus: BUSES.REVERB_SHORT,
     outBus: BUSES.MASTER,
-    decay: 6,
-    damp: 0.4,
+    decay: 16,
+    damp: 0.3,
   });
 
   const longReverbId = allocNodeId();
   synthNew('reverbLong', longReverbId, 0, GROUPS.REVERBS, {
     inBus: BUSES.REVERB_LONG,
     outBus: BUSES.MASTER,
-    decay: 14,
-    damp: 0.3,
+    decay: 19,
+    damp: 0.2,
   });
 
-  // ── Master output (placed in master group) ──
+  // ── Master effects (reverb, delay, filter LFO — placed in master group BEFORE masterOut) ──
+  initMasterEffects();
+
+  // ── Master output (placed in master group, AFTER master effects) ──
   masterGainNodeId = allocNodeId();
-  synthNew('masterOut', masterGainNodeId, 0, GROUPS.MASTER, {
+  synthNew('masterOut', masterGainNodeId, 1, GROUPS.MASTER, {
     inBus: BUSES.MASTER,
     outBus: 0,
     gain: 0.8,
@@ -190,6 +194,8 @@ export async function initMixer() {
     chordTriggers,
     setTrackVolume,
     setMasterVolume,
+    randomizeMasterEffects,
+    getMasterEffectsState,
     swapLead: leadSlot.swap,
     swapLeadRandom: leadSlot.swapRandom,
     swapBass: bassSlot.swap,
@@ -371,6 +377,7 @@ function disposeMixer() {
   }
   pendingDisposeTimers = [];
 
+  disposeMasterEffects();
   disposeSectionAutomation();
 
   if (texturePlayer) {

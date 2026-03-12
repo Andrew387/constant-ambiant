@@ -53,7 +53,7 @@ export const SECTIONS = [
     type: 'outro',
     duration: 2,
     holdUntil: 0.4,
-    chordSkipProbability: 0.10,
+    chordSkipProbability: 0,
     tracks: { drone: true, bassSupport: true, archive: true, freesound: true, lead: true },
   },
 ];

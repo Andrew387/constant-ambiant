@@ -193,6 +193,7 @@ function startEngine() {
     onSwapBass: mixer.swapBassRandom,
     onSwapPedalPad: mixer.swapPedalPadRandom,
     onSwapBassSupport: mixer.swapBassSupportRandom,
+    onRandomizeMasterEffects: mixer.randomizeMasterEffects,
   });
   isRunning = true;
   status.running = true;
@@ -229,7 +230,8 @@ function startLevelPolling() {
     const levels = await mixer.pollLevels();
     if (levels) {
       const automation = getAutomationState();
-      broadcast({ type: 'levels', levels, automation });
+      const masterFX = mixer.getMasterEffectsState();
+      broadcast({ type: 'levels', levels, automation, masterFX });
 
       // Periodic diagnostic: log bus signal levels to console
       const now = Date.now();

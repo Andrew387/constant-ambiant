@@ -325,7 +325,7 @@ SynthDef(\fxTrackOut, { |bus=0, masterBus=2, gain=1, lagTime=4|
 // ════════════════════════════════════════════════════════════
 
 // ── SHORT REVERB (lead, ~6s decay) ─────────────────────────
-SynthDef(\reverbShort, { |inBus=16, outBus=2, decay=6, damp=0.4|
+SynthDef(\reverbShort, { |inBus=16, outBus=2, decay=16, damp=0.3|
     var sig = In.ar(inBus, 2);
     // FreeVerb2 room maps 0–1; approximate decay mapping
     var room = (decay / 20).clip(0, 1);
@@ -334,11 +334,64 @@ SynthDef(\reverbShort, { |inBus=16, outBus=2, decay=6, damp=0.4|
 }).add;
 
 // ── LONG REVERB (texture, archive, freesound, ~14s decay) ──
-SynthDef(\reverbLong, { |inBus=18, outBus=2, decay=14, damp=0.3|
+SynthDef(\reverbLong, { |inBus=18, outBus=2, decay=19, damp=0.2|
     var sig = In.ar(inBus, 2);
     var room = (decay / 20).clip(0, 1);
     var rev = FreeVerb2.ar(sig[0], sig[1], 1.0, room, damp);
     Out.ar(outBus, rev);
+}).add;
+
+
+// ════════════════════════════════════════════════════════════
+//  MASTER EFFECTS — in-place processing on master bus
+// ════════════════════════════════════════════════════════════
+
+// ── MASTER REVERB (deep, long tail) ─────────────────────────
+// Wet/dry mix with Lag3 for smooth per-song transitions.
+SynthDef(\fxMasterReverb, { |bus=2, wet=0.15, decay=18, damp=0.2, lagTime=8|
+    var sig = In.ar(bus, 2);
+    var room = (decay / 20).clip(0, 1);
+    var rev = FreeVerb2.ar(sig[0], sig[1], 1.0, room, damp);
+    var mix = Lag3.kr(wet, lagTime);
+    ReplaceOut.ar(bus, (sig * (1 - mix)) + (rev * mix));
+}).add;
+
+// ── MASTER DELAY (long, diffuse) ────────────────────────────
+// Cross-feedback stereo delay with lagged wet/dry mix.
+SynthDef(\fxMasterDelay, { |bus=2, wet=0.1, delayTime=1.5,
+    feedback=0.4, maxDelay=6, lagTime=8|
+    var sig = In.ar(bus, 2);
+    var mono = (sig[0] + sig[1]) * 0.5;
+    var fb = LocalIn.ar(1);
+    var del1 = DelayL.ar(mono + (fb * feedback), maxDelay, delayTime);
+    var del2 = DelayL.ar(del1 * feedback, maxDelay, delayTime);
+    var mix = Lag3.kr(wet, lagTime);
+
+    // Feedback loop completion (after all var declarations)
+    LocalOut.ar(del2);
+
+    ReplaceOut.ar(bus, (sig * (1 - mix)) + ([del1, del2] * mix));
+}).add;
+
+// ── MASTER FILTER LFO (slow movement) ──────────────────────
+// Sweeps a lowpass cutoff around centerFreq for subtle timbral movement.
+// depth 0 = no modulation (filter wide open at 18 kHz),
+// depth 1 = full sweep across lfoMin–lfoMax range.
+SynthDef(\fxMasterLPFLfo, { |bus=2, centerFreq=8000,
+    lfoRate=0.03, depth=0.0, rq=0.85, lagTime=8|
+    var sig = In.ar(bus, 2);
+    var d = Lag3.kr(depth, lagTime);
+    var r = Lag3.kr(lfoRate, lagTime);
+    var cf = Lag3.kr(centerFreq, lagTime);
+    // When depth=0, freq stays at 18kHz (transparent). When depth>0, LFO sweeps.
+    var lfo = SinOsc.kr(r).range(-1, 1);
+    var freq = ((cf + (lfo * cf * d * 0.6)).clip(200, 18000));
+    var target = LinXFade2.ar(
+        sig,
+        RLPF.ar(sig, freq, Lag3.kr(rq, lagTime)),
+        (d * 2 - 1).clip(-1, 1)  // -1 = dry, 1 = filtered
+    );
+    ReplaceOut.ar(bus, target);
 }).add;
 
 
