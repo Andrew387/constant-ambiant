@@ -37,6 +37,7 @@ export async function createSampleSynth(config, options = {}) {
   const {
     id: instrumentId, folder, filePrefix, plucked,
     loopStart = DEFAULT_LOOP_START, loopEnd = DEFAULT_LOOP_END,
+    gain: instrumentGain = 1,
   } = config;
   const outBus = options.outBus ?? BUSES.LEAD;
   const groupId = options.groupId ?? GROUPS.LEAD;
@@ -51,6 +52,9 @@ export async function createSampleSynth(config, options = {}) {
 
   // Active voices: Map<string, { nodeId }>
   const activeVoices = new Map();
+  // Pending auto-release timers from triggerAttackRelease: Map<string, timeoutId>
+  // Tracked so we can cancel stale timers when the same note is re-triggered
+  const releaseTimers = new Map();
 
   let attackTime = 2;
   let releaseTime = 4;
@@ -78,7 +82,7 @@ export async function createSampleSynth(config, options = {}) {
       out: outBus,
       buf: bufNum,
       gate: 1,
-      amp: 1,
+      amp: instrumentGain,
       rate: 1.0,
     };
 
@@ -96,7 +100,16 @@ export async function createSampleSynth(config, options = {}) {
     activeVoices.set(note, { nodeId });
   }
 
+  function cancelReleaseTimer(note) {
+    const tid = releaseTimers.get(note);
+    if (tid !== undefined) {
+      clearTimeout(tid);
+      releaseTimers.delete(note);
+    }
+  }
+
   function stopVoice(note) {
+    cancelReleaseTimer(note);
     const voice = activeVoices.get(note);
     if (!voice) return;
 
@@ -132,10 +145,14 @@ export async function createSampleSynth(config, options = {}) {
         stopVoice(n);
       }
       startVoice(note);
-      // Auto-release after duration
-      setTimeout(() => {
+      // Auto-release after duration — cancel any stale timer for the same
+      // note first so a re-triggered voice doesn't get killed prematurely
+      cancelReleaseTimer(note);
+      const tid = setTimeout(() => {
+        releaseTimers.delete(note);
         stopVoice(note);
       }, duration * 1000);
+      releaseTimers.set(note, tid);
     },
 
     releaseAll() {
@@ -145,6 +162,8 @@ export async function createSampleSynth(config, options = {}) {
     },
 
     dispose() {
+      for (const tid of releaseTimers.values()) clearTimeout(tid);
+      releaseTimers.clear();
       for (const [note, voice] of activeVoices) {
         nodeFree(voice.nodeId);
       }

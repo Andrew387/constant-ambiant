@@ -177,6 +177,34 @@ SynthDef(\archiveGrain, { |out=0, buf=0, gate=1, amp=1,
     Out.ar(out, sig * env * amp);
 }).add;
 
+// ── ARCHIVE LOOP PLAYER ────────────────────────────────────
+// Normal-speed playback of a random short segment (1–3s loop).
+// startPos is 0–1 normalized position in buffer.
+// Built-in HPF + LPF, same ASR envelope for crossfades.
+SynthDef(\archiveLoop, { |out=0, buf=0, gate=1, amp=1,
+    loopDur=2, startPos=0,
+    hpFreq=250, lpFreq=3500, atkTime=12, relTime=12|
+
+    var bufDur    = BufDur.kr(buf);
+    var bufFrames = BufFrames.kr(buf);
+    var rate      = BufRateScale.kr(buf);
+    var startFrame = (startPos * bufFrames).round;
+    var endFrame   = ((startPos + (loopDur / bufDur)) * bufFrames).min(bufFrames).round;
+
+    var phase = Phasor.ar(0, rate, startFrame, endFrame, startFrame);
+    var sig   = BufRd.ar(1, buf, phase, 0, 2) ! 2;
+
+    var env = EnvGen.kr(
+        Env.asr(atkTime, 1, relTime, curve: [-2, -4]),
+        gate, doneAction: 2
+    );
+
+    sig = HPF.ar(sig, hpFreq);
+    sig = LPF.ar(sig, lpFreq);
+
+    Out.ar(out, sig * env * amp);
+}).add;
+
 // ── SFX PLAYER (freesound one-shot) ────────────────────────
 // Simple buffer playback with built-in lowpass.
 // Self-frees when buffer finishes (doneAction on PlayBuf).
@@ -209,9 +237,11 @@ SynthDef(\sfxPlayerStereo, { |out=0, buf=0, amp=0.25, lpFreq=2500|
 // ════════════════════════════════════════════════════════════
 
 // ── GAIN (track gain, duck gain) ────────────────────────────
-// gain.lag(2) smooths /n_set changes over 2 seconds — no clicks.
-SynthDef(\fxGain, { |bus=0, gain=1|
-    ReplaceOut.ar(bus, In.ar(bus, 2) * gain.lag(2));
+// Lag3 (3rd-order) produces smooth S-curve transitions instead of
+// the abrupt exponential onset of .lag(). lagTime controls ramp
+// duration — duck gains use longer times for gradual section fades.
+SynthDef(\fxGain, { |bus=0, gain=1, lagTime=4|
+    ReplaceOut.ar(bus, In.ar(bus, 2) * Lag3.kr(gain, lagTime));
 }).add;
 
 // ── HIGHPASS FILTER ─────────────────────────────────────────
@@ -220,9 +250,9 @@ SynthDef(\fxHPF, { |bus=0, freq=180|
 }).add;
 
 // ── LOWPASS FILTER (automation target) ──────────────────────
-// freq.lag(3) smooths section automation sweeps over 3 seconds.
-SynthDef(\fxLPF, { |bus=0, freq=18000|
-    ReplaceOut.ar(bus, LPF.ar(In.ar(bus, 2), freq.lag(3)));
+// Lag3 smooths section automation sweeps with an S-curve shape.
+SynthDef(\fxLPF, { |bus=0, freq=18000, lagTime=3|
+    ReplaceOut.ar(bus, LPF.ar(In.ar(bus, 2), Lag3.kr(freq, lagTime)));
 }).add;
 
 // ── LFO-MODULATED LOWPASS ───────────────────────────────────
@@ -266,17 +296,27 @@ SynthDef(\fxCompressor, { |bus=0, thresh=(-24), ratio=4,
     );
 }).add;
 
+// ── AUTO GAIN CONTROL ──────────────────────────────────────
+// Tracks signal amplitude and adjusts gain to hit a target level.
+// Smoothed with lag to avoid pumping. maxGain caps boost on silence.
+SynthDef(\fxAGC, { |bus=0, targetAmp=0.3, atkTime=0.5, relTime=3, maxGain=20|
+    var sig = In.ar(bus, 2);
+    var amp = Amplitude.kr((sig[0] + sig[1]) * 0.5, atkTime, relTime);
+    var gain = (targetAmp / amp.max(0.001)).min(maxGain);
+    ReplaceOut.ar(bus, sig * gain.lag(0.5));
+}).add;
+
 // ── REVERB SEND ─────────────────────────────────────────────
 // Sends a scaled copy of the signal to a reverb bus.
 // Uses Out (additive) so signal accumulates on the reverb bus.
-SynthDef(\fxReverbSend, { |bus=0, sendBus=16, level=0.5|
-    Out.ar(sendBus, In.ar(bus, 2) * level.lag(2));
+SynthDef(\fxReverbSend, { |bus=0, sendBus=16, level=0.5, lagTime=4|
+    Out.ar(sendBus, In.ar(bus, 2) * Lag3.kr(level, lagTime));
 }).add;
 
 // ── TRACK OUTPUT ────────────────────────────────────────────
 // Routes processed track signal to the master bus.
-SynthDef(\fxTrackOut, { |bus=0, masterBus=2, gain=1|
-    Out.ar(masterBus, In.ar(bus, 2) * gain.lag(2));
+SynthDef(\fxTrackOut, { |bus=0, masterBus=2, gain=1, lagTime=4|
+    Out.ar(masterBus, In.ar(bus, 2) * Lag3.kr(gain, lagTime));
 }).add;
 
 
@@ -285,7 +325,7 @@ SynthDef(\fxTrackOut, { |bus=0, masterBus=2, gain=1|
 // ════════════════════════════════════════════════════════════
 
 // ── SHORT REVERB (lead, ~6s decay) ─────────────────────────
-SynthDef(\reverbShort, { |inBus=16, outBus=2, decay=6, damp=0.4|
+SynthDef(\reverbShort, { |inBus=16, outBus=2, decay=16, damp=0.3|
     var sig = In.ar(inBus, 2);
     // FreeVerb2 room maps 0–1; approximate decay mapping
     var room = (decay / 20).clip(0, 1);
@@ -294,7 +334,7 @@ SynthDef(\reverbShort, { |inBus=16, outBus=2, decay=6, damp=0.4|
 }).add;
 
 // ── LONG REVERB (texture, archive, freesound, ~14s decay) ──
-SynthDef(\reverbLong, { |inBus=18, outBus=2, decay=14, damp=0.3|
+SynthDef(\reverbLong, { |inBus=18, outBus=2, decay=19, damp=0.2|
     var sig = In.ar(inBus, 2);
     var room = (decay / 20).clip(0, 1);
     var rev = FreeVerb2.ar(sig[0], sig[1], 1.0, room, damp);
@@ -303,11 +343,64 @@ SynthDef(\reverbLong, { |inBus=18, outBus=2, decay=14, damp=0.3|
 
 
 // ════════════════════════════════════════════════════════════
+//  MASTER EFFECTS — in-place processing on master bus
+// ════════════════════════════════════════════════════════════
+
+// ── MASTER REVERB (deep, long tail) ─────────────────────────
+// Wet/dry mix with Lag3 for smooth per-song transitions.
+SynthDef(\fxMasterReverb, { |bus=2, wet=0.15, decay=18, damp=0.2, lagTime=8|
+    var sig = In.ar(bus, 2);
+    var room = (decay / 20).clip(0, 1);
+    var rev = FreeVerb2.ar(sig[0], sig[1], 1.0, room, damp);
+    var mix = Lag3.kr(wet, lagTime);
+    ReplaceOut.ar(bus, (sig * (1 - mix)) + (rev * mix));
+}).add;
+
+// ── MASTER DELAY (long, diffuse) ────────────────────────────
+// Cross-feedback stereo delay with lagged wet/dry mix.
+SynthDef(\fxMasterDelay, { |bus=2, wet=0.1, delayTime=1.5,
+    feedback=0.4, maxDelay=6, lagTime=8|
+    var sig = In.ar(bus, 2);
+    var mono = (sig[0] + sig[1]) * 0.5;
+    var fb = LocalIn.ar(1);
+    var del1 = DelayL.ar(mono + (fb * feedback), maxDelay, delayTime);
+    var del2 = DelayL.ar(del1 * feedback, maxDelay, delayTime);
+    var mix = Lag3.kr(wet, lagTime);
+
+    // Feedback loop completion (after all var declarations)
+    LocalOut.ar(del2);
+
+    ReplaceOut.ar(bus, (sig * (1 - mix)) + ([del1, del2] * mix));
+}).add;
+
+// ── MASTER FILTER LFO (slow movement) ──────────────────────
+// Sweeps a lowpass cutoff around centerFreq for subtle timbral movement.
+// depth 0 = no modulation (filter wide open at 18 kHz),
+// depth 1 = full sweep across lfoMin–lfoMax range.
+SynthDef(\fxMasterLPFLfo, { |bus=2, centerFreq=8000,
+    lfoRate=0.03, depth=0.0, rq=0.85, lagTime=8|
+    var sig = In.ar(bus, 2);
+    var d = Lag3.kr(depth, lagTime);
+    var r = Lag3.kr(lfoRate, lagTime);
+    var cf = Lag3.kr(centerFreq, lagTime);
+    // When depth=0, freq stays at 18kHz (transparent). When depth>0, LFO sweeps.
+    var lfo = SinOsc.kr(r).range(-1, 1);
+    var freq = ((cf + (lfo * cf * d * 0.6)).clip(200, 18000));
+    var target = LinXFade2.ar(
+        sig,
+        RLPF.ar(sig, freq, Lag3.kr(rq, lagTime)),
+        (d * 2 - 1).clip(-1, 1)  // -1 = dry, 1 = filtered
+    );
+    ReplaceOut.ar(bus, target);
+}).add;
+
+
+// ════════════════════════════════════════════════════════════
 //  MASTER OUTPUT
 // ════════════════════════════════════════════════════════════
 
-SynthDef(\masterOut, { |inBus=2, outBus=0, gain=0.8|
-    Out.ar(outBus, In.ar(inBus, 2) * gain.lag(2));
+SynthDef(\masterOut, { |inBus=2, outBus=0, gain=0.8, lagTime=4|
+    Out.ar(outBus, In.ar(inBus, 2) * Lag3.kr(gain, lagTime));
 }).add;
 
 // ── SILENCE BUS ─────────────────────────────────────────────

@@ -20,32 +20,40 @@ import { resolveEffect } from './effectRegistry.js';
 
 // Map from TRACK_PROFILES track name → SC bus number
 const TRACK_BUS_MAP = {
-  pad:           BUSES.PAD,
   drone:         BUSES.DRONE,
   lead:          BUSES.LEAD,
   sampleTexture: BUSES.TEXTURE,
   archive:       BUSES.ARCHIVE,
   freesound:     BUSES.FREESOUND,
+  pedalPad:      BUSES.PEDAL_PAD,
+  bassSupport:   BUSES.BASS_SUPPORT,
 };
 
 // Map from TRACK_PROFILES track name → which reverb bus to send to
 const TRACK_REVERB_MAP = {
-  pad:           BUSES.REVERB_LONG,
   drone:         BUSES.REVERB_LONG,
   lead:          BUSES.REVERB_SHORT,
   sampleTexture: BUSES.REVERB_LONG,
   archive:       BUSES.REVERB_LONG,
   freesound:     BUSES.REVERB_LONG,
+  pedalPad:      BUSES.REVERB_LONG,
+  bassSupport:   BUSES.REVERB_LONG,
+};
+
+// Dry output gain per track (1 = full dry, lower = more reverb-dominant)
+const TRACK_DRY_GAIN = {
+  sampleTexture: 0.1,   // mostly wet — reverb-dominant texture wash
 };
 
 // Reverb send levels per track (from original effect chains)
 const REVERB_SEND_LEVELS = {
-  pad:           0.35,   // gentle reverb wash for warmth
   drone:         0.2,    // subtle reverb to fill low end
   lead:          0.45,   // from lead chain: Reverb wet: 0.45
-  sampleTexture: 0.55,   // from texture chain: Reverb wet: 0.55
-  archive:       0.85,   // heavy reverb wash (matches original Tone.Reverb wet: 0.85)
+  sampleTexture: 0.4,    // heavy reverb wash, mostly wet
+  archive:       0.3,    // moderate reverb (lowered — AGC already normalizes levels)
   freesound:     0.0,    // freesound has its own reverb per-sound
+  pedalPad:      0.45,   // warm reverb wash for pedal tone
+  bassSupport:   0.3,    // moderate reverb for bass support pad
 };
 
 /**
@@ -97,11 +105,12 @@ function buildEffectGroup(trackName, chainSpec) {
   }
 
   // Add track output → master bus
+  const dryGain = TRACK_DRY_GAIN[trackName] ?? 1;
   const outNodeId = allocNodeId();
   synthNew('fxTrackOut', outNodeId, 1, GROUPS.EFFECTS, {
     bus,
     masterBus: BUSES.MASTER,
-    gain: 1,
+    gain: dryGain,
   });
   nodeIds.push(outNodeId);
   refs._trackOut = { nodeId: outNodeId, defName: 'fxTrackOut' };
@@ -127,6 +136,32 @@ function buildEffectGroup(trackName, chainSpec) {
 export function createAllTrackEffects() {
   const effects = {};
   for (const [name, profile] of Object.entries(TRACK_PROFILES)) {
+    // Validate that every profiled track has a bus mapping
+    if (TRACK_BUS_MAP[name] === undefined) {
+      console.error(
+        `[trackEffects] TRACK_PROFILES has "${name}" but TRACK_BUS_MAP does not. ` +
+        `Add it to TRACK_BUS_MAP, TRACK_REVERB_MAP, and REVERB_SEND_LEVELS.`
+      );
+    }
+    // Validate that automated tracks have the required effect nodes
+    if (profile.automation) {
+      const hasDuckGain = profile.chain.some(s => s.id === 'duckGain');
+      if (!hasDuckGain) {
+        console.error(
+          `[trackEffects] "${name}" has automation but no duckGain node in its chain. ` +
+          `sectionAutomation will not work for this track.`
+        );
+      }
+      if (profile.automation.freqRange) {
+        const hasFilter = profile.chain.some(s => s.id === 'dynamicFilter');
+        if (!hasFilter) {
+          console.error(
+            `[trackEffects] "${name}" has freqRange automation but no dynamicFilter node. ` +
+            `Frequency automation will be silently ignored.`
+          );
+        }
+      }
+    }
     effects[name] = buildEffectGroup(name, profile.chain);
   }
   return effects;

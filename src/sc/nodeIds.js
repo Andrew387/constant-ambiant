@@ -42,7 +42,8 @@ export function allocNodeIds(count) {
 }
 
 /**
- * Resets the allocator (for testing only).
+ * Resets the allocator. Called during recovery after scsynth restart
+ * so node IDs start fresh (the new server has no knowledge of old IDs).
  */
 export function resetNodeIds() {
   nextId = 2000;
@@ -59,6 +60,8 @@ export const GROUPS = {
   TEXTURE:     113,
   ARCHIVE:     114,
   FREESOUND:   115,
+  PEDAL_PAD:   116,
+  BASS_SUPPORT: 117,
   EFFECTS:     200,
   REVERBS:     300,
   MASTER:      400,
@@ -76,20 +79,21 @@ export const BUSES = {
   FREESOUND:   14,
   REVERB_SHORT: 16,
   REVERB_LONG:  18,
+  PEDAL_PAD:    20,
+  BASS_SUPPORT: 22,
 };
 
 // ── Control buses for metering (written by \busMeter synths) ──
 // Each meter writes 2 values: [rms, peak] to adjacent control buses.
-// Total: 7 meters × 2 = 14 control buses (100–113).
+// Total: 6 meters × 2 = 12 control buses (100–111).
 export const METER_CTL_BUSES = {
-  PAD:       100,  // 100=rms, 101=peak
-  DRONE:     102,
-  LEAD:      104,
-  TEXTURE:   106,
-  ARCHIVE:   108,
-  FREESOUND: 110,
-  MASTER:    112,
+  DRONE:     100,  // 100=rms, 101=peak
+  LEAD:      102,
+  TEXTURE:   104,
+  ARCHIVE:   106,
+  FREESOUND: 108,
+  MASTER:    110,
 };
 
 export const METER_CTL_START = 100;
-export const METER_CTL_COUNT = 14;  // 7 meters × 2 values
+export const METER_CTL_COUNT = 12;  // 6 meters × 2 values

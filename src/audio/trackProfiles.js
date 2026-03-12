@@ -35,18 +35,13 @@
  */
 
 export const TRACK_PROFILES = {
-  pad: {
-    gain: 0.45,
-    chain: [],
-  },
-
   drone: {
     gain: 0.5,
     chain: [
       {
         id: 'duckGain',
         type: 'Gain',
-        params: { gain: 0 },
+        params: { gain: 0, lagTime: 4 },
       },
     ],
     automation: {
@@ -68,16 +63,16 @@ export const TRACK_PROFILES = {
   },
 
   archive: {
-    gain: 0.7,
+    gain: 0.05,
     chain: [
       {
-        type: 'Compressor',
-        params: { threshold: -20, ratio: 3, attack: 0.05, release: 0.5 },
+        type: 'AGC',
+        params: { targetAmp: 0.015, attack: 0.5, release: 3, maxGain: 6 },
       },
       {
         id: 'duckGain',
         type: 'Gain',
-        params: { gain: 1 },
+        params: { gain: 1, lagTime: 4 },
       },
     ],
     automation: {
@@ -85,23 +80,22 @@ export const TRACK_PROFILES = {
         transition:      1.0,
         intro:           0.5,
         main:            0.0,
-        innerTransition: 0.9,
+        innerTransition: 0.0,
         main2:           0.0,
         outro:           0.5,
       },
       duckFloor: 0.2,
-      gainSwells: {
-        sections: ['intro', 'main', 'main2', 'outro'],
-        gainRange: [0.8, 1.0],
-        loopRange: [1, 3],
-        probability: 0.25,
-      },
     },
   },
 
   freesound: {
-    gain: 0.4,
-    chain: [],
+    gain: 0.1,
+    chain: [
+      {
+        type: 'AGC',
+        params: { targetAmp: 0.02, attack: 0.3, release: 2, maxGain: 10 },
+      },
+    ],
   },
 
   lead: {
@@ -110,7 +104,7 @@ export const TRACK_PROFILES = {
       {
         id: 'dynamicFilter',
         type: 'Filter',
-        params: { type: 'lowpass', frequency: 18000, Q: 0.7, rolloff: -12 },
+        params: { type: 'lowpass', frequency: 18000, Q: 0.7, rolloff: -12, lagTime: 3 },
       },
       {
         type: 'Filter',
@@ -128,7 +122,7 @@ export const TRACK_PROFILES = {
       {
         id: 'duckGain',
         type: 'Gain',
-        params: { gain: 1 },
+        params: { gain: 1, lagTime: 4 },
       },
     ],
     automation: {
@@ -145,8 +139,40 @@ export const TRACK_PROFILES = {
     },
   },
 
-  sampleTexture: {
+  bassSupport: {
+    gain: 0.15,
+    chain: [
+      {
+        id: 'duckGain',
+        type: 'Gain',
+        params: { gain: 0, lagTime: 4 },
+      },
+    ],
+    automation: {
+      brightness: {
+        transition:      0,
+        intro:           1.0,
+        main:            1.0,
+        innerTransition: 1.0,
+        main2:           1.0,
+        outro:           1.0,
+      },
+      duckFloor: 0,
+      holdOverride: { outro: 0 },
+      deferredFadeIn: {
+        window: ['intro', 'main'],
+        fadeDuration: 10,
+      },
+    },
+  },
+
+  pedalPad: {
     gain: 0.35,
+    chain: [],
+  },
+
+  sampleTexture: {
+    gain: 0.05,
     chain: [
       {
         type: 'Filter',
@@ -155,11 +181,11 @@ export const TRACK_PROFILES = {
       {
         id: 'dynamicFilter',
         type: 'Filter',
-        params: { type: 'lowpass', frequency: 16000, Q: 0.7, rolloff: -12 },
+        params: { type: 'lowpass', frequency: 16000, Q: 0.7, rolloff: -12, lagTime: 3 },
       },
       {
-        type: 'Compressor',
-        params: { threshold: -24, ratio: 4, attack: 0.01, release: 0.3 },
+        type: 'AGC',
+        params: { targetAmp: 0.015, attack: 0.5, release: 3, maxGain: 6 },
       },
       {
         type: 'PingPongDelay',
@@ -172,7 +198,7 @@ export const TRACK_PROFILES = {
       {
         id: 'duckGain',
         type: 'Gain',
-        params: { gain: 1 },
+        params: { gain: 1, lagTime: 4 },
       },
     ],
     automation: {

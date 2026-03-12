@@ -60,6 +60,8 @@ s.waitForBoot({
     s.sendMsg(\g_new, 113, 0, 100); // Texture player
     s.sendMsg(\g_new, 114, 0, 100); // Archive player
     s.sendMsg(\g_new, 115, 0, 100); // Freesound players
+    s.sendMsg(\g_new, 116, 0, 100); // Pedal pad voices
+    s.sendMsg(\g_new, 117, 0, 100); // Bass support voices
 
     s.sync;
 
@@ -67,7 +69,7 @@ s.waitForBoot({
     // All buses that receive Out.ar (additive) signals must be zeroed
     // each audio cycle to prevent accumulation. Placed in Group 99
     // which runs BEFORE sources, effects, reverbs, and master.
-    [2, 4, 6, 8, 10, 12, 14, 16, 18].do({ |bus|
+    [2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22].do({ |bus|
         s.sendMsg(\s_new, \busClear, s.nextNodeID, 0, 99,
             \bus, bus);
     });
@@ -79,8 +81,8 @@ s.waitForBoot({
     "[startup] UDP port: %".format(s.addr.port).postln;
     "[startup] Sample rate: %".format(s.sampleRate).postln;
     "[startup] Groups: 99(busClear) 100(src) 200(fx) 300(rev) 400(master)".postln;
-    "[startup] Source groups: 110(pad) 111(lead) 112(drone) 113(tex) 114(arc) 115(fs)".postln;
-    "[startup] Track buses: pad=4 drone=6 lead=8 tex=10 arc=12 fs=14".postln;
+    "[startup] Source groups: 110(pad) 111(lead) 112(drone) 113(tex) 114(arc) 115(fs) 116(pedal) 117(bassSup)".postln;
+    "[startup] Track buses: pad=4 drone=6 lead=8 tex=10 arc=12 fs=14 pedal=20 bassSup=22".postln;
     "[startup] Reverb buses: short=16 long=18".postln;
     "[startup] Master bus: 2".postln;
     "============================================\n".postln;

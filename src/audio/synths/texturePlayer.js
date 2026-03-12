@@ -14,6 +14,11 @@ import { allocNodeId, GROUPS, BUSES } from '../../sc/nodeIds.js';
 import { loadNamedBuffer, freeNamedBuffer } from '../../sc/bufferManager.js';
 import { TEXTURE_CONFIG } from '../../engine/rules.config.js';
 
+// Delay before freeing old texture buffers (ms).
+// Must exceed the longest possible release envelope so the old synth
+// finishes reading its buffer before we free it.
+const BUFFER_FREE_DELAY = 20000;
+
 const { count: TEXTURE_COUNT, playbackRate: PLAYBACK_RATE,
   loopStart: LOOP_START, loopEnd: LOOP_END,
   attackTime: ATTACK_TIME, releaseTime: RELEASE_TIME } = TEXTURE_CONFIG;
@@ -47,6 +52,8 @@ export function createTexturePlayer(options = {}) {
   let currentIndex = null;
   let activeNodeId = null;
   let swapGeneration = 0; // incremented on each swap/stop to invalidate stale loads
+  let currentSlotName = null; // unique buffer slot name per generation
+  const pendingFreeTimers = []; // delayed buffer free timers
 
   async function loadAndStart(excludeIndex, generation) {
     const { filePath, index } = pickRandomTexture(excludeIndex);
@@ -61,13 +68,32 @@ export function createTexturePlayer(options = {}) {
     console.log(`[texturePlayer] loading ${label}`);
 
     try {
-      const { bufNum, numChannels } = await loadNamedBuffer('texture_current', filePath);
+      // Use a unique slot name per generation so loading a new buffer
+      // does NOT immediately free the old one (which the releasing synth
+      // is still reading). The old slot is freed after a delay.
+      const oldSlotName = currentSlotName;
+      const newSlotName = `texture_${generation}`;
+
+      const { bufNum, numChannels } = await loadNamedBuffer(newSlotName, filePath);
 
       // If another swap/stop occurred while loading, discard this result
-      if (generation !== swapGeneration) return;
+      if (generation !== swapGeneration) {
+        // Clean up the buffer we just loaded since it's stale
+        freeNamedBuffer(newSlotName);
+        return;
+      }
       if (bufNum === undefined) return;
 
+      currentSlotName = newSlotName;
       currentIndex = index;
+
+      // Schedule delayed free of the old buffer (after release envelope completes)
+      if (oldSlotName) {
+        const tid = setTimeout(() => {
+          freeNamedBuffer(oldSlotName);
+        }, BUFFER_FREE_DELAY);
+        pendingFreeTimers.push(tid);
+      }
 
       const defName = numChannels >= 2 ? 'sampleLoopStereo' : 'sampleLoop';
       const nodeId = allocNodeId();
@@ -107,7 +133,14 @@ export function createTexturePlayer(options = {}) {
     stop() {
       swapGeneration++; // invalidate any in-flight load
       fadeOutCurrent();
-      freeNamedBuffer('texture_current');
+      // Free current buffer slot
+      if (currentSlotName) {
+        freeNamedBuffer(currentSlotName);
+        currentSlotName = null;
+      }
+      // Cancel any pending delayed frees
+      for (const tid of pendingFreeTimers) clearTimeout(tid);
+      pendingFreeTimers.length = 0;
       currentIndex = null;
     },
 

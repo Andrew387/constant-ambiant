@@ -25,6 +25,12 @@ let nextBufNum = 100;
 // e.g. 'malechoirlong' → Map('C1' → 100, 'C#1' → 101, ...)
 const instrumentBuffers = new Map();
 
+// Reference counts: how many slots are using each instrument's buffers.
+// Multiple synth slots (e.g. pedalPad + bassSupport) can load the same
+// instrument ID simultaneously. Without ref counting, the first slot to
+// swap away frees buffers that other slots still need → "Buffer UGen: no buffer data".
+const instrumentRefCounts = new Map();
+
 // Single buffers: Map<string, number>
 // e.g. 'texture_current' → 200
 const namedBuffers = new Map();
@@ -62,8 +68,9 @@ function resolveSamplePath(relativePath) {
  * @returns {Promise<Map<string, number>>} Map of note name → buffer number
  */
 export async function loadInstrumentSamples(instrumentId, folder, filePrefix) {
-  // If already loaded, return existing
+  // If already loaded, bump ref count and return existing
   if (instrumentBuffers.has(instrumentId)) {
+    instrumentRefCounts.set(instrumentId, (instrumentRefCounts.get(instrumentId) || 1) + 1);
     return instrumentBuffers.get(instrumentId);
   }
 
@@ -100,6 +107,7 @@ export async function loadInstrumentSamples(instrumentId, folder, filePrefix) {
   await Promise.all(loadPromises);
 
   instrumentBuffers.set(instrumentId, noteBuffers);
+  instrumentRefCounts.set(instrumentId, 1);
   console.log(`[bufferManager] Loaded ${noteBuffers.size} samples for "${instrumentId}"`);
   return noteBuffers;
 }
@@ -112,12 +120,21 @@ export function freeInstrumentSamples(instrumentId) {
   const noteBuffers = instrumentBuffers.get(instrumentId);
   if (!noteBuffers) return;
 
+  // Decrement ref count — only free when no slots are using this instrument
+  const refCount = instrumentRefCounts.get(instrumentId) || 1;
+  if (refCount > 1) {
+    instrumentRefCounts.set(instrumentId, refCount - 1);
+    console.log(`[bufferManager] Dereferenced "${instrumentId}" (${refCount - 1} refs remain)`);
+    return;
+  }
+
   for (const bufNum of noteBuffers.values()) {
     bufferFree(bufNum);
     allocatedBuffers.delete(bufNum);
   }
 
   instrumentBuffers.delete(instrumentId);
+  instrumentRefCounts.delete(instrumentId);
   console.log(`[bufferManager] Freed samples for "${instrumentId}"`);
 }
 
@@ -224,7 +241,22 @@ export function freeAllBuffers() {
   }
   allocatedBuffers.clear();
   instrumentBuffers.clear();
+  instrumentRefCounts.clear();
   namedBuffers.clear();
   nextBufNum = 100;
   console.log('[bufferManager] All buffers freed');
+}
+
+/**
+ * Resets all JS-side buffer tracking WITHOUT sending /b_free to scsynth.
+ * Use this after scsynth has been rebooted — the server already lost all
+ * buffers, so we only need to clear our stale references.
+ */
+export function resetBufferState() {
+  allocatedBuffers.clear();
+  instrumentBuffers.clear();
+  instrumentRefCounts.clear();
+  namedBuffers.clear();
+  nextBufNum = 100;
+  console.log('[bufferManager] Buffer state reset (server restarted)');
 }

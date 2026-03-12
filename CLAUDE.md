@@ -132,7 +132,56 @@ Original pre-normalization samples are preserved in `samples_backup/` with the s
 
 ## Common Tasks
 - **Add a new synth/instrument**: Create factory in `src/audio/synths/` → add to mixer → schedule in `ruleEngine.js`
-- **Add a new track with automation**: Add entry to `TRACK_PROFILES` in `trackProfiles.js` — automation, effects, gain all declared there
+- **Add a new audio track** (full checklist — every step is required):
+  1. `sc/startup.scd` — Add a new source group (e.g. `s.sendMsg(\g_new, 117, 0, 100)`) and add the bus number to the bus-clear array
+  2. `src/sc/nodeIds.js` — Add entries to both `GROUPS` and `BUSES`
+  3. `src/audio/trackProfiles.js` — Add the track's `TRACK_PROFILES` entry (gain, effect chain, automation)
+  4. **`src/audio/effects/trackEffects.js`** — Add the track to **all three maps**: `TRACK_BUS_MAP`, `TRACK_REVERB_MAP`, and `REVERB_SEND_LEVELS`. **Without this, the effect chain won't be built, sectionAutomation won't discover the track's duckGain/dynamicFilter nodes, and any automation (including deferred fade-in) will silently fail — the track stays at its initial gain (often 0) forever.**
+  5. `src/engine/sections.config.js` — Add the track to each section's `tracks` object for chord-trigger gating
+  6. `src/engine/rules.config.js` — Add to `TRACK_SKIP_RELEASE` if the track responds to chord triggers
+  7. `src/audio/mixer.js` — Add to `TRACK_BUS` map, create a swappable slot (if applicable), add chord trigger, init the synth, expose swap in return object
+  8. `src/engine/ruleEngine.js` — Wire up swap callback, pass any needed state in `triggerCtx`, add to `syncEnvelopesToDuration()`, clean up in `stop()`
+  9. `src/main.js` — Pass the swap function in the `start()` callbacks
 - **Change song structure timing**: Edit `SECTION_DURATIONS` in `rules.config.js`
 - **Change progression behavior**: Edit `progression.js` patterns/coloring/rhythm
 - **Add a new sample instrument**: Add WAVs to `samples/`, register in `sampleRegistry.js`
+
+## Track Wiring Architecture (March 2026)
+
+### The 5 Maps That Must Stay In Sync
+
+Adding or modifying a track requires keeping these maps consistent. `createAllTrackEffects()` validates at startup and logs errors for mismatches.
+
+| Map | File | Purpose |
+|-----|------|---------|
+| `TRACK_BUS_MAP` | `trackEffects.js` | Track name → SC audio bus |
+| `TRACK_REVERB_MAP` | `trackEffects.js` | Track name → reverb bus (short/long) |
+| `REVERB_SEND_LEVELS` | `trackEffects.js` | Track name → reverb send amount |
+| `TRACK_BUS` | `mixer.js` | Track name → SC bus (for gain synths) |
+| `TRACK_PROFILES` | `trackProfiles.js` | Track name → gain, effect chain, automation |
+
+**Critical**: `TRACK_BUS_MAP` and `TRACK_BUS` are separate but must have identical mappings. They exist in two places because `trackEffects.js` and `mixer.js` have no import dependency on each other.
+
+### Naming Conventions (Confusing Legacy)
+
+| Display Name | Track Key | Synths Key | Bus Name | Notes |
+|-------------|-----------|------------|----------|-------|
+| Drone/Bass | `drone` | `synths.drone` | `BUSES.DRONE` | The "drone" track actually plays the **bass** instrument. `bassSlot` has `synthKey: 'drone'`. |
+| Lead | `lead` | `synths.lead` | `BUSES.LEAD` | |
+| Sample Texture | `sampleTexture` | — | `BUSES.TEXTURE` | VU meter uses short name `texture` |
+| Archive | `archive` | — | `BUSES.ARCHIVE` | |
+| Freesound | `freesound` | — | `BUSES.FREESOUND` | |
+| Pedal Pad | `pedalPad` | `synths.pedalPad` | `BUSES.PEDAL_PAD` | No VU meter |
+| Bass Support | `bassSupport` | `synths.bassSupport` | `BUSES.BASS_SUPPORT` | No VU meter |
+
+### VU Meter Control Buses
+
+Meters write to control buses 100–111 (6 meters × 2 values each). The meter synths are created in `mixer.js` at tail of GROUPS.EFFECTS, reading from audio buses and writing RMS + peak to control buses. `pollLevels()` reads all 12 values via `/c_getn` and keys results by name.
+
+### samplePlayer `triggerAttackRelease` Pattern
+
+The drone and bassSupport use `triggerAttackRelease(note, duration)` which starts a voice and schedules `stopVoice` after `duration` seconds. Release timers are tracked per-note and cancelled on re-trigger to prevent stale timeouts from killing re-triggered voices of the same note.
+
+### Deferred Fade-In
+
+Tracks with `deferredFadeIn` in their automation config (drone, bassSupport) start each cycle with duckGain = 0 (silent). At a random point during the configured window sections, the automation triggers a fade-in by setting the duck gain to its normal calculated value. The SC `Lag3` smoothing (lagTime: 4s) handles the actual fade curve.

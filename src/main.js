@@ -18,7 +18,7 @@
  *   PORT         - Web UI port (default 4000)
  */
 
-import { initOSC, closeOSC, sync, startHealthCheck, stopHealthCheck } from './sc/osc.js';
+import { initOSC, closeOSC, sync, startHealthCheck, stopHealthCheck, resetHealthCheckFailures } from './sc/osc.js';
 import { bootSuperCollider, killSuperCollider } from './sc/boot.js';
 import { initMixer, setMasterVolume, setTrackVolume, getMixerState } from './audio/mixer.js';
 import { start, stop, updateRules, getConfig, getEngineState } from './engine/ruleEngine.js';
@@ -31,6 +31,8 @@ import {
 } from './audio/synths/sampleRegistry.js';
 import { getAutomationState } from './audio/effects/sectionAutomation.js';
 import { getEffectChainInfo } from './audio/effects/trackEffects.js';
+import { resetBufferState } from './sc/bufferManager.js';
+import { resetNodeIds } from './sc/nodeIds.js';
 
 let mixer = null;
 let isRunning = false;
@@ -44,7 +46,6 @@ const debugState = {
   chordDuration: null,
   attackLevel: null,
   releaseLevel: null,
-  padVolume: null,
   droneVolume: null,
   leadVolume: null,
   archiveVolume: null,
@@ -108,11 +109,22 @@ async function boot() {
   // 5. Install the log interceptor (captures engine state for UI)
   installLogInterceptor();
 
-  // 6. Start SC health check (periodic /sync ping)
+  // 6. Start SC health check (periodic /sync ping + /status query)
   startHealthCheck({
     interval: 15000,
-    onDead() {
-      _origLog('[WARN] scsynth appears dead after 3 failed pings');
+    async onDead() {
+      _origLog('[WARN] scsynth appears dead after 3 failed pings — attempting recovery...');
+      await recoverSuperCollider();
+    },
+    async onSleepWake() {
+      // Always do a full recovery after sleep/wake. Even if scsynth is
+      // still responding (sclang may have auto-rebooted it), all our
+      // synth nodes, effect chains, and buffers are gone from the fresh
+      // server. Trying to detect "is it OK?" is unreliable and the cost
+      // of a full recovery (~3s of silence) is much lower than getting
+      // stuck in a broken state with no sound.
+      _origLog('[recovery] System woke from sleep — performing full recovery...');
+      await recoverSuperCollider();
     },
   });
 
@@ -130,6 +142,45 @@ async function boot() {
 }
 
 /* ------------------------------------------------------------------ */
+/*  SuperCollider recovery                                             */
+/* ------------------------------------------------------------------ */
+
+let recovering = false;
+
+async function recoverSuperCollider() {
+  if (recovering) return;
+  recovering = true;
+  try {
+    stopEngine();
+    if (mixer) { mixer.dispose(); mixer = null; }
+    closeOSC();
+    killSuperCollider();
+
+    // Reset JS-side state that was tied to the old scsynth process.
+    // The server lost all buffers and nodes on crash — our tracking is stale.
+    resetBufferState();
+    resetNodeIds();
+
+    await sleep(2000);
+
+    await bootSuperCollider({ timeout: 45000, verbose: true });
+    _origLog('[recovery] SuperCollider rebooted.');
+    await initOSC();
+    await waitForScsynth();
+
+    mixer = await initMixer();
+    _origLog('[recovery] Mixer re-initialized. Restarting engine...');
+    startEngine();
+    resetHealthCheckFailures();
+    _origLog('[recovery] Engine restarted successfully.');
+  } catch (err) {
+    _origLog('[recovery] Failed to recover:', err.message);
+  } finally {
+    recovering = false;
+  }
+}
+
+/* ------------------------------------------------------------------ */
 /*  Engine start / stop                                                */
 /* ------------------------------------------------------------------ */
 
@@ -140,6 +191,9 @@ function startEngine() {
     chordTriggers: mixer.chordTriggers,
     onSwapLead: mixer.swapLeadRandom,
     onSwapBass: mixer.swapBassRandom,
+    onSwapPedalPad: mixer.swapPedalPadRandom,
+    onSwapBassSupport: mixer.swapBassSupportRandom,
+    onRandomizeMasterEffects: mixer.randomizeMasterEffects,
   });
   isRunning = true;
   status.running = true;
@@ -166,6 +220,9 @@ function stopEngine() {
   broadcastStatus();
 }
 
+let lastDiagnosticLog = 0;
+const DIAGNOSTIC_INTERVAL = 30000; // log bus levels every 30s
+
 function startLevelPolling() {
   if (levelPollTimer) return;
   levelPollTimer = setInterval(async () => {
@@ -173,7 +230,18 @@ function startLevelPolling() {
     const levels = await mixer.pollLevels();
     if (levels) {
       const automation = getAutomationState();
-      broadcast({ type: 'levels', levels, automation });
+      const masterFX = mixer.getMasterEffectsState();
+      broadcast({ type: 'levels', levels, automation, masterFX });
+
+      // Periodic diagnostic: log bus signal levels to console
+      const now = Date.now();
+      if (now - lastDiagnosticLog >= DIAGNOSTIC_INTERVAL) {
+        lastDiagnosticLog = now;
+        const parts = Object.entries(levels).map(([name, { db }]) =>
+          `${name}:${db > -100 ? db.toFixed(1) : '---'}dB`
+        );
+        _origLog(`[meters] ${parts.join('  ')}`);
+      }
     }
   }, 150);
 }
@@ -238,7 +306,6 @@ function handleParamChange(param, value) {
     case 'chordDuration':       updateRules({ chordDuration: value }); break;
     case 'attackLevel':         updateRules({ attackLevel: value });   break;
     case 'releaseLevel':        updateRules({ releaseLevel: value });  break;
-    case 'padVolume':           setTrackVolume('pad', value);           break;
     case 'droneVolume':         setTrackVolume('drone', value);         break;
     case 'leadVolume':          setTrackVolume('lead', value);          break;
     case 'archiveVolume':       setTrackVolume('archive', value);       break;
@@ -255,7 +322,6 @@ function applyDebugOverrides() {
   if (debugState.releaseLevel !== null)  ruleOverrides.releaseLevel  = debugState.releaseLevel;
   if (Object.keys(ruleOverrides).length > 0) updateRules(ruleOverrides);
 
-  if (debugState.padVolume !== null)           setTrackVolume('pad', debugState.padVolume);
   if (debugState.droneVolume !== null)         setTrackVolume('drone', debugState.droneVolume);
   if (debugState.leadVolume !== null)          setTrackVolume('lead', debugState.leadVolume);
   if (debugState.archiveVolume !== null)       setTrackVolume('archive', debugState.archiveVolume);

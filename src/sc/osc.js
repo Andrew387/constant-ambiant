@@ -173,11 +173,34 @@ function routeIncoming(msg) {
       break;
     }
 
+    case '/status.reply': {
+      // /status.reply: unused, numUGens, numSynths, numGroups, numSynthDefs,
+      //                avgCPU, peakCPU, nominalSampleRate, actualSampleRate
+      for (const [id, p] of pending) {
+        if (p.type === 'status_reply') {
+          clearTimeout(p.timer);
+          pending.delete(id);
+          p.resolve({
+            numUGens:       args[1],
+            numSynths:      args[2],
+            numGroups:      args[3],
+            numSynthDefs:   args[4],
+            avgCPU:         args[5],
+            peakCPU:        args[6],
+            nominalSR:      args[7],
+            actualSR:       args[8],
+          });
+          return;
+        }
+      }
+      break;
+    }
+
     case '/fail':
       console.warn(`[osc] scsynth /fail: ${args.join(' ')}`);
       break;
 
-    // Silently ignore /n_go, /n_end, /status.reply, etc.
+    // Silently ignore /n_go, /n_end, etc.
   }
 }
 
@@ -417,30 +440,69 @@ export function controlBusGetN(busIndex, count, timeout = 1000) {
   });
 }
 
+/**
+ * Queries scsynth status — returns UGen/synth counts, CPU, sample rate.
+ * Useful for diagnosing audio issues (e.g. after sleep/wake).
+ *
+ * @param {number} [timeout=3000]
+ * @returns {Promise<{ numUGens, numSynths, numGroups, numSynthDefs, avgCPU, peakCPU, nominalSR, actualSR }>}
+ */
+export function queryStatus(timeout = 3000) {
+  return new Promise((resolve, reject) => {
+    const id = ++idCounter;
+    const timer = setTimeout(() => {
+      pending.delete(id);
+      reject(new Error(`[osc] Timeout waiting for /status.reply (${timeout}ms)`));
+    }, timeout);
+
+    pending.set(id, { type: 'status_reply', resolve, reject, timer });
+    send('/status');
+  });
+}
+
 // ─────────────────────────────────────────────────────────
 //  Health check
 // ─────────────────────────────────────────────────────────
 
 let healthCheckTimer = null;
 let consecutiveFailures = 0;
+let lastCheckTimestamp = 0;
 
 /**
- * Starts a periodic health check that pings scsynth via /sync.
- * Logs warnings on failure. After 3 consecutive failures, calls
- * the optional onDead callback (e.g., to attempt reconnect or halt).
+ * Starts a periodic health check that pings scsynth via /sync
+ * AND queries /status to report UGen counts, CPU, and sample rate.
+ *
+ * Also detects system sleep/wake by checking if the wall-clock gap
+ * between ticks is much larger than the interval (timers freeze
+ * during macOS sleep). On wake detection, calls onSleepWake.
  *
  * @param {object} [opts]
  * @param {number} [opts.interval=15000] - Check interval in ms
  * @param {function} [opts.onDead] - Called after 3 consecutive failures
+ * @param {function} [opts.onSleepWake] - Called when sleep/wake is detected
  */
 export function startHealthCheck(opts = {}) {
   const interval = opts.interval ?? 15000;
   const onDead = opts.onDead ?? null;
+  const onSleepWake = opts.onSleepWake ?? null;
 
   stopHealthCheck();
   consecutiveFailures = 0;
+  lastCheckTimestamp = Date.now();
 
   healthCheckTimer = setInterval(async () => {
+    const now = Date.now();
+    const elapsed = now - lastCheckTimestamp;
+    lastCheckTimestamp = now;
+
+    // If elapsed >> interval, timers were frozen (system slept)
+    const sleepDetected = elapsed > interval * 3;
+    if (sleepDetected) {
+      const sleepDuration = Math.round((elapsed - interval) / 1000);
+      console.warn(`[osc] System sleep/wake detected (gap: ${sleepDuration}s)`);
+    }
+
+    // Ping scsynth
     try {
       await sync(5000);
       if (consecutiveFailures > 0) {
@@ -453,6 +515,30 @@ export function startHealthCheck(opts = {}) {
       if (consecutiveFailures >= 3 && onDead) {
         onDead();
       }
+      return; // skip status query if ping failed
+    }
+
+    // Query detailed status
+    try {
+      const st = await queryStatus(3000);
+      const cpuStr = `avg:${st.avgCPU.toFixed(1)}% peak:${st.peakCPU.toFixed(1)}%`;
+      const srStr = `SR:${st.actualSR}/${st.nominalSR}`;
+      console.log(`[sc-status] UGens:${st.numUGens} synths:${st.numSynths} groups:${st.numGroups} | CPU ${cpuStr} | ${srStr}`);
+
+      // Check for bad audio state
+      if (st.numSynths === 0 && !sleepDetected) {
+        console.warn('[sc-status] No active synths — audio may have stopped');
+      }
+      if (st.actualSR === 0) {
+        console.warn('[sc-status] Actual sample rate is 0 — audio device likely disconnected');
+      }
+    } catch {
+      console.warn('[sc-status] Failed to query scsynth status');
+    }
+
+    // Trigger sleep/wake recovery
+    if (sleepDetected && onSleepWake) {
+      onSleepWake(elapsed);
     }
   }, interval);
 }
@@ -465,4 +551,13 @@ export function stopHealthCheck() {
     clearInterval(healthCheckTimer);
     healthCheckTimer = null;
   }
+}
+
+/**
+ * Resets the consecutive failure counter.
+ * Call after a successful recovery so the health check doesn't
+ * immediately re-trigger onDead from stale failure counts.
+ */
+export function resetHealthCheckFailures() {
+  consecutiveFailures = 0;
 }

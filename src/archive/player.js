@@ -73,19 +73,21 @@ async function loadTrack() {
 }
 
 /**
- * Starts playback of a loaded track via the \archiveGrain SynthDef.
+ * Starts playback of a loaded track via \archiveLoop SynthDef.
+ * Normal speed, short random loop segment (1–3s).
  */
 function startPlayback(track) {
   const nodeId = allocNodeId();
+  const loopDur = 1 + Math.random() * 2; // 1–3 seconds
+  const startPos = Math.random() * 0.7;   // stay in first 70% to avoid overrun
 
-  synthNew('archiveGrain', nodeId, 0, GROUPS.ARCHIVE, {
+  synthNew('archiveLoop', nodeId, 0, GROUPS.ARCHIVE, {
     out: BUSES.ARCHIVE,
     buf: track.bufNum,
     gate: 1,
-    amp: 3,
-    grainDur: 0.5,
-    grainRate: 0.125,
-    overlap: 0.15,
+    amp: 1,
+    loopDur,
+    startPos,
     hpFreq: 250,
     lpFreq: 3500,
     atkTime: CROSSFADE_DURATION,
@@ -93,7 +95,7 @@ function startPlayback(track) {
   });
 
   track.nodeId = nodeId;
-  console.log(`[archive] Playing: ${track.title}`);
+  console.log(`[archive] Playing (loop ${loopDur.toFixed(1)}s): ${track.title}`);
 }
 
 /**
@@ -114,7 +116,7 @@ function fadeOutAndDispose(track) {
   setTimeout(() => {
     pendingFrees.delete(slotName);
     freeNamedBuffer(slotName);
-  }, (CROSSFADE_DURATION + 2) * 1000);
+  }, (CROSSFADE_DURATION + 8) * 1000); // generous margin over release time
 }
 
 /**

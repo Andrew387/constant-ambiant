@@ -15,7 +15,7 @@
  */
 
 // Re-export section config so existing imports from rules.config.js still work
-export { SECTION_DURATIONS, CHORD_SKIP_PROBABILITY } from './sections.config.js';
+export { SECTION_DURATIONS, CHORD_SKIP_PROBABILITY, scaleSectionDurations } from './sections.config.js';
 
 /** Minor keys the engine can land on (matches taste-profile MINOR_KEYS) */
 export const DARK_ROOTS = ['C', 'G', 'D', 'A', 'E', 'F', 'Bb', 'Eb', 'Ab'];
@@ -26,9 +26,9 @@ export const DARK_ROOTS = ['C', 'G', 'D', 'A', 'E', 'F', 'Bb', 'Eb', 'Ab'];
  * false = sustain through skip (continuous pad/drone).
  */
 export const TRACK_SKIP_RELEASE = {
-  pad: true,
   lead: true,
   drone: false,
+  bassSupport: false,
 };
 
 /** Humanization: random timing offset range in seconds (±half this value). */

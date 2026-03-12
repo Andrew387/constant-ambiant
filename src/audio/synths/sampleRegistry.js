@@ -13,19 +13,32 @@
  */
 
 export const LEAD_INSTRUMENTS = [
+  { id: 'sine',             name: 'Sine',          type: 'sine',                                                             plucked: false },
   { id: 'malechoirlong',    name: 'Male Choir',    folder: 'Lead/Loopable/malechoirlong',    filePrefix: 'malechoirlong',    plucked: false },
   { id: 'brushstringslong', name: 'Brush Strings', folder: 'Lead/Loopable/brushstringslong', filePrefix: 'brushstringslong', plucked: false },
   { id: 'analogbellslong',  name: 'Analog Bells',  folder: 'Lead/Loopable/analogbellslong',  filePrefix: 'analogbellslong',  plucked: false },
   { id: 'crystalbellslong', name: 'Crystal Bells', folder: 'Lead/Loopable/crystalbellslong', filePrefix: 'crystalbellslong', plucked: false },
   { id: 'calmbeachlong',    name: 'Calm Beach',    folder: 'Lead/Loopable/calmbeachlong',    filePrefix: 'calmbeachlong',    plucked: false },
   { id: 'silkystringslong', name: 'Silky Strings', folder: 'Lead/Loopable/silkystringslong', filePrefix: 'silkystringslong', plucked: false },
-  { id: 'distantBell',      name: 'Distant Bells', folder: 'Lead/Plucked/distant bells',     filePrefix: 'distantBell',      plucked: true },
+  { id: 'DataStreamPad',    name: 'Data Stream',   folder: 'Lead/Loopable/DataStreamPad',    filePrefix: 'DataStreamPad',    plucked: false },
 ];
 
+export const PAD_INSTRUMENTS = [
+  { id: 'analogWaves',    name: 'Analog Waves',     folder: 'pad/loopable/analogWaves',      filePrefix: 'analogWaves',    plucked: false },
+  { id: 'aquticVoices',   name: 'Aqutic Voices',    folder: 'pad/loopable/aqutic voices',    filePrefix: 'aquticVoices',   plucked: false },
+  { id: 'autumnHaze',     name: 'Autumn Haze',      folder: 'pad/loopable/autumnHaze',       filePrefix: 'AutumnHaze',     plucked: false },
+  { id: 'beyondDeepSkies', name: 'Beyond Deep Skies', folder: 'pad/loopable/beyondDeepSkies', filePrefix: 'BeyondDeepSkies', plucked: false },
+];
+
+export const DEFAULT_PAD_SAMPLE = 'analogWaves';
+
 export const BASS_INSTRUMENTS = [
-  { id: 'bloomingbasslong', name: 'Blooming Bass', folder: 'Bass/Loopable/bloomingbasslong', filePrefix: 'bloomingbasslong', plucked: false },
-  { id: 'basskeylong',      name: 'Bass Keys',     folder: 'Bass/Plucked/basskeylong',       filePrefix: 'basskeylong',      plucked: true },
-  { id: 'jazzSessBass',     name: 'Jazz Bass',     folder: 'Bass/Plucked/jazzSessBass',      filePrefix: 'JazzSessBass',     plucked: true },
+  { id: 'bloomingbasslong', name: 'Blooming Bass',   folder: 'Bass/Loopable/bloomingbasslong', filePrefix: 'bloomingbasslong', plucked: false },
+  { id: 'bytebass',         name: 'Byte Bass',       folder: 'Bass/Loopable/bytebass',         filePrefix: 'bytebass',         plucked: false, gain: 0.7 },
+  { id: 'darkglidebass',    name: 'Dark Glide Bass', folder: 'Bass/Loopable/darkglidebass',    filePrefix: 'darkglidebass',    plucked: false },
+  { id: 'basskeylong',      name: 'Bass Keys',       folder: 'Bass/Plucked/basskeylong',       filePrefix: 'basskeylong',      plucked: true },
+  { id: 'heavyHandedbass',  name: 'Heavy Handed',    folder: 'Bass/Plucked/heavyHandedbass',   filePrefix: 'heavyhandedbass',  plucked: true, gain: 0.5 },
+  { id: 'jazzSessBass',     name: 'Jazz Bass',       folder: 'Bass/Plucked/jazzSessBass',      filePrefix: 'JazzSessBass',     plucked: true },
 ];
 
 export const DEFAULT_LEAD = 'malechoirlong';

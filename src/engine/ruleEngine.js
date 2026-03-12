@@ -13,7 +13,7 @@
  *   - Release calls don't pass a `time` parameter
  */
 
-import rulesConfig, { CHORD_SKIP_PROBABILITY, TRACK_SKIP_RELEASE } from './rules.config.js';
+import rulesConfig, { CHORD_SKIP_PROBABILITY, TRACK_SKIP_RELEASE, SECTION_DURATIONS, scaleSectionDurations } from './rules.config.js';
 import { generateProgression, rebuildChordWithColor, MINOR_KEYS, TICKS_PER_UNIT } from '../harmony/progression.js';
 import { voiceChord } from '../harmony/voicing.js';
 // Synth triggers are now provided via the chordTriggers registry from mixer
@@ -27,6 +27,10 @@ import {
 } from './songStructure.js';
 import { updateSectionAutomation } from '../audio/effects/sectionAutomation.js';
 import { pickChordPlayingRule, applyChordPlayingRule, getCurrentRule, getBassOffsetBeat, getRuleState } from './chordPlayingRule.js';
+import {
+  setPedalSynth, findPedalNote, startPedalFadeIn,
+  schedulePedalFadeOut, stopPedal,
+} from './pedalTone.js';
 
 let config = { ...rulesConfig };
 let synths = null;
@@ -34,6 +38,9 @@ let texturePlayer = null;
 let chordTriggers = [];
 let swapLeadFn = null;
 let swapBassFn = null;
+let swapPedalPadFn = null;
+let swapBassSupportFn = null;
+let randomizeMasterEffectsFn = null;
 let running = false;
 let chordCount = 0;
 let loopTimeoutId = null;
@@ -75,10 +82,58 @@ function driftTempo() {
   rampTempo(newBpm);
 }
 
+/**
+ * Randomizes chordDuration, attackLevel, and releaseLevel per song cycle.
+ *
+ * Shorter chords get sharper (faster) attack/release; longer chords get
+ * slower, more gradual envelopes. The ranges interpolate linearly across
+ * the full [0.25, 2] chordDuration span for smooth granularity.
+ *
+ * No glitch risk: envelope params only affect newly-triggered notes.
+ * Currently-sounding notes keep their old release tails, so the
+ * transition section naturally crossfades between old and new character.
+ */
+function randomizeChordCharacter() {
+  const prevDuration = config.chordDuration;
+  const prevAttack = config.attackLevel;
+  const prevRelease = config.releaseLevel;
+
+  // Pick new chord duration in [0.25, 2]
+  const newDuration = 0.25 + Math.random() * 1.75;
+
+  // Normalize t ∈ [0, 1] across the full range
+  const t = (newDuration - 0.25) / 1.75;
+
+  // Interpolate attack bounds:  t=0 → [0, 0.5],  t=1 → [0.3, 1.0]
+  const atkMin = 0 + t * 0.3;
+  const atkMax = 0.5 + t * 0.5;
+  const newAttack = atkMin + Math.random() * (atkMax - atkMin);
+
+  // Interpolate release bounds: t=0 → [0.1, 1.0], t=1 → [0.7, 2.0]
+  const relMin = 0.1 + t * 0.6;
+  const relMax = 1.0 + t * 1.0;
+  const newRelease = relMin + Math.random() * (relMax - relMin);
+
+  config.chordDuration = newDuration;
+  config.attackLevel = newAttack;
+  config.releaseLevel = newRelease;
+
+  console.log(
+    `[engine] chord character — duration ${prevDuration.toFixed(2)}→${newDuration.toFixed(2)} measures, ` +
+    `attack ${prevAttack.toFixed(2)}→${newAttack.toFixed(2)}, ` +
+    `release ${prevRelease.toFixed(2)}→${newRelease.toFixed(2)}`
+  );
+}
+
 function swapInstrumentsForCycle() {
   const swaps = [];
   if (swapLeadFn) swaps.push(swapLeadFn().catch(err => { console.warn('[engine] lead swap failed:', err); return null; }));
   if (swapBassFn) swaps.push(swapBassFn().catch(err => { console.warn('[engine] bass swap failed:', err); return null; }));
+
+  // Swap bass-support pad independently (fire-and-forget)
+  if (swapBassSupportFn) {
+    swapBassSupportFn().catch(err => { console.warn('[engine] bassSupport swap failed:', err); });
+  }
 
   if (swaps.length === 0) {
     pickChordPlayingRule({ leadPlucked: leadIsPlucked, bassPlucked: bassIsPlucked, progressionLength: baseLoop.length });
@@ -113,6 +168,9 @@ function swapInstrumentsForCycle() {
 }
 
 let lastChord = null;
+
+// Pre-generated progression for the next song cycle (created during outro)
+let pendingProgression = null;
 
 // ── Loop variation helpers ──
 
@@ -260,6 +318,43 @@ function generateLoopProgression() {
   );
 }
 
+/**
+ * Pre-generates the next progression during the outro so the pedal tone
+ * system can find and start playing a common note before the cycle ends.
+ * Does NOT mutate loop state — stores result in pendingProgression.
+ */
+function preGenerateNextProgression() {
+  const loopOctave = pickOctave();
+  const opts = { octave: loopOctave };
+
+  if (lastChord) {
+    opts.startChordRoot = lastChord.root;
+  } else {
+    opts.key = config.rootNote;
+  }
+
+  const prog = generateProgression(opts);
+  const chords = prog.chords.map((chord, idx) => {
+    const { notes: voicedNotes, offsets } = voiceChord(chord.notes, 2, true);
+    return {
+      symbol: chord.symbol,
+      root: chord.root,
+      quality: chord.quality,
+      octave: loopOctave,
+      notes: chord.notes,
+      voicedNotes,
+      offsets,
+      durationTicks: prog.rhythm[idx],
+    };
+  });
+
+  pendingProgression = { chords, prog };
+
+  const symbols = chords.map(c => c.symbol).join(' → ');
+  console.log(`[pedal] pre-generated next progression: ${prog.key} | ${symbols}`);
+  return { chords, key: prog.key };
+}
+
 function advanceLoop() {
   const needsFirstLoop = loop.length === 0;
 
@@ -279,17 +374,75 @@ function advanceLoop() {
     loopPassCount++;
     const { sectionChanged, isNewCycle } = advanceSongProgression();
 
-    if (isNewCycle) {
+    // Entering the outro → swap pad, pre-generate next progression, start pedal tone
+    if (sectionChanged && !isNewCycle && getCurrentSection().type === 'outro') {
+      let pedalPC, outroSec;
       try {
-        generateLoopProgression();
+        const { chords, key } = preGenerateNextProgression();
+        const keyRoot = key.replace(' minor', '');
+        pedalPC = findPedalNote(chords, keyRoot);
+        const baseSec = chordDurationInSeconds();
+        outroSec = SECTION_DURATIONS.outro * loop.length * baseSec;
       } catch (err) {
-        console.error('[loop] generation failed, replaying previous loop:', err);
+        console.warn('[pedal] pre-generation failed:', err);
+      }
+
+      // Swap pad sample first, then start pedal tone on the new instrument
+      const swapDone = swapPedalPadFn
+        ? swapPedalPadFn().catch(err => { console.warn('[engine] pedalPad swap failed:', err); })
+        : Promise.resolve();
+
+      if (pedalPC) {
+        swapDone.then(() => {
+          if (!running) return;
+          if (synths.pedalPad) setPedalSynth(synths.pedalPad);
+          startPedalFadeIn(pedalPC, outroSec);
+        });
+      }
+    }
+
+    if (isNewCycle) {
+      // Use pre-generated progression if available
+      if (pendingProgression) {
+        const { chords, prog } = pendingProgression;
+        baseLoop = chords;
+        loop = chords;
+        loopPosition = 0;
+        lastChord = chords[chords.length - 1];
+
+        const symbols = chords.map(c => c.symbol).join(' → ');
+        const section = getCurrentSection();
+        console.log(
+          `[loop] ── new progression (pre-generated) ──  ${prog.key} | ${symbols} ` +
+          `(${config.tempo.current}bpm) [${section.type}]`
+        );
+        pendingProgression = null;
+      } else {
+        try {
+          generateLoopProgression();
+        } catch (err) {
+          console.error('[loop] generation failed, replaying previous loop:', err);
+        }
       }
       loopPassCount = 0;
+      randomizeChordCharacter();
+      scaleSectionDurations(config.chordDuration);
       driftTempo();
+      syncEnvelopesToDuration();
+
+      // Schedule pedal tone fade-out during intro or main1
+      const baseSec = chordDurationInSeconds();
+      const transitionSec = SECTION_DURATIONS.transition * loop.length * baseSec;
+      const introSec = SECTION_DURATIONS.intro * loop.length * baseSec;
+      const mainSec = SECTION_DURATIONS.main * loop.length * baseSec;
+      schedulePedalFadeOut(transitionSec, introSec, mainSec);
 
       if (texturePlayer) {
         texturePlayer.swap();
+      }
+
+      if (randomizeMasterEffectsFn) {
+        randomizeMasterEffectsFn();
       }
 
       swapInstrumentsForCycle();
@@ -349,7 +502,7 @@ function scheduleNextChord() {
       const droneNote = `${bassNoteName}2`;
       const bassOffset = getBassOffsetBeat(lastPlayedPosition);
 
-      const triggerCtx = { schedule, offsets, chordSec, droneNote, bassOffset };
+      const triggerCtx = { schedule, offsets, chordSec, droneNote, bassOffset, bassIsPlucked };
 
       // Fire all registered chord triggers for tracks active in this section
       for (const entry of chordTriggers) {
@@ -394,6 +547,9 @@ export function start(mixerSynths, mixerTexturePlayer, callbacks = {}) {
   chordTriggers = callbacks.chordTriggers || [];
   swapLeadFn = callbacks.onSwapLead || null;
   swapBassFn = callbacks.onSwapBass || null;
+  swapPedalPadFn = callbacks.onSwapPedalPad || null;
+  swapBassSupportFn = callbacks.onSwapBassSupport || null;
+  randomizeMasterEffectsFn = callbacks.onRandomizeMasterEffects || null;
   running = true;
   chordCount = 0;
   baseLoop = [];
@@ -406,8 +562,19 @@ export function start(mixerSynths, mixerTexturePlayer, callbacks = {}) {
 
   initSongStructure();
   pickChordPlayingRule();
+  randomizeChordCharacter();
   setTempoImmediate(config.tempo.current);
   syncEnvelopesToDuration();
+
+  // Wire up pedal tone synth
+  if (synths.pedalPad) {
+    setPedalSynth(synths.pedalPad);
+  }
+
+  // Randomize master effects for the first song cycle
+  if (randomizeMasterEffectsFn) {
+    randomizeMasterEffectsFn();
+  }
 
   console.log(`[engine] starting — ${config.rootNote} minor, ${config.tempo.current}bpm`);
 
@@ -442,9 +609,10 @@ export function stop() {
     texturePlayer.stop();
   }
 
-  if (synths && synths.pad && synths.pad.releaseAll)   synths.pad.releaseAll();
   if (synths && synths.lead && synths.lead.releaseAll)  synths.lead.releaseAll();
   if (synths && synths.drone && synths.drone.releaseAll) synths.drone.releaseAll();
+
+  stopPedal();
 
   chordCount = 0;
   baseLoop = [];
@@ -453,8 +621,12 @@ export function stop() {
   loopPassCount = 0;
   lastPlayedPosition = 0;
   lastChord = null;
+  pendingProgression = null;
   swapLeadFn = null;
   swapBassFn = null;
+  swapPedalPadFn = null;
+  swapBassSupportFn = null;
+  randomizeMasterEffectsFn = null;
   leadIsPlucked = false;
   bassIsPlucked = false;
 }
@@ -474,9 +646,9 @@ function syncEnvelopesToDuration() {
   const chordSec = chordDurationInSeconds();
   const atk = config.attackLevel;
   const rel = config.releaseLevel;
-  if (synths.pad && synths.pad.updateEnvelopes)   synths.pad.updateEnvelopes(chordSec, atk, rel);
   if (synths.drone && synths.drone.updateEnvelopes) synths.drone.updateEnvelopes(chordSec, atk, rel);
   if (synths.lead && synths.lead.updateEnvelopes)  synths.lead.updateEnvelopes(chordSec, atk, rel);
+  if (synths.bassSupport && synths.bassSupport.updateEnvelopes) synths.bassSupport.updateEnvelopes(chordSec, atk, rel);
 }
 
 export function getConfig() {
@@ -500,6 +672,9 @@ export function getEngineState() {
     currentRule: getCurrentRule(),
     ruleState: getRuleState(),
     baseDurationSec: Math.round(baseSec * 100) / 100,
+    chordDuration: Math.round(config.chordDuration * 100) / 100,
+    attackLevel: Math.round(config.attackLevel * 100) / 100,
+    releaseLevel: Math.round(config.releaseLevel * 100) / 100,
     progression: loop.map(c => {
       const actualSec = baseSec * c.durationTicks / TICKS_PER_UNIT;
       return {
