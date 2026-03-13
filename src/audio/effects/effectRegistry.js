@@ -113,6 +113,7 @@ const EFFECT_REGISTRY = [
       return {
         drive: spec.params?.drive ?? 2.0,
         mix: spec.params?.mix ?? 0.3,
+        lagTime: spec.params?.lagTime ?? 8,
       };
     },
   },
@@ -137,6 +138,40 @@ const EFFECT_REGISTRY = [
         decayTime: spec.params?.decayTime ?? 4,
         mix: spec.params?.mix ?? 0.15,
         lpFreq: spec.params?.lpFreq ?? 1200,
+      };
+    },
+  },
+  {
+    type: 'SpectralSmear',
+    defName: 'fxSpectralSmear',
+    mapParams(spec) {
+      return {
+        bins: spec.params?.bins ?? 4,
+        mix: spec.params?.mix ?? 0.3,
+        lagTime: spec.params?.lagTime ?? 8,
+      };
+    },
+  },
+  {
+    type: 'RingMod',
+    defName: 'fxRingMod',
+    mapParams(spec) {
+      return {
+        rate: spec.params?.rate ?? 0.5,
+        depth: spec.params?.depth ?? 0.3,
+        lagTime: spec.params?.lagTime ?? 8,
+      };
+    },
+  },
+  {
+    type: 'SpectralShift',
+    defName: 'fxSpectralShift',
+    mapParams(spec) {
+      return {
+        stretch: spec.params?.stretch ?? 1.0,
+        shift: spec.params?.shift ?? 0,
+        mix: spec.params?.mix ?? 0.25,
+        lagTime: spec.params?.lagTime ?? 8,
       };
     },
   },

@@ -201,6 +201,74 @@ export function getEffectChainInfo() {
   return info;
 }
 
+// ── Per-cycle track effect randomization ──────────────────────
+//
+// Each entry maps an effect id (from trackProfiles) to randomization ranges.
+// At cycle start, randomizeTrackEffects() picks new values and sends
+// nodeSet() — SC's Lag3 (8s) handles the smooth transition.
+
+const TRACK_EFFECT_RANGES = {
+  tapeSat: {
+    drive: { min: 1.2, max: 5.0 },   // 1.2 = warm, 5 = gritty lo-fi
+    mix:   { min: 0.1, max: 0.45 },
+  },
+  spectralSmear: {
+    bins: { min: 1, max: 16 },        // 1 = subtle warmth, 16 = heavy blur
+    mix:  { min: 0.1, max: 0.45 },
+  },
+  ringMod: {
+    rate:  { min: 0.1, max: 2.0 },    // sub-audio: slow breathing to fast tremolo
+    depth: { min: 0.05, max: 0.4 },   // gentle pulse to strong beating
+  },
+  spectralShift: {
+    stretch: { min: 0.95, max: 1.05 }, // subtle detune range
+    shift:   { min: -3, max: 3 },      // ±3 bins — ghostly to alien
+    mix:     { min: 0.08, max: 0.3 },
+  },
+};
+
+function randRange(range) {
+  return range.min + Math.random() * (range.max - range.min);
+}
+
+/**
+ * Randomizes per-track effect parameters for a new song cycle.
+ * Finds tagged effect nodes (tapeSat, spectralSmear, ringMod, spectralShift)
+ * across all tracks and sends new random values via nodeSet.
+ *
+ * @param {Object<string, { refs }>} effects - The trackEffects map from createAllTrackEffects()
+ */
+export function randomizeTrackEffects(effects) {
+  if (!effects) return;
+
+  const log = [];
+
+  for (const [trackName, group] of Object.entries(effects)) {
+    const { refs } = group;
+    if (!refs) continue;
+
+    for (const [id, ranges] of Object.entries(TRACK_EFFECT_RANGES)) {
+      const ref = refs[id];
+      if (!ref) continue;
+
+      const params = {};
+      for (const [param, range] of Object.entries(ranges)) {
+        params[param] = randRange(range);
+      }
+      nodeSet(ref.nodeId, params);
+
+      const desc = Object.entries(params)
+        .map(([k, v]) => `${k}:${typeof v === 'number' ? v.toFixed(2) : v}`)
+        .join(' ');
+      log.push(`${trackName}.${id}(${desc})`);
+    }
+  }
+
+  if (log.length > 0) {
+    console.log(`[trackFX] randomized — ${log.join(' | ')}`);
+  }
+}
+
 /**
  * Builds a single effect group (for compatibility with old imports).
  */

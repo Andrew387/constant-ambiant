@@ -261,12 +261,15 @@ SynthDef(\fxVinylWobble, { |bus=0, density=0.12, depth=0.004, decay=1.5|
 // drive = saturation amount (1 = clean, 2–4 = warm, 6+ = gritty).
 // mix = dry/wet blend (0 = bypass, 1 = fully saturated).
 // Makeup gain compensates for the level boost from clipping.
-SynthDef(\fxTapeSat, { |bus=0, drive=2.0, mix=0.3|
+// Lag3 on drive/mix so per-cycle randomization is smooth.
+SynthDef(\fxTapeSat, { |bus=0, drive=2.0, mix=0.3, lagTime=8|
     var dry = In.ar(bus, 2);
-    var driven = (dry * drive).tanh;
+    var d = Lag3.kr(drive, lagTime);
+    var m = Lag3.kr(mix, lagTime);
+    var driven = (dry * d).tanh;
     // Makeup gain: tanh compresses peaks, so normalize back
-    var makeup = 1 / drive.max(1).sqrt;
-    var wet = XFade2.ar(dry, driven * makeup, mix * 2 - 1); // XFade2 range: -1..1
+    var makeup = 1 / d.max(1).sqrt;
+    var wet = XFade2.ar(dry, driven * makeup, m * 2 - 1); // XFade2 range: -1..1
     ReplaceOut.ar(bus, wet);
 }).add;
 
@@ -303,6 +306,61 @@ SynthDef(\fxCombRes, { |bus=0, freq=110, decayTime=4, mix=0.15, lpFreq=1200|
     // Tame upper harmonics — keep the low shimmer, cut the screech
     var filtered = LPF.ar(combed, lpFreq);
     var wet = XFade2.ar(dry, filtered, mix * 2 - 1);
+    ReplaceOut.ar(bus, wet);
+}).add;
+
+// ── SPECTRAL SMEAR (PV_MagSmear) ────────────────────────────
+// Spreads energy across neighbouring FFT bins, blurring harmonics
+// into a washy, indistinct cloud. bins = number of bins to spread
+// across (1 = subtle warmth, 20+ = heavy obliteration).
+// mix = dry/wet blend. Lag3 on params for smooth per-cycle ramps.
+SynthDef(\fxSpectralSmear, { |bus=0, bins=4, mix=0.3, lagTime=8|
+    var dry, m, b, chain0, chain1, smeared, wet;
+    dry = In.ar(bus, 2);
+    m = Lag3.kr(mix, lagTime);
+    b = Lag3.kr(bins, lagTime);
+    chain0 = FFT(LocalBuf(2048), dry[0]);
+    chain1 = FFT(LocalBuf(2048), dry[1]);
+    chain0 = PV_MagSmear(chain0, b);
+    chain1 = PV_MagSmear(chain1, b);
+    smeared = [IFFT(chain0), IFFT(chain1)];
+    wet = XFade2.ar(dry, smeared, m * 2 - 1);
+    ReplaceOut.ar(bus, wet);
+}).add;
+
+// ── RING MODULATION (sub-audio tremolo/beating) ──────────────
+// Modulates signal with a sine wave at sub-audio rates (0.1–2 Hz),
+// creating slow tremolo and organic beating. rate = modulator Hz,
+// depth = modulation depth (0 = bypass, 1 = full ring mod).
+// Lag3 on params for smooth per-cycle transitions.
+SynthDef(\fxRingMod, { |bus=0, rate=0.5, depth=0.3, lagTime=8|
+    var sig, r, d, mod;
+    sig = In.ar(bus, 2);
+    r = Lag3.kr(rate, lagTime);
+    d = Lag3.kr(depth, lagTime);
+    // Modulator oscillates between (1-depth) and 1, so at depth=0 it's unity
+    mod = SinOsc.kr(r).range(1 - d, 1);
+    ReplaceOut.ar(bus, sig * mod);
+}).add;
+
+// ── SPECTRAL PITCH SHIFT (PV_BinShift) ──────────────────────
+// Shifts the spectrum up or down by a fractional number of bins,
+// blended with the dry signal. Creates detuned, ghostly harmonics.
+// stretch = frequency ratio (1.0 = no shift, <1 = down, >1 = up).
+// shift = additive bin offset. mix = dry/wet blend.
+// Lag3 on params for smooth per-cycle ramps.
+SynthDef(\fxSpectralShift, { |bus=0, stretch=1.0, shift=0, mix=0.25, lagTime=8|
+    var dry, m, st, sh, chain0, chain1, shifted, wet;
+    dry = In.ar(bus, 2);
+    m = Lag3.kr(mix, lagTime);
+    st = Lag3.kr(stretch, lagTime);
+    sh = Lag3.kr(shift, lagTime);
+    chain0 = FFT(LocalBuf(2048), dry[0]);
+    chain1 = FFT(LocalBuf(2048), dry[1]);
+    chain0 = PV_BinShift(chain0, st, sh);
+    chain1 = PV_BinShift(chain1, st, sh);
+    shifted = [IFFT(chain0), IFFT(chain1)];
+    wet = XFade2.ar(dry, shifted, m * 2 - 1);
     ReplaceOut.ar(bus, wet);
 }).add;
 
