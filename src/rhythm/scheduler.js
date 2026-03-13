@@ -49,6 +49,7 @@ export function triggerDrone(synths, note, duration) {
     console.warn('[scheduler] drone synth not available — skipping');
     return;
   }
+  console.log(`[scheduler] triggerDrone → ${note} (${duration.toFixed(1)}s)`);
   synths.drone.triggerAttackRelease(note, duration);
 }
 

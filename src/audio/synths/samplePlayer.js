@@ -76,7 +76,7 @@ export async function createSampleSynth(config, options = {}) {
   function startVoice(note) {
     const bufNum = noteBuffers.get(note);
     if (bufNum === undefined) {
-      console.warn(`[samplePlayer] no buffer for ${note}`);
+      console.warn(`[samplePlayer:${filePrefix}] no buffer for ${note} (noteBuffers size: ${noteBuffers.size})`);
       return;
     }
 
@@ -101,6 +101,7 @@ export async function createSampleSynth(config, options = {}) {
       params.relTime = releaseTime;
     }
 
+    console.log(`[samplePlayer:${filePrefix}] startVoice ${note} → buf:${bufNum} node:${nodeId} def:${defName} bus:${outBus} grp:${groupId} atk:${params.atkTime?.toFixed(2)} rel:${params.relTime?.toFixed(2)}`);
     synthNew(defName, nodeId, 0, groupId, params);
     activeVoices.set(note, { nodeId });
     allNodeIds.add(nodeId);

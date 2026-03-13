@@ -181,6 +181,7 @@ export function initSectionAutomation(allTrackEffects) {
     }
 
     automatedTracks[name] = { filter, duckGain, config: profile.automation };
+    console.log(`[automation]   ${name}: duckGain nodeId=${duckGain.nodeId}${filter ? ` filter nodeId=${filter.nodeId}` : ''} deferredFadeIn=${!!profile.automation.deferredFadeIn}`);
   }
 
   const names = Object.keys(automatedTracks);
@@ -249,6 +250,7 @@ export function updateSectionAutomation(currentSection, nextSection, progress, r
       if (currentIdx > triggerIdx ||
           (currentIdx === triggerIdx && progress >= fadeState.triggerProgress)) {
         fadeState.phase = 'done';
+        console.log(`[automation] ${name} FADE-IN triggered! nodeId:${duckGain.nodeId} gain:${duck.toFixed(3)} (section:${currentSection} progress:${progress.toFixed(3)} trigger:${fadeState.triggerSection}@${fadeState.triggerProgress.toFixed(3)})`);
         nodeSet(duckGain.nodeId, { gain: duck });
         trackStatus = 'fade-in';
         debugParts.push(`${name}(FADE-IN → duck:${duck.toFixed(2)})`);

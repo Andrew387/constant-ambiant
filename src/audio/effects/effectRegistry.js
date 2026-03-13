@@ -102,6 +102,7 @@ const EFFECT_REGISTRY = [
       return {
         density: spec.params?.density ?? 0.12,
         depth: spec.params?.depth ?? 0.004,
+        decay: spec.params?.decay ?? 1.5,
       };
     },
   },

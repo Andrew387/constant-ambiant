@@ -159,6 +159,7 @@ export async function initMixer() {
     {
       track: 'drone',
       trigger(synthsRef, { droneNote, chordSec, bassOffset }) {
+        console.log(`[mixer] drone trigger → ${droneNote} (${chordSec.toFixed(1)}s, offset beat ${bassOffset})`);
         if (bassOffset > 0) {
           const delayMs = (chordSec * bassOffset / 4) * 1000;
           setTimeout(() => {
@@ -251,6 +252,7 @@ function createSwappableSlot({ label, synthKey, instruments, defaultId, outBus, 
       // Use 45s to be safe — the only cost is keeping buffers in memory longer.
       const tid = setTimeout(() => {
         pendingDisposeTimers = pendingDisposeTimers.filter(t => t !== tid);
+        console.log(`[mixer] disposing old ${label} "${oldId}" (45s timer fired)`);
         oldSynth.dispose();
         const oldConfig = instruments.find(i => i.id === oldId);
         if (oldConfig && oldConfig.type !== 'sine') {
