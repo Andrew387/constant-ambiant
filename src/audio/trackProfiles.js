@@ -175,7 +175,7 @@ export const TRACK_PROFILES = {
     chain: [
       {
         type: 'VinylWobble',
-        params: { density: 0.15, depth: 0.004, decay: 2.5 },
+        params: { density: 0.2, depth: 0.008, decay: 3.0 },
       },
     ],
   },
