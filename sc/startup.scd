@@ -17,7 +17,7 @@ s.options.numInputBusChannels = 0;
 // Don't force sampleRate — let the output device decide.
 // Set s.options.sampleRate if you need a specific rate.
 s.options.memSize = 65536;     // 64 MB real-time memory
-s.options.numBuffers = 2048;
+s.options.numBuffers = 4096;
 s.options.maxNodes = 4096;
 s.options.numAudioBusChannels = 256;
 s.options.blockSize = 128;
@@ -76,8 +76,14 @@ s.waitForBoot({
 
     s.sync;
 
+    // ── OSC debugging ──
+    // Dump all incoming OSC messages so Node.js console shows
+    // every s_new, n_set, n_free, b_alloc etc. sent to scsynth.
+    // 0 = off, 1 = print
+    s.dumpOSC(1);
+
     "\n============================================".postln;
-    "[startup] Server booted and ready.".postln;
+    "[startup] Server booted and ready (dumpOSC ON).".postln;
     "[startup] UDP port: %".format(s.addr.port).postln;
     "[startup] Sample rate: %".format(s.sampleRate).postln;
     "[startup] Groups: 99(busClear) 100(src) 200(fx) 300(rev) 400(master)".postln;

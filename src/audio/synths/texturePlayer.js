@@ -9,7 +9,7 @@
 
 import path from 'path';
 import fs from 'fs';
-import { synthNew, nodeSet } from '../../sc/osc.js';
+import { synthNew, nodeSet, nodeFree } from '../../sc/osc.js';
 import { allocNodeId, GROUPS, BUSES } from '../../sc/nodeIds.js';
 import { loadNamedBuffer, freeNamedBuffer } from '../../sc/bufferManager.js';
 import { TEXTURE_CONFIG } from '../../engine/rules.config.js';
@@ -51,6 +51,7 @@ export function createTexturePlayer(options = {}) {
 
   let currentIndex = null;
   let activeNodeId = null;
+  let fadingOutNodeId = null; // node ID of the synth being released (so we can force-free before buffer free)
   let swapGeneration = 0; // incremented on each swap/stop to invalidate stale loads
   let currentSlotName = null; // unique buffer slot name per generation
   const pendingFreeTimers = []; // delayed buffer free timers
@@ -87,9 +88,14 @@ export function createTexturePlayer(options = {}) {
       currentSlotName = newSlotName;
       currentIndex = index;
 
-      // Schedule delayed free of the old buffer (after release envelope completes)
+      // Schedule delayed free of the old buffer (after release envelope completes).
+      // Force-free the old synth node first so it's guaranteed to stop reading
+      // the buffer — prevents "Buffer UGen: no buffer data" if release runs long.
       if (oldSlotName) {
+        const oldNodeToFree = fadingOutNodeId;
+        fadingOutNodeId = null;
         const tid = setTimeout(() => {
+          if (oldNodeToFree !== null) nodeFree(oldNodeToFree);
           freeNamedBuffer(oldSlotName);
         }, BUFFER_FREE_DELAY);
         pendingFreeTimers.push(tid);
@@ -119,6 +125,7 @@ export function createTexturePlayer(options = {}) {
   function fadeOutCurrent() {
     if (activeNodeId !== null) {
       nodeSet(activeNodeId, { gate: 0 });
+      fadingOutNodeId = activeNodeId;
       activeNodeId = null;
     }
   }
@@ -133,6 +140,13 @@ export function createTexturePlayer(options = {}) {
     stop() {
       swapGeneration++; // invalidate any in-flight load
       fadeOutCurrent();
+      // Force-free the releasing node before freeing its buffer
+      if (fadingOutNodeId !== null) {
+        nodeFree(fadingOutNodeId);
+        fadingOutNodeId = null;
+      }
+      // Force-free the active node (fadeOutCurrent set gate=0 but it may still be reading)
+      // — handled above via fadingOutNodeId
       // Free current buffer slot
       if (currentSlotName) {
         freeNamedBuffer(currentSlotName);

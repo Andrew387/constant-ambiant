@@ -196,9 +196,26 @@ function routeIncoming(msg) {
       break;
     }
 
-    case '/fail':
+    case '/fail': {
+      const failCmd = args[0];   // e.g. '/b_allocRead'
+      const failMsg = args[1];   // error message
       console.warn(`[osc] scsynth /fail: ${args.join(' ')}`);
+
+      // Reject any pending Promise waiting for this command.
+      // Without this, buffer allocation failures hang for 30s then timeout
+      // instead of immediately reporting the error.
+      if (failCmd) {
+        for (const [id, p] of pending) {
+          if (p.type === 'done' && p.cmd === failCmd) {
+            clearTimeout(p.timer);
+            pending.delete(id);
+            p.reject(new Error(`[osc] scsynth /fail ${failCmd}: ${failMsg || 'unknown error'}`));
+            break;  // reject the first matching pending
+          }
+        }
+      }
       break;
+    }
 
     // Silently ignore /n_go, /n_end, etc.
   }

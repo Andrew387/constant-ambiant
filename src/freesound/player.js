@@ -51,7 +51,7 @@ async function playSoundEffect() {
 
     // Load into SC buffer
     const slotName = `freesound_${Date.now()}_${sound.id}`;
-    const { bufNum, numChannels } = await loadNamedBuffer(slotName, tmpPath);
+    const { bufNum } = await loadNamedBuffer(slotName, tmpPath, { mono: true });
     activeSlots.push(slotName);
 
     // Clean up temp file
@@ -62,8 +62,7 @@ async function playSoundEffect() {
       return;
     }
 
-    // Pick mono or stereo SynthDef based on buffer's actual channel count
-    const defName = numChannels >= 2 ? 'sfxPlayerStereo' : 'sfxPlayer';
+    const defName = 'sfxPlayer';
     const nodeId = allocNodeId();
     synthNew(defName, nodeId, 0, GROUPS.FREESOUND, {
       out: BUSES.FREESOUND,

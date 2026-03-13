@@ -21,6 +21,11 @@ import { bufferAllocRead, bufferAllocReadChannel, bufferFree, bufferQuery } from
 
 let nextBufNum = 100;
 
+// Pool of freed buffer numbers available for reuse.
+// Without recycling, nextBufNum only increases and eventually exceeds
+// SC's numBuffers limit (2048), causing silent allocation failures.
+const freeBufPool = [];
+
 // Active buffer sets: Map<string, Map<string, number>>
 // e.g. 'malechoirlong' → Map('C1' → 100, 'C#1' → 101, ...)
 const instrumentBuffers = new Map();
@@ -45,8 +50,12 @@ const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 
  * @returns {number}
  */
 export function allocBufNum() {
-  const num = nextBufNum++;
+  // Reuse a freed buffer number if available, otherwise allocate fresh
+  const num = freeBufPool.length > 0 ? freeBufPool.pop() : nextBufNum++;
   allocatedBuffers.add(num);
+  if (num >= 2000) {
+    console.warn(`[bufferManager] allocBufNum=${num} (approaching numBuffers=2048 limit!) active=${allocatedBuffers.size} pool=${freeBufPool.length}`);
+  }
   return num;
 }
 
@@ -108,7 +117,10 @@ export async function loadInstrumentSamples(instrumentId, folder, filePrefix) {
 
   instrumentBuffers.set(instrumentId, noteBuffers);
   instrumentRefCounts.set(instrumentId, 1);
-  console.log(`[bufferManager] Loaded ${noteBuffers.size} samples for "${instrumentId}"`);
+  const bufNums = [...noteBuffers.values()];
+  const minBuf = Math.min(...bufNums);
+  const maxBuf = Math.max(...bufNums);
+  console.log(`[bufferManager] Loaded ${noteBuffers.size} samples for "${instrumentId}" (bufs ${minBuf}–${maxBuf}, total active: ${allocatedBuffers.size}, nextBufNum: ${nextBufNum})`);
   return noteBuffers;
 }
 
@@ -131,11 +143,12 @@ export function freeInstrumentSamples(instrumentId) {
   for (const bufNum of noteBuffers.values()) {
     bufferFree(bufNum);
     allocatedBuffers.delete(bufNum);
+    freeBufPool.push(bufNum);  // recycle for reuse
   }
 
   instrumentBuffers.delete(instrumentId);
   instrumentRefCounts.delete(instrumentId);
-  console.log(`[bufferManager] Freed samples for "${instrumentId}"`);
+  console.log(`[bufferManager] Freed samples for "${instrumentId}" (recycled ${noteBuffers.size} bufs, pool=${freeBufPool.length})`);
 }
 
 /**
@@ -177,6 +190,7 @@ export function freeNamedBuffer(name) {
   if (bufNum !== undefined) {
     bufferFree(bufNum);
     allocatedBuffers.delete(bufNum);
+    freeBufPool.push(bufNum);  // recycle for reuse
     namedBuffers.delete(name);
   }
 }
@@ -243,6 +257,7 @@ export function freeAllBuffers() {
   instrumentBuffers.clear();
   instrumentRefCounts.clear();
   namedBuffers.clear();
+  freeBufPool.length = 0;
   nextBufNum = 100;
   console.log('[bufferManager] All buffers freed');
 }
@@ -257,6 +272,7 @@ export function resetBufferState() {
   instrumentBuffers.clear();
   instrumentRefCounts.clear();
   namedBuffers.clear();
+  freeBufPool.length = 0;
   nextBufNum = 100;
   console.log('[bufferManager] Buffer state reset (server restarted)');
 }

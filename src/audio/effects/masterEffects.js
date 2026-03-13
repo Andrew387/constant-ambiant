@@ -19,7 +19,7 @@ import { allocNodeId, GROUPS, BUSES } from '../../sc/nodeIds.js';
 
 const RANGES = {
   reverb: {
-    wet:   { min: 0.10, max: 0.60 },
+    wet:   { min: 0.20, max: 0.70 },
     decay: { min: 8,    max: 18 },
     damp:  { min: 0.15, max: 0.40 },
   },

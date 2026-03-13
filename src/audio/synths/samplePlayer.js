@@ -52,6 +52,11 @@ export async function createSampleSynth(config, options = {}) {
 
   // Active voices: Map<string, { nodeId }>
   const activeVoices = new Map();
+  // Every SC node ID created by this instance — used by dispose() to
+  // force-free nodes that are still in their release phase.  Without this,
+  // releaseAll() clears activeVoices and dispose() can't find the nodes,
+  // so buffers get freed while SC synths are still reading them.
+  const allNodeIds = new Set();
   // Pending auto-release timers from triggerAttackRelease: Map<string, timeoutId>
   // Tracked so we can cancel stale timers when the same note is re-triggered
   const releaseTimers = new Map();
@@ -71,7 +76,7 @@ export async function createSampleSynth(config, options = {}) {
   function startVoice(note) {
     const bufNum = noteBuffers.get(note);
     if (bufNum === undefined) {
-      console.warn(`[samplePlayer] no buffer for ${note}`);
+      console.warn(`[samplePlayer:${filePrefix}] no buffer for ${note} (noteBuffers size: ${noteBuffers.size})`);
       return;
     }
 
@@ -96,8 +101,10 @@ export async function createSampleSynth(config, options = {}) {
       params.relTime = releaseTime;
     }
 
+    console.log(`[samplePlayer:${filePrefix}] startVoice ${note} → buf:${bufNum} node:${nodeId} def:${defName} bus:${outBus} grp:${groupId} atk:${params.atkTime?.toFixed(2)} rel:${params.relTime?.toFixed(2)}`);
     synthNew(defName, nodeId, 0, groupId, params);
     activeVoices.set(note, { nodeId });
+    allNodeIds.add(nodeId);
   }
 
   function cancelReleaseTimer(note) {
@@ -164,9 +171,14 @@ export async function createSampleSynth(config, options = {}) {
     dispose() {
       for (const tid of releaseTimers.values()) clearTimeout(tid);
       releaseTimers.clear();
-      for (const [note, voice] of activeVoices) {
-        nodeFree(voice.nodeId);
+      // Force-free ALL SC nodes ever created by this instance.
+      // After releaseAll(), activeVoices is empty but SC nodes may still
+      // be in their release envelope reading from buffers.  Sending /n_free
+      // to already-freed nodes (via doneAction:2) is harmless — SC ignores it.
+      for (const nodeId of allNodeIds) {
+        nodeFree(nodeId);
       }
+      allNodeIds.clear();
       activeVoices.clear();
       // Don't free buffers here — bufferManager handles that on instrument swap
     },
