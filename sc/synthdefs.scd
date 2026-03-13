@@ -256,6 +256,56 @@ SynthDef(\fxVinylWobble, { |bus=0, density=0.12, depth=0.004, decay=1.5|
     ReplaceOut.ar(bus, wet);
 }).add;
 
+// ── TAPE SATURATION (warm soft-clipping) ────────────────────
+// Gentle tanh waveshaping that adds odd harmonics and compression.
+// drive = saturation amount (1 = clean, 2–4 = warm, 6+ = gritty).
+// mix = dry/wet blend (0 = bypass, 1 = fully saturated).
+// Makeup gain compensates for the level boost from clipping.
+SynthDef(\fxTapeSat, { |bus=0, drive=2.0, mix=0.3|
+    var dry = In.ar(bus, 2);
+    var driven = (dry * drive).tanh;
+    // Makeup gain: tanh compresses peaks, so normalize back
+    var makeup = 1 / drive.max(1).sqrt;
+    var wet = XFade2.ar(dry, driven * makeup, mix * 2 - 1); // XFade2 range: -1..1
+    ReplaceOut.ar(bus, wet);
+}).add;
+
+// ── SPECTRAL FREEZE (ghostly sustained snapshots) ───────────
+// Captures an FFT snapshot and holds it as a frozen drone.
+// Random Dust triggers freeze for a random duration then release.
+// density = avg freezes per second, minHold/maxHold = hold range (s).
+// mix = dry/wet blend.
+SynthDef(\fxSpectralFreeze, { |bus=0, density=0.06, minHold=2, maxHold=6, mix=0.3|
+    var dry, trig, holdTime, freezeGate, chain0, chain1, frozen, wet;
+    dry = In.ar(bus, 2);
+    trig = Dust.kr(density);
+    // Hold timer: freeze starts on trigger, unfreezes after random duration
+    holdTime = TRand.kr(minHold, maxHold, trig);
+    freezeGate = Trig.kr(trig, holdTime);
+    chain0 = FFT(LocalBuf(2048), dry[0]);
+    chain1 = FFT(LocalBuf(2048), dry[1]);
+    chain0 = PV_MagFreeze(chain0, freezeGate);
+    chain1 = PV_MagFreeze(chain1, freezeGate);
+    frozen = [IFFT(chain0), IFFT(chain1)];
+    wet = XFade2.ar(dry, frozen, mix * 2 - 1);
+    ReplaceOut.ar(bus, wet);
+}).add;
+
+// ── COMB RESONATOR (metallic harmonic shimmer) ──────────────
+// Tuned CombC adds shimmering resonance at a given frequency.
+// freq = comb frequency (tune to root note harmonic for musical result).
+// decayTime = ring time in seconds. mix = dry/wet blend.
+// The comb delay is 1/freq, creating resonant peaks at freq and harmonics.
+SynthDef(\fxCombRes, { |bus=0, freq=110, decayTime=4, mix=0.15, lpFreq=1200|
+    var dry = In.ar(bus, 2);
+    var delTime = (1 / freq.max(20)).min(0.05); // cap at 50ms (20 Hz min)
+    var combed = CombC.ar(dry, 0.05, delTime, decayTime);
+    // Tame upper harmonics — keep the low shimmer, cut the screech
+    var filtered = LPF.ar(combed, lpFreq);
+    var wet = XFade2.ar(dry, filtered, mix * 2 - 1);
+    ReplaceOut.ar(bus, wet);
+}).add;
+
 // ── GAIN (track gain, duck gain) ────────────────────────────
 // Lag3 (3rd-order) produces smooth S-curve transitions instead of
 // the abrupt exponential onset of .lag(). lagTime controls ramp

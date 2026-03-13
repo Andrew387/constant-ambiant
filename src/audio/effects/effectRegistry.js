@@ -107,6 +107,40 @@ const EFFECT_REGISTRY = [
     },
   },
   {
+    type: 'TapeSat',
+    defName: 'fxTapeSat',
+    mapParams(spec) {
+      return {
+        drive: spec.params?.drive ?? 2.0,
+        mix: spec.params?.mix ?? 0.3,
+      };
+    },
+  },
+  {
+    type: 'SpectralFreeze',
+    defName: 'fxSpectralFreeze',
+    mapParams(spec) {
+      return {
+        density: spec.params?.density ?? 0.06,
+        minHold: spec.params?.minHold ?? 2,
+        maxHold: spec.params?.maxHold ?? 6,
+        mix: spec.params?.mix ?? 0.3,
+      };
+    },
+  },
+  {
+    type: 'CombRes',
+    defName: 'fxCombRes',
+    mapParams(spec) {
+      return {
+        freq: spec.params?.freq ?? 110,
+        decayTime: spec.params?.decayTime ?? 4,
+        mix: spec.params?.mix ?? 0.15,
+        lpFreq: spec.params?.lpFreq ?? 1200,
+      };
+    },
+  },
+  {
     type: 'Reverb',
     skip: true, // reverb is handled via sends, not in-place
   },
