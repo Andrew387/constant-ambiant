@@ -127,7 +127,7 @@ export const TRACK_PROFILES = {
       },
       {
         type: 'Filter',
-        params: { type: 'lowpass', frequency: 3000, Q: 0.7, rolloff: -12 },
+        params: { type: 'lowpass', frequency: 3000, Q: 1.0, rolloff: -12 },
         lfo: { frequency: 0.04, min: 800, max: 6000, type: 'sine', target: 'frequency' },
       },
       {
@@ -137,7 +137,11 @@ export const TRACK_PROFILES = {
       {
         id: 'spectralShift',
         type: 'SpectralShift',
-        params: { stretch: 1.0, shift: 0, mix: 0.15 },
+        params: { stretch: 1.0, shift: 0, mix: 0.1 },
+      },
+      {
+        type: 'Compressor',
+        params: { threshold: -18, ratio: 3, attack: 0.005, release: 0.15 },
       },
       {
         type: 'PingPongDelay',
@@ -200,12 +204,12 @@ export const TRACK_PROFILES = {
       {
         id: 'tapeSat',
         type: 'TapeSat',
-        params: { drive: 3.0, mix: 0.3 },
+        params: { drive: 2.0, mix: 0.2 },
       },
       {
         id: 'ringMod',
         type: 'RingMod',
-        params: { rate: 0.2, depth: 0.2 },
+        params: { rate: 0.2, depth: 0.12 },
       },
       {
         type: 'VinylWobble',
@@ -242,7 +246,7 @@ export const TRACK_PROFILES = {
       {
         id: 'spectralShift',
         type: 'SpectralShift',
-        params: { stretch: 1.0, shift: 0, mix: 0.15 },
+        params: { stretch: 1.0, shift: 0, mix: 0.1 },
       },
       {
         type: 'SpectralFreeze',

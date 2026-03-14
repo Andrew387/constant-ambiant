@@ -38,7 +38,7 @@ const EFFECT_REGISTRY = [
         lfoRate: spec.lfo.frequency ?? 0.04,
         lfoMin: spec.lfo.min ?? 800,
         lfoMax: spec.lfo.max ?? 6000,
-        rq: 0.7,
+        rq: spec.params.Q ?? 1.0,
       };
     },
   },

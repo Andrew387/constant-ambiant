@@ -209,21 +209,21 @@ export function getEffectChainInfo() {
 
 const TRACK_EFFECT_RANGES = {
   tapeSat: {
-    drive: { min: 1.2, max: 5.0 },   // 1.2 = warm, 5 = gritty lo-fi
-    mix:   { min: 0.1, max: 0.45 },
+    drive: { min: 1.2, max: 3.0 },   // 1.2 = warm, 3 = moderate grit (was 5)
+    mix:   { min: 0.08, max: 0.25 },  // keep subtle to avoid harmonic stacking
   },
   spectralSmear: {
-    bins: { min: 1, max: 16 },        // 1 = subtle warmth, 16 = heavy blur
-    mix:  { min: 0.1, max: 0.45 },
+    bins: { min: 1, max: 8 },         // 1 = subtle warmth, 8 = moderate blur (was 16)
+    mix:  { min: 0.08, max: 0.3 },    // reduced max from 0.45
   },
   ringMod: {
-    rate:  { min: 0.1, max: 2.0 },    // sub-audio: slow breathing to fast tremolo
-    depth: { min: 0.05, max: 0.4 },   // gentle pulse to strong beating
+    rate:  { min: 0.1, max: 1.2 },    // sub-audio: slow breathing (was 2.0)
+    depth: { min: 0.03, max: 0.2 },   // gentle pulse, halved max from 0.4
   },
   spectralShift: {
-    stretch: { min: 0.95, max: 1.05 }, // subtle detune range
-    shift:   { min: -3, max: 3 },      // ±3 bins — ghostly to alien
-    mix:     { min: 0.08, max: 0.3 },
+    stretch: { min: 0.97, max: 1.03 }, // tighter detune (was 0.95–1.05)
+    shift:   { min: -1.5, max: 1.5 },  // ±1.5 bins — subtle ghosting only (was ±3)
+    mix:     { min: 0.05, max: 0.15 }, // halved max from 0.3 — this is the main resonance fix
   },
 };
 
