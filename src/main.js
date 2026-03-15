@@ -194,6 +194,7 @@ function startEngine() {
     onSwapPedalPad: mixer.swapPedalPadRandom,
     onSwapBassSupport: mixer.swapBassSupportRandom,
     onRandomizeMasterEffects: mixer.randomizeMasterEffects,
+    onRandomizeTrackEffects: mixer.randomizeTrackEffects,
   });
   isRunning = true;
   status.running = true;

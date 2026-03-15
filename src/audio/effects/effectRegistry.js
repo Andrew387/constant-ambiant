@@ -38,7 +38,7 @@ const EFFECT_REGISTRY = [
         lfoRate: spec.lfo.frequency ?? 0.04,
         lfoMin: spec.lfo.min ?? 800,
         lfoMax: spec.lfo.max ?? 6000,
-        rq: 0.7,
+        rq: spec.params.Q ?? 1.0,
       };
     },
   },
@@ -103,6 +103,75 @@ const EFFECT_REGISTRY = [
         density: spec.params?.density ?? 0.12,
         depth: spec.params?.depth ?? 0.004,
         decay: spec.params?.decay ?? 1.5,
+      };
+    },
+  },
+  {
+    type: 'TapeSat',
+    defName: 'fxTapeSat',
+    mapParams(spec) {
+      return {
+        drive: spec.params?.drive ?? 2.0,
+        mix: spec.params?.mix ?? 0.3,
+        lagTime: spec.params?.lagTime ?? 8,
+      };
+    },
+  },
+  {
+    type: 'SpectralFreeze',
+    defName: 'fxSpectralFreeze',
+    mapParams(spec) {
+      return {
+        density: spec.params?.density ?? 0.06,
+        minHold: spec.params?.minHold ?? 2,
+        maxHold: spec.params?.maxHold ?? 6,
+        mix: spec.params?.mix ?? 0.3,
+      };
+    },
+  },
+  {
+    type: 'CombRes',
+    defName: 'fxCombRes',
+    mapParams(spec) {
+      return {
+        freq: spec.params?.freq ?? 110,
+        decayTime: spec.params?.decayTime ?? 4,
+        mix: spec.params?.mix ?? 0.15,
+        lpFreq: spec.params?.lpFreq ?? 1200,
+      };
+    },
+  },
+  {
+    type: 'SpectralSmear',
+    defName: 'fxSpectralSmear',
+    mapParams(spec) {
+      return {
+        bins: spec.params?.bins ?? 4,
+        mix: spec.params?.mix ?? 0.3,
+        lagTime: spec.params?.lagTime ?? 8,
+      };
+    },
+  },
+  {
+    type: 'RingMod',
+    defName: 'fxRingMod',
+    mapParams(spec) {
+      return {
+        rate: spec.params?.rate ?? 0.5,
+        depth: spec.params?.depth ?? 0.3,
+        lagTime: spec.params?.lagTime ?? 8,
+      };
+    },
+  },
+  {
+    type: 'SpectralShift',
+    defName: 'fxSpectralShift',
+    mapParams(spec) {
+      return {
+        stretch: spec.params?.stretch ?? 1.0,
+        shift: spec.params?.shift ?? 0,
+        mix: spec.params?.mix ?? 0.25,
+        lagTime: spec.params?.lagTime ?? 8,
       };
     },
   },

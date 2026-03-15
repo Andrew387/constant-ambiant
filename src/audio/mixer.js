@@ -14,7 +14,7 @@
 
 import { synthNew, nodeSet, nodeFree, sync, controlBusGetN } from '../sc/osc.js';
 import { allocNodeId, GROUPS, BUSES, METER_CTL_BUSES, METER_CTL_START, METER_CTL_COUNT } from '../sc/nodeIds.js';
-import { createAllTrackEffects } from './effects/trackEffects.js';
+import { createAllTrackEffects, randomizeTrackEffects } from './effects/trackEffects.js';
 import { initSectionAutomation, disposeSectionAutomation } from './effects/sectionAutomation.js';
 import { initMasterEffects, randomizeMasterEffects, disposeMasterEffects, getMasterEffectsState } from './effects/masterEffects.js';
 import { TRACK_PROFILES } from './trackProfiles.js';
@@ -196,6 +196,7 @@ export async function initMixer() {
     setTrackVolume,
     setMasterVolume,
     randomizeMasterEffects,
+    randomizeTrackEffects: () => randomizeTrackEffects(trackEffects),
     getMasterEffectsState,
     swapLead: leadSlot.swap,
     swapLeadRandom: leadSlot.swapRandom,

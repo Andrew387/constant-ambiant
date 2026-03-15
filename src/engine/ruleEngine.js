@@ -41,6 +41,7 @@ let swapBassFn = null;
 let swapPedalPadFn = null;
 let swapBassSupportFn = null;
 let randomizeMasterEffectsFn = null;
+let randomizeTrackEffectsFn = null;
 let running = false;
 let chordCount = 0;
 let loopTimeoutId = null;
@@ -444,6 +445,9 @@ function advanceLoop() {
       if (randomizeMasterEffectsFn) {
         randomizeMasterEffectsFn();
       }
+      if (randomizeTrackEffectsFn) {
+        randomizeTrackEffectsFn();
+      }
 
       swapInstrumentsForCycle();
     } else if (loopPassCount > 0) {
@@ -550,6 +554,7 @@ export function start(mixerSynths, mixerTexturePlayer, callbacks = {}) {
   swapPedalPadFn = callbacks.onSwapPedalPad || null;
   swapBassSupportFn = callbacks.onSwapBassSupport || null;
   randomizeMasterEffectsFn = callbacks.onRandomizeMasterEffects || null;
+  randomizeTrackEffectsFn = callbacks.onRandomizeTrackEffects || null;
   running = true;
   chordCount = 0;
   baseLoop = [];
@@ -571,9 +576,12 @@ export function start(mixerSynths, mixerTexturePlayer, callbacks = {}) {
     setPedalSynth(synths.pedalPad);
   }
 
-  // Randomize master effects for the first song cycle
+  // Randomize effects for the first song cycle
   if (randomizeMasterEffectsFn) {
     randomizeMasterEffectsFn();
+  }
+  if (randomizeTrackEffectsFn) {
+    randomizeTrackEffectsFn();
   }
 
   console.log(`[engine] starting — ${config.rootNote} minor, ${config.tempo.current}bpm`);
@@ -627,6 +635,7 @@ export function stop() {
   swapPedalPadFn = null;
   swapBassSupportFn = null;
   randomizeMasterEffectsFn = null;
+  randomizeTrackEffectsFn = null;
   leadIsPlucked = false;
   bassIsPlucked = false;
 }

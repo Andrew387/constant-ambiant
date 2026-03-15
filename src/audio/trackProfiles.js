@@ -39,6 +39,11 @@ export const TRACK_PROFILES = {
     gain: 0.5,
     chain: [
       {
+        id: 'ringMod',
+        type: 'RingMod',
+        params: { rate: 0.3, depth: 0.15 },
+      },
+      {
         id: 'duckGain',
         type: 'Gain',
         params: { gain: 0, lagTime: 4 },
@@ -68,6 +73,11 @@ export const TRACK_PROFILES = {
       {
         type: 'AGC',
         params: { targetAmp: 0.015, attack: 0.5, release: 3, maxGain: 6 },
+      },
+      {
+        id: 'spectralSmear',
+        type: 'SpectralSmear',
+        params: { bins: 3, mix: 0.2 },
       },
       {
         id: 'duckGain',
@@ -102,6 +112,11 @@ export const TRACK_PROFILES = {
     gain: 0.4,
     chain: [
       {
+        id: 'tapeSat',
+        type: 'TapeSat',
+        params: { drive: 2.5, mix: 0.25 },
+      },
+      {
         type: 'VinylWobble',
         params: { density: 0.12, depth: 0.004 },
       },
@@ -112,8 +127,21 @@ export const TRACK_PROFILES = {
       },
       {
         type: 'Filter',
-        params: { type: 'lowpass', frequency: 3000, Q: 0.7, rolloff: -12 },
+        params: { type: 'lowpass', frequency: 3000, Q: 1.0, rolloff: -12 },
         lfo: { frequency: 0.04, min: 800, max: 6000, type: 'sine', target: 'frequency' },
+      },
+      {
+        type: 'SpectralFreeze',
+        params: { density: 0.04, minHold: 2, maxHold: 5, mix: 0.2 },
+      },
+      {
+        id: 'spectralShift',
+        type: 'SpectralShift',
+        params: { stretch: 1.0, shift: 0, mix: 0.1 },
+      },
+      {
+        type: 'Compressor',
+        params: { threshold: -18, ratio: 3, attack: 0.005, release: 0.15 },
       },
       {
         type: 'PingPongDelay',
@@ -174,8 +202,22 @@ export const TRACK_PROFILES = {
     gain: 0.35,
     chain: [
       {
+        id: 'tapeSat',
+        type: 'TapeSat',
+        params: { drive: 2.0, mix: 0.2 },
+      },
+      {
+        id: 'ringMod',
+        type: 'RingMod',
+        params: { rate: 0.2, depth: 0.12 },
+      },
+      {
         type: 'VinylWobble',
         params: { density: 0.2, depth: 0.008, decay: 3.0 },
+      },
+      {
+        type: 'SpectralFreeze',
+        params: { density: 0.05, minHold: 3, maxHold: 8, mix: 0.25 },
       },
     ],
   },
@@ -195,6 +237,20 @@ export const TRACK_PROFILES = {
       {
         type: 'AGC',
         params: { targetAmp: 0.015, attack: 0.5, release: 3, maxGain: 6 },
+      },
+      {
+        id: 'spectralSmear',
+        type: 'SpectralSmear',
+        params: { bins: 4, mix: 0.25 },
+      },
+      {
+        id: 'spectralShift',
+        type: 'SpectralShift',
+        params: { stretch: 1.0, shift: 0, mix: 0.1 },
+      },
+      {
+        type: 'SpectralFreeze',
+        params: { density: 0.03, minHold: 4, maxHold: 10, mix: 0.35 },
       },
       {
         type: 'PingPongDelay',
