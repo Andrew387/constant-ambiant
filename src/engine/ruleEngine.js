@@ -619,6 +619,7 @@ export function stop() {
 
   if (synths && synths.lead && synths.lead.releaseAll)  synths.lead.releaseAll();
   if (synths && synths.drone && synths.drone.releaseAll) synths.drone.releaseAll();
+  if (synths && synths.drone2 && synths.drone2.releaseAll) synths.drone2.releaseAll();
 
   stopPedal();
 
@@ -656,6 +657,7 @@ function syncEnvelopesToDuration() {
   const atk = config.attackLevel;
   const rel = config.releaseLevel;
   if (synths.drone && synths.drone.updateEnvelopes) synths.drone.updateEnvelopes(chordSec, atk, rel);
+  if (synths.drone2 && synths.drone2.updateEnvelopes) synths.drone2.updateEnvelopes(chordSec, atk, rel);
   if (synths.lead && synths.lead.updateEnvelopes)  synths.lead.updateEnvelopes(chordSec, atk, rel);
   if (synths.bassSupport && synths.bassSupport.updateEnvelopes) synths.bassSupport.updateEnvelopes(chordSec, atk, rel);
 }

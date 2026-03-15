@@ -23,9 +23,13 @@ import { createSineSynth } from './synths/sineSynth.js';
 import { createSampleSynth } from './synths/samplePlayer.js';
 import { createTexturePlayer } from './synths/texturePlayer.js';
 import {
-  LEAD_INSTRUMENTS, BASS_INSTRUMENTS, PAD_INSTRUMENTS,
+  LEAD_INSTRUMENTS, BASS_INSTRUMENTS, BASS_LEAD_INSTRUMENTS, PAD_INSTRUMENTS,
   DEFAULT_LEAD, DEFAULT_BASS, DEFAULT_PAD_SAMPLE,
 } from './synths/sampleRegistry.js';
+
+// Bass-Lead instruments are eligible for both slots
+const LEAD_POOL = [...LEAD_INSTRUMENTS, ...BASS_LEAD_INSTRUMENTS];
+const BASS_POOL = [...BASS_INSTRUMENTS, ...BASS_LEAD_INSTRUMENTS];
 import { freeInstrumentSamples } from '../sc/bufferManager.js';
 
 let trackGainNodeIds = {};
@@ -128,8 +132,8 @@ export async function initMixer() {
   await sync();
 
   // ── Initialize synths ──
-  const leadConfig = LEAD_INSTRUMENTS.find(i => i.id === leadSlot.getCurrentId());
-  const bassConfig = BASS_INSTRUMENTS.find(i => i.id === bassSlot.getCurrentId());
+  const leadConfig = LEAD_POOL.find(i => i.id === leadSlot.getCurrentId());
+  const bassConfig = BASS_POOL.find(i => i.id === bassSlot.getCurrentId());
   const padSampleConfig = PAD_INSTRUMENTS.find(i => i.id === pedalPadSlot.getCurrentId());
 
   const lead = leadConfig.type === 'sine'
@@ -144,7 +148,7 @@ export async function initMixer() {
     createSampleSynth(bassSupportConfig, { outBus: BUSES.BASS_SUPPORT, groupId: GROUPS.BASS_SUPPORT }),
   ]);
 
-  synths = { drone, lead, pedalPad, bassSupport };
+  synths = { drone, lead, pedalPad, bassSupport, drone2: null };
 
   // ── Chord trigger registry ──
   // Each entry defines how a track responds to a chord event.
@@ -159,7 +163,7 @@ export async function initMixer() {
     {
       track: 'drone',
       trigger(synthsRef, { droneNote, chordSec, bassOffset }) {
-        console.log(`[mixer] drone trigger → ${droneNote} (${chordSec.toFixed(1)}s, offset beat ${bassOffset})`);
+        console.log(`[mixer] drone trigger → ${droneNote} (${chordSec.toFixed(1)}s, offset beat ${bassOffset})${synthsRef.drone2 ? ' [dual]' : ''}`);
         if (bassOffset > 0) {
           const delayMs = (chordSec * bassOffset / 4) * 1000;
           setTimeout(() => {
@@ -170,17 +174,18 @@ export async function initMixer() {
         }
       },
     },
-    {
-      track: 'bassSupport',
-      trigger(synthsRef, { droneNote, chordSec, bassIsPlucked }) {
-        if (!bassIsPlucked || !synthsRef.bassSupport) return;
-        // Drop one octave below the drone (e.g. C2 → C1) for low pad support
-        const match = droneNote.match(/^([A-G]#?)(\d+)$/);
-        const lowNote = match ? `${match[1]}${Math.max(1, Number(match[2]) - 1)}` : droneNote;
-        console.log(`[mixer] bassSupport trigger → ${lowNote} (${chordSec.toFixed(1)}s)`);
-        synthsRef.bassSupport.triggerAttackRelease(lowNote, chordSec);
-      },
-    },
+    // TODO: Bass support disabled while evaluating dual-plucked bass balance
+    // {
+    //   track: 'bassSupport',
+    //   trigger(synthsRef, { droneNote, chordSec, bassIsPlucked }) {
+    //     if (!bassIsPlucked || !synthsRef.bassSupport) return;
+    //     // Drop one octave below the drone (e.g. C2 → C1) for low pad support
+    //     const match = droneNote.match(/^([A-G]#?)(\d+)$/);
+    //     const lowNote = match ? `${match[1]}${Math.max(1, Number(match[2]) - 1)}` : droneNote;
+    //     console.log(`[mixer] bassSupport trigger → ${lowNote} (${chordSec.toFixed(1)}s)`);
+    //     synthsRef.bassSupport.triggerAttackRelease(lowNote, chordSec);
+    //   },
+    // },
   ];
 
   // ── Texture player ──
@@ -282,14 +287,116 @@ function createSwappableSlot({ label, synthKey, instruments, defaultId, outBus, 
 // Create swappable slots for lead, bass, and pedal pad
 const leadSlot = createSwappableSlot({
   label: 'lead', synthKey: 'lead',
-  instruments: LEAD_INSTRUMENTS, defaultId: DEFAULT_LEAD,
+  instruments: LEAD_POOL, defaultId: DEFAULT_LEAD,
   outBus: BUSES.LEAD, groupId: GROUPS.LEAD,
 });
-const bassSlot = createSwappableSlot({
-  label: 'bass', synthKey: 'drone',
-  instruments: BASS_INSTRUMENTS, defaultId: DEFAULT_BASS,
-  outBus: BUSES.DRONE, groupId: GROUPS.DRONE,
-});
+// Bass slot — custom implementation for dual-plucked support.
+// When a plucked bass is selected, two different plucked instruments
+// are loaded and play simultaneously for richer plucked textures.
+const bassSlot = (() => {
+  let currentId = DEFAULT_BASS;
+  let secondPluckedId = null; // ID of the second plucked instrument (if active)
+
+  // All plucked instruments available in the bass pool
+  const pluckedPool = BASS_POOL.filter(i => i.plucked);
+
+  /** Pick a second plucked instrument different from the primary */
+  function pickSecondPlucked(primaryId) {
+    const others = pluckedPool.filter(i => i.id !== primaryId);
+    return others.length > 0
+      ? others[Math.floor(Math.random() * others.length)]
+      : null;
+  }
+
+  /** Gain multiplier for dual-plucked mode (−6 dB ≈ half amplitude) */
+  const DUAL_GAIN_FACTOR = 0.5;
+
+  async function swap(instrumentId) {
+    const config = BASS_POOL.find(i => i.id === instrumentId);
+    if (!config || instrumentId === currentId) return;
+
+    // ── Dispose previous drone2 if any ──
+    const oldDrone2 = synths.drone2;
+    const oldSecondId = secondPluckedId;
+    synths.drone2 = null;
+    secondPluckedId = null;
+    if (oldDrone2) {
+      oldDrone2.releaseAll();
+      const tid2 = setTimeout(() => {
+        pendingDisposeTimers = pendingDisposeTimers.filter(t => t !== tid2);
+        console.log(`[mixer] disposing old bass2 "${oldSecondId}" (45s timer fired)`);
+        oldDrone2.dispose();
+        if (oldSecondId) freeInstrumentSamples(oldSecondId);
+      }, 45000);
+      pendingDisposeTimers.push(tid2);
+    }
+
+    // ── Create primary bass synth ──
+    let newSynth;
+    try {
+      const primaryConfig = config.plucked
+        ? { ...config, gain: (config.gain ?? 1) * DUAL_GAIN_FACTOR }
+        : config;
+      newSynth = await createSampleSynth(primaryConfig, { outBus: BUSES.DRONE, groupId: GROUPS.DRONE });
+    } catch (err) {
+      console.warn(`[mixer] bass swap to "${config.name}" failed:`, err.message);
+      return;
+    }
+
+    // ── Create second plucked bass if primary is plucked ──
+    if (config.plucked) {
+      const secondConfig = pickSecondPlucked(instrumentId);
+      if (secondConfig) {
+        try {
+          const adjustedConfig = { ...secondConfig, gain: (secondConfig.gain ?? 1) * DUAL_GAIN_FACTOR };
+          const secondSynth = await createSampleSynth(adjustedConfig, { outBus: BUSES.DRONE, groupId: GROUPS.DRONE });
+          synths.drone2 = secondSynth;
+          secondPluckedId = secondConfig.id;
+          console.log(`[mixer] bass2 (dual plucked) → ${secondConfig.name}`);
+        } catch (err) {
+          console.warn(`[mixer] bass2 creation failed:`, err.message);
+          // Continue with single bass — non-fatal
+        }
+      }
+    }
+
+    // ── Swap out old primary ──
+    const oldSynth = synths.drone;
+    const oldId = currentId;
+    synths.drone = newSynth;
+    currentId = instrumentId;
+
+    if (oldSynth) {
+      oldSynth.releaseAll();
+      const tid = setTimeout(() => {
+        pendingDisposeTimers = pendingDisposeTimers.filter(t => t !== tid);
+        console.log(`[mixer] disposing old bass "${oldId}" (45s timer fired)`);
+        oldSynth.dispose();
+        const oldConfig = BASS_POOL.find(i => i.id === oldId);
+        if (oldConfig && oldConfig.type !== 'sine') {
+          freeInstrumentSamples(oldId);
+        }
+      }, 45000);
+      pendingDisposeTimers.push(tid);
+    }
+    console.log(`[mixer] bass swapped to ${config.name}${synths.drone2 ? ' (dual plucked)' : ''}`);
+  }
+
+  async function swapRandom() {
+    const others = BASS_POOL.filter(i => i.id !== currentId);
+    const pick = others.length > 0
+      ? others[Math.floor(Math.random() * others.length)]
+      : BASS_POOL[0];
+    await swap(pick.id);
+    return { plucked: pick.plucked };
+  }
+
+  function getCurrentId() { return currentId; }
+
+  function getSecondPluckedId() { return secondPluckedId; }
+
+  return { swap, swapRandom, getCurrentId, getSecondPluckedId };
+})();
 const pedalPadSlot = createSwappableSlot({
   label: 'pedalPad', synthKey: 'pedalPad',
   instruments: PAD_INSTRUMENTS, defaultId: DEFAULT_PAD_SAMPLE,
@@ -329,8 +436,10 @@ export function setMasterVolume(value) {
 export function getMixerState() {
   const currentLeadId = leadSlot.getCurrentId();
   const currentBassId = bassSlot.getCurrentId();
-  const leadConfig = LEAD_INSTRUMENTS.find(i => i.id === currentLeadId);
-  const bassConfig = BASS_INSTRUMENTS.find(i => i.id === currentBassId);
+  const leadConfig = LEAD_POOL.find(i => i.id === currentLeadId);
+  const bassConfig = BASS_POOL.find(i => i.id === currentBassId);
+  const bass2Id = bassSlot.getSecondPluckedId ? bassSlot.getSecondPluckedId() : null;
+  const bass2Config = bass2Id ? BASS_POOL.find(i => i.id === bass2Id) : null;
   return {
     currentLeadId,
     currentLeadName: leadConfig ? leadConfig.name : currentLeadId,
@@ -338,6 +447,8 @@ export function getMixerState() {
     currentBassId,
     currentBassName: bassConfig ? bassConfig.name : currentBassId,
     currentBassPlucked: bassConfig ? bassConfig.plucked : false,
+    currentBass2Id: bass2Id,
+    currentBass2Name: bass2Config ? bass2Config.name : null,
   };
 }
 
@@ -388,7 +499,7 @@ function disposeMixer() {
     texturePlayer = null;
   }
   if (synths) {
-    Object.values(synths).forEach(s => s.dispose());
+    Object.values(synths).forEach(s => s && s.dispose());
     synths = null;
   }
   if (trackEffects) {

@@ -3,43 +3,73 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Constant Ambient — Debug</title>
+  <title>Constant Ambient</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-      background: #1a1a1a;
-      color: #d4d4d4;
+      background: #1c1f26;
+      color: #c8cbd0;
       font-size: 13px;
       line-height: 1.5;
-      overflow-x: hidden;
     }
 
     /* ── Layout ── */
     #dashboard {
       display: grid;
       grid-template-columns: 1fr 1fr 1fr;
-      grid-template-rows: auto;
       gap: 1px;
-      background: #2a2a2a;
-      min-height: 100vh;
+      background: #282c34;
+      max-width: 1440px;
+      margin: 0 auto;
     }
 
     .panel {
-      background: #1e1e1e;
-      padding: 14px 16px;
+      background: #21252b;
+      padding: 16px 18px;
     }
 
     .panel-title {
       font-size: 11px;
-      font-weight: 600;
+      font-weight: 700;
       text-transform: uppercase;
-      letter-spacing: 0.06em;
-      color: #888;
-      margin-bottom: 10px;
+      letter-spacing: 0.08em;
+      color: #9da5b4;
+      margin-bottom: 12px;
       padding-bottom: 6px;
-      border-bottom: 1px solid #333;
+      border-bottom: 1px solid #333842;
+    }
+
+    .panel-hint {
+      font-size: 10px;
+      font-weight: 400;
+      color: #5c6370;
+      text-transform: none;
+      letter-spacing: 0;
+      margin-left: 6px;
+    }
+
+    /* ── Section headers ── */
+    .section-header {
+      grid-column: 1 / -1;
+      background: #181b20;
+      padding: 14px 20px 10px;
+      border-top: 3px solid #3b7dd8;
+    }
+
+    .section-header h2 {
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: #e5c07b;
+      margin-bottom: 2px;
+    }
+
+    .section-header p {
+      font-size: 11px;
+      color: #636d83;
     }
 
     /* ── Top bar ── */
@@ -48,53 +78,53 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 10px 16px;
-      background: #161616;
-      border-bottom: 1px solid #333;
+      padding: 14px 20px;
+      background: #181b20;
+      border-bottom: 1px solid #333842;
     }
 
     #topbar-left {
       display: flex;
       align-items: center;
-      gap: 16px;
+      gap: 18px;
     }
 
     #topbar h1 {
-      font-size: 15px;
-      font-weight: 500;
-      color: #ccc;
+      font-size: 17px;
+      font-weight: 600;
+      color: #abb2bf;
     }
 
     #connection-indicator {
       display: flex;
       align-items: center;
       gap: 6px;
-      font-size: 12px;
-      color: #777;
+      font-size: 11px;
+      color: #636d83;
     }
 
     #conn-dot {
-      width: 7px; height: 7px;
+      width: 8px; height: 8px;
       border-radius: 50%;
-      background: #664;
+      background: #6b5b00;
       transition: background 0.3s;
     }
-    #conn-dot.ok { background: #5a5; }
+    #conn-dot.ok { background: #98c379; }
 
     #play-btn {
-      background: #333;
-      border: 1px solid #555;
-      color: #ddd;
-      padding: 6px 24px;
+      background: #2c313a;
+      border: 1px solid #4b5263;
+      color: #abb2bf;
+      padding: 8px 30px;
       font-family: inherit;
       font-size: 13px;
-      font-weight: 500;
+      font-weight: 600;
       cursor: pointer;
-      border-radius: 4px;
-      transition: all 0.2s;
+      border-radius: 5px;
+      transition: all 0.15s;
     }
-    #play-btn:hover { background: #444; border-color: #777; }
-    #play-btn.active { background: #2a4a2a; border-color: #5a5; color: #fff; }
+    #play-btn:hover { background: #363c49; border-color: #636d83; }
+    #play-btn.active { background: #2a3a2a; border-color: #98c379; color: #e5e5e5; }
 
     /* ── Data rows ── */
     .row {
@@ -105,26 +135,24 @@
     }
 
     .row-label {
-      color: #888;
+      color: #7f848e;
       font-size: 12px;
-      flex-shrink: 0;
     }
 
     .row-value {
-      color: #ccc;
+      color: #abb2bf;
       text-align: right;
+      max-width: 60%;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
-      max-width: 65%;
     }
 
-    .row-value.bright { color: #fff; }
-    .row-value.dim { color: #777; }
-    .row-value.accent { color: #7bb8d0; }
-    .row-value.warn { color: #d4a84a; }
+    .row-value.bright { color: #e5e5e5; font-weight: 500; }
+    .row-value.dim { color: #636d83; }
+    .row-value.accent { color: #61afef; }
 
-    /* ── Progression display ── */
+    /* ── Progression pills ── */
     #progression-display {
       display: flex;
       flex-wrap: wrap;
@@ -133,221 +161,25 @@
     }
 
     .chord-pill {
-      background: #282828;
-      border: 1px solid #3a3a3a;
+      background: #2c313a;
+      border: 1px solid #3e4451;
       border-radius: 4px;
       padding: 4px 10px;
       font-size: 13px;
-      color: #999;
-      transition: all 0.2s;
+      color: #848b98;
+      transition: all 0.15s;
     }
 
     .chord-pill.active {
       background: #2a3a2a;
-      border-color: #5a5;
-      color: #fff;
+      border-color: #98c379;
+      color: #e5e5e5;
+      font-weight: 500;
     }
 
     .chord-pill.played {
-      color: #555;
-      border-color: #2a2a2a;
-    }
-
-    /* ── Track meters ── */
-    .track-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 3px 0;
-    }
-
-    .track-name {
-      width: 80px;
-      font-size: 12px;
-      color: #999;
-    }
-
-    .track-bar-bg {
-      flex: 1;
-      height: 4px;
-      background: #282828;
-      border-radius: 2px;
-      overflow: hidden;
-    }
-
-    .track-bar-fill {
-      height: 100%;
-      background: #6a6a6a;
-      border-radius: 2px;
-      transition: width 0.3s;
-    }
-
-    .track-val {
-      width: 30px;
-      text-align: right;
-      font-size: 12px;
-      color: #999;
-    }
-
-    /* ── Automation display ── */
-    .auto-row {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      padding: 2px 0;
-      font-size: 12px;
-    }
-
-    .auto-name {
-      width: 70px;
-      color: #888;
-    }
-
-    .auto-bright-bar {
-      width: 50px;
-      height: 4px;
-      background: #282828;
-      border-radius: 2px;
-      overflow: hidden;
-    }
-
-    .auto-bright-fill {
-      height: 100%;
-      background: #7bb8d0;
-      border-radius: 2px;
-      transition: width 0.5s;
-    }
-
-    .auto-detail {
-      color: #777;
-      font-size: 11px;
-    }
-
-    /* ── Effect chain display ── */
-    .effect-chain {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 4px;
-      margin: 3px 0;
-    }
-
-    .effect-tag {
-      background: #282828;
-      border: 1px solid #3a3a3a;
-      border-radius: 3px;
-      padding: 2px 7px;
-      font-size: 11px;
-      color: #999;
-      transition: border-color 0.3s, color 0.3s, background 0.3s;
-    }
-
-    .effect-tag.automated {
-      border-color: #5588a0;
-      color: #7bb8d0;
-    }
-
-    .effect-tag.active {
-      border-color: #5a5;
-      color: #8c8;
-      background: #1e2e1e;
-    }
-
-    .effect-tag.silent {
-      border-color: #644;
-      color: #866;
-      background: #221a1a;
-    }
-
-    .effect-tag.swell {
-      border-color: #886;
-      color: #d4a84a;
-      background: #2a2618;
-    }
-
-    /* ── Live automation values ── */
-    .fx-track {
-      margin-bottom: 10px;
-    }
-
-    .fx-track-header {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-bottom: 3px;
-    }
-
-    .fx-track-name {
-      width: 80px;
-      font-size: 12px;
-      color: #999;
-    }
-
-    .fx-live-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-left: 88px;
-      margin-top: 3px;
-    }
-
-    .fx-live-label {
-      font-size: 11px;
-      color: #777;
-      width: 55px;
-    }
-
-    .fx-live-bar-bg {
-      width: 80px;
-      height: 4px;
-      background: #282828;
-      border-radius: 2px;
-      overflow: hidden;
-    }
-
-    .fx-live-bar-fill {
-      height: 100%;
-      border-radius: 2px;
-      transition: width 0.3s;
-    }
-
-    .fx-live-bar-fill.bright { background: #7bb8d0; }
-    .fx-live-bar-fill.duck { background: #8ba86a; }
-    .fx-live-bar-fill.freq { background: #c08a6a; }
-
-    .fx-live-val {
-      font-size: 11px;
-      color: #999;
-      width: 65px;
-      text-align: right;
-      font-variant-numeric: tabular-nums;
-    }
-
-    .fx-status-badge {
-      font-size: 10px;
-      padding: 1px 5px;
-      border-radius: 3px;
-    }
-
-    .fx-status-badge.active  { color: #5a5; }
-    .fx-status-badge.silent  { color: #a66; background: #2a1e1e; }
-    .fx-status-badge.fade-in { color: #7bb8d0; background: #1a2428; }
-    .fx-status-badge.swell   { color: #d4a84a; background: #2a2618; }
-
-    /* ── Section progress bar ── */
-    .section-progress {
-      width: 100%;
-      height: 4px;
-      background: #282828;
-      border-radius: 2px;
-      margin: 8px 0;
-      overflow: hidden;
-    }
-
-    .section-progress-fill {
-      height: 100%;
-      background: #7bb8d0;
-      border-radius: 2px;
-      transition: width 0.5s;
+      color: #4b5263;
+      border-color: #2c313a;
     }
 
     /* ── Section map ── */
@@ -359,25 +191,45 @@
 
     .section-block {
       flex: 1;
-      height: 24px;
-      background: #282828;
-      border-radius: 3px;
+      height: 28px;
+      background: #2c313a;
+      border-radius: 4px;
       display: flex;
       align-items: center;
       justify-content: center;
       font-size: 10px;
-      color: #666;
-      transition: all 0.3s;
+      font-weight: 500;
+      color: #636d83;
+      transition: all 0.2s;
+      border: 1px solid transparent;
     }
 
     .section-block.active {
       background: #2a3a2a;
-      color: #ccc;
+      color: #e5e5e5;
+      border-color: #98c379;
     }
 
     .section-block.completed {
-      background: #252525;
-      color: #555;
+      background: #252830;
+      color: #4b5263;
+    }
+
+    /* ── Section progress ── */
+    .section-progress {
+      width: 100%;
+      height: 4px;
+      background: #2c313a;
+      border-radius: 2px;
+      margin: 8px 0;
+      overflow: hidden;
+    }
+
+    .section-progress-fill {
+      height: 100%;
+      background: #61afef;
+      border-radius: 2px;
+      transition: width 0.5s;
     }
 
     /* ── Sliders ── */
@@ -391,14 +243,14 @@
     .slider-row label {
       width: 85px;
       font-size: 12px;
-      color: #999;
+      color: #9da5b4;
     }
 
     .slider-row input[type="range"] {
       -webkit-appearance: none;
       flex: 1;
-      height: 3px;
-      background: #444;
+      height: 4px;
+      background: #3e4451;
       outline: none;
       border-radius: 2px;
     }
@@ -407,26 +259,25 @@
       -webkit-appearance: none;
       width: 14px; height: 14px;
       border-radius: 50%;
-      background: #aaa;
+      background: #abb2bf;
       cursor: pointer;
+      border: 2px solid #21252b;
     }
 
     .slider-val {
       width: 36px;
       text-align: right;
       font-size: 12px;
-      color: #bbb;
+      color: #abb2bf;
       font-variant-numeric: tabular-nums;
     }
 
     /* ── Instrument buttons ── */
-    .inst-group {
-      margin: 8px 0;
-    }
+    .inst-group { margin: 10px 0 4px; }
 
     .inst-group-label {
       font-size: 11px;
-      color: #888;
+      color: #7f848e;
       margin-bottom: 5px;
     }
 
@@ -437,36 +288,34 @@
     }
 
     .inst-btn {
-      background: #282828;
-      color: #999;
-      border: 1px solid #3a3a3a;
+      background: #2c313a;
+      color: #9da5b4;
+      border: 1px solid #3e4451;
       padding: 4px 10px;
       font-size: 12px;
       font-family: inherit;
       border-radius: 4px;
       cursor: pointer;
-      transition: all 0.2s;
+      transition: all 0.15s;
     }
+    .inst-btn:hover { border-color: #636d83; color: #abb2bf; }
+    .inst-btn.active { border-color: #98c379; color: #e5e5e5; background: #2a3a2a; }
 
-    .inst-btn:hover { border-color: #666; color: #ccc; }
-    .inst-btn.active { border-color: #5a5; color: #fff; background: #2a3a2a; }
-
-    /* ── Log feed ── */
-    #log-feed {
-      font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', 'Menlo', monospace;
+    /* ── Status tags ── */
+    .tag {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 3px;
       font-size: 11px;
-      color: #999;
-      max-height: 220px;
-      overflow-y: auto;
-      background: #161616;
-      border-radius: 4px;
-      padding: 8px 10px;
-      line-height: 1.6;
-      white-space: pre-wrap;
-      word-break: break-all;
+      font-weight: 500;
     }
 
-    /* ── Voiced notes display ── */
+    .tag.loopable { background: #2a3a2a; color: #98c379; border: 1px solid #3a5a3a; }
+    .tag.plucked { background: #3a3520; color: #e5c07b; border: 1px solid #5a5030; }
+    .tag.running { background: #2a3a2a; color: #98c379; border: 1px solid #3a5a3a; }
+    .tag.stopped { background: #3a2020; color: #e06c75; border: 1px solid #5a3030; }
+
+    /* ── Note tags ── */
     .notes-display {
       display: flex;
       flex-wrap: wrap;
@@ -475,35 +324,12 @@
     }
 
     .note-tag {
-      background: #282828;
-      border: 1px solid #3a3a3a;
+      background: #2c313a;
+      border: 1px solid #3e4451;
       border-radius: 3px;
-      padding: 2px 6px;
+      padding: 2px 7px;
       font-size: 12px;
-      color: #bbb;
-    }
-
-    /* ── Status tags ── */
-    .tag {
-      display: inline-block;
-      padding: 2px 8px;
-      border-radius: 3px;
-      font-size: 11px;
-    }
-
-    .tag.loopable { background: #1e2e1e; color: #6b6; border: 1px solid #3a5a3a; }
-    .tag.plucked { background: #2e2e1e; color: #bb6; border: 1px solid #5a5a3a; }
-    .tag.running { background: #1e2e1e; color: #6b6; border: 1px solid #3a5a3a; }
-    .tag.stopped { background: #2e1e1e; color: #c66; border: 1px solid #5a3a3a; }
-
-    /* ── Archive/Freesound status ── */
-    .ext-status {
-      font-size: 12px;
-      color: #999;
-      padding: 4px 0;
-      white-space: pre-line;
-      line-height: 1.5;
-      word-break: break-word;
+      color: #abb2bf;
     }
 
     /* ── VU Meters ── */
@@ -517,22 +343,22 @@
     .vu-name {
       width: 65px;
       font-size: 12px;
-      color: #999;
+      color: #9da5b4;
     }
 
     .vu-bar-bg {
       flex: 1;
       height: 8px;
-      background: #222;
-      border-radius: 3px;
+      background: #282c34;
+      border-radius: 4px;
       overflow: hidden;
       position: relative;
     }
 
     .vu-bar-rms {
       height: 100%;
-      background: linear-gradient(90deg, #3a7a4a, #5aa56a, #aab844, #c06a4a);
-      border-radius: 3px;
+      background: linear-gradient(90deg, #98c379, #e5c07b, #d19a66, #e06c75);
+      border-radius: 4px;
       transition: width 0.1s linear;
       position: absolute;
       top: 0; left: 0;
@@ -543,36 +369,344 @@
       top: 0;
       width: 2px;
       height: 100%;
-      background: #cc6;
+      background: #e5c07b;
       transition: left 0.1s linear;
       border-radius: 1px;
     }
 
     .vu-db {
-      width: 50px;
+      width: 55px;
       text-align: right;
       font-size: 11px;
-      color: #999;
+      color: #9da5b4;
       font-variant-numeric: tabular-nums;
     }
 
-    .vu-db.hot { color: #c66; }
-    .vu-db.warm { color: #ab4; }
+    .vu-db.hot { color: #e06c75; }
+    .vu-db.warm { color: #e5c07b; }
 
-    /* ── Spanning panels ── */
+    /* ── External layer status ── */
+    .ext-status {
+      font-size: 12px;
+      color: #9da5b4;
+      padding: 4px 0;
+      white-space: pre-line;
+      line-height: 1.5;
+      word-break: break-word;
+    }
+
+    /* ── Log feed ── */
+    #log-feed {
+      font-family: 'SF Mono', 'Fira Code', 'Menlo', monospace;
+      font-size: 11px;
+      color: #7f848e;
+      max-height: 180px;
+      overflow-y: auto;
+      background: #181b20;
+      border: 1px solid #282c34;
+      border-radius: 4px;
+      padding: 8px 10px;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    /* ═══════════════════════════════════════════ */
+    /*  EFFECTS SECTION                           */
+    /* ═══════════════════════════════════════════ */
+
+    .fx-track {
+      margin-bottom: 16px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid #282c34;
+    }
+    .fx-track:last-child { margin-bottom: 0; padding-bottom: 0; border-bottom: none; }
+
+    /* Track header row: name + chain + status */
+    .fx-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 6px;
+    }
+
+    .fx-name {
+      min-width: 80px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #e5c07b;
+    }
+
+    /* Signal chain: effect pills */
+    .fx-chain {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 3px;
+      align-items: center;
+    }
+
+    .fx-pill {
+      padding: 2px 8px;
+      border-radius: 3px;
+      font-size: 11px;
+      font-weight: 500;
+      border: 1px solid #3e4451;
+      background: #2c313a;
+      color: #9da5b4;
+    }
+
+    .fx-pill.randomized {
+      border-color: #c678dd;
+      color: #c678dd;
+    }
+
+    .fx-pill.auto {
+      border-color: #61afef;
+      color: #61afef;
+    }
+
+    .fx-arrow {
+      color: #3e4451;
+      font-size: 10px;
+    }
+
+    .fx-status {
+      font-size: 10px;
+      font-weight: 600;
+      padding: 2px 6px;
+      border-radius: 3px;
+      margin-left: auto;
+    }
+
+    .fx-status.active  { color: #98c379; }
+    .fx-status.silent  { color: #e06c75; background: #2c2020; }
+    .fx-status.fade-in { color: #61afef; background: #1e2830; }
+    .fx-status.swell   { color: #e5c07b; background: #2c2818; }
+
+    /* Live params grid */
+    .fx-params {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 2px 16px;
+      margin: 6px 0 4px 90px;
+    }
+
+    .fx-param {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      min-width: 140px;
+    }
+
+    .fx-param-label {
+      font-size: 10px;
+      color: #636d83;
+      width: 48px;
+      text-align: right;
+      flex-shrink: 0;
+    }
+
+    .fx-param-bar {
+      width: 50px;
+      height: 4px;
+      background: #282c34;
+      border-radius: 2px;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    .fx-param-fill {
+      height: 100%;
+      border-radius: 2px;
+      transition: width 0.8s ease;
+    }
+
+    .fx-param-fill.purple { background: #c678dd; }
+    .fx-param-fill.blue   { background: #61afef; }
+    .fx-param-fill.green  { background: #98c379; }
+    .fx-param-fill.orange { background: #d19a66; }
+    .fx-param-fill.red    { background: #e06c75; }
+
+    .fx-param-value {
+      font-size: 11px;
+      color: #abb2bf;
+      width: 45px;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+      flex-shrink: 0;
+    }
+
+    /* Automation bars */
+    .fx-auto-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 3px 0 0 90px;
+    }
+
+    .fx-auto-label {
+      font-size: 11px;
+      color: #636d83;
+      width: 48px;
+      text-align: right;
+    }
+
+    .fx-auto-bar {
+      width: 70px;
+      height: 5px;
+      background: #282c34;
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .fx-auto-fill {
+      height: 100%;
+      border-radius: 3px;
+      transition: width 0.3s;
+    }
+
+    .fx-auto-fill.bright { background: #61afef; }
+    .fx-auto-fill.duck   { background: #98c379; }
+    .fx-auto-fill.freq   { background: #d19a66; }
+
+    .fx-auto-val {
+      font-size: 11px;
+      color: #abb2bf;
+      width: 55px;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Per-section brightness mini chart */
+    .fx-section-rule {
+      display: flex;
+      align-items: flex-end;
+      gap: 2px;
+      margin: 6px 0 0 90px;
+    }
+
+    .fx-section-rule-label {
+      font-size: 9px;
+      color: #4b5263;
+      width: 48px;
+      text-align: right;
+      margin-right: 4px;
+      align-self: center;
+    }
+
+    .fx-section-cell {
+      flex: 1;
+      text-align: center;
+    }
+
+    .fx-section-bar {
+      width: 100%;
+      height: 12px;
+      background: #282c34;
+      border-radius: 2px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .fx-section-fill {
+      position: absolute;
+      bottom: 0;
+      width: 100%;
+      background: #3b5998;
+      border-radius: 2px;
+      transition: height 0.3s;
+    }
+
+    .fx-section-lbl {
+      font-size: 8px;
+      color: #4b5263;
+      margin-top: 1px;
+    }
+
+    /* Legend */
+    .fx-legend {
+      display: flex;
+      gap: 14px;
+      margin-bottom: 14px;
+      padding: 8px 12px;
+      background: #1c1f26;
+      border-radius: 4px;
+      border: 1px solid #282c34;
+    }
+
+    .fx-legend-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 10px;
+      color: #7f848e;
+    }
+
+    .fx-legend-swatch {
+      width: 10px;
+      height: 10px;
+      border-radius: 2px;
+      border: 1px solid;
+    }
+
+    /* ── Master FX ── */
+    .mfx-group { margin-bottom: 12px; }
+    .mfx-group:last-child { margin-bottom: 0; }
+
+    .mfx-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: #abb2bf;
+      margin-bottom: 6px;
+    }
+
+    .mfx-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 2px 0 2px 12px;
+    }
+
+    .mfx-label {
+      font-size: 11px;
+      color: #636d83;
+      width: 50px;
+    }
+
+    .mfx-bar {
+      width: 60px;
+      height: 5px;
+      background: #282c34;
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .mfx-fill {
+      height: 100%;
+      border-radius: 3px;
+      transition: width 0.3s;
+    }
+
+    .mfx-fill.blue   { background: #61afef; }
+    .mfx-fill.green  { background: #98c379; }
+    .mfx-fill.orange { background: #d19a66; }
+
+    .mfx-val {
+      font-size: 11px;
+      color: #abb2bf;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* ── Spanning ── */
     .span-2 { grid-column: span 2; }
     .span-3 { grid-column: 1 / -1; }
 
     /* ── Responsive ── */
     @media (max-width: 900px) {
-      #dashboard {
-        grid-template-columns: 1fr 1fr;
-      }
+      #dashboard { grid-template-columns: 1fr 1fr; }
     }
     @media (max-width: 600px) {
-      #dashboard {
-        grid-template-columns: 1fr;
-      }
+      #dashboard { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -591,8 +725,15 @@
       <button id="play-btn">Start</button>
     </div>
 
-    <!-- Panel 1: Song Structure -->
-    <div class="panel" id="panel-structure">
+    <!-- ══════════════════════════════════════════════════════ -->
+    <!-- NOW PLAYING                                           -->
+    <!-- ══════════════════════════════════════════════════════ -->
+    <div class="section-header">
+      <h2>Now Playing</h2>
+      <p>Current position in the generative song cycle, active chord, and progression</p>
+    </div>
+
+    <div class="panel">
       <div class="panel-title">Song Structure</div>
       <div id="section-map" class="section-map"></div>
       <div class="section-progress"><div id="section-progress-fill" class="section-progress-fill" style="width:0"></div></div>
@@ -602,16 +743,14 @@
       <div class="row"><span class="row-label">Chords Played</span><span id="v-chordcount" class="row-value dim">-</span></div>
     </div>
 
-    <!-- Panel 2: Progression -->
-    <div class="panel" id="panel-progression">
-      <div class="panel-title">Progression</div>
+    <div class="panel">
+      <div class="panel-title">Chord Progression</div>
       <div class="row"><span class="row-label">Key</span><span id="v-key" class="row-value accent">-</span></div>
-      <div class="row"><span class="row-label">Loop Position</span><span id="v-looppos" class="row-value">-</span></div>
+      <div class="row"><span class="row-label">Position</span><span id="v-looppos" class="row-value">-</span></div>
       <div id="progression-display"></div>
     </div>
 
-    <!-- Panel 3: Current Chord -->
-    <div class="panel" id="panel-chord">
+    <div class="panel">
       <div class="panel-title">Current Chord</div>
       <div class="row"><span class="row-label">Symbol</span><span id="v-chordsym" class="row-value bright">-</span></div>
       <div class="row"><span class="row-label">Root</span><span id="v-chordroot" class="row-value">-</span></div>
@@ -625,8 +764,132 @@
       </div>
     </div>
 
-    <!-- Panel 4: Engine -->
-    <div class="panel" id="panel-engine">
+    <!-- ══════════════════════════════════════════════════════ -->
+    <!-- MIXER                                                 -->
+    <!-- ══════════════════════════════════════════════════════ -->
+    <div class="section-header">
+      <h2>Mixer</h2>
+      <p>Instruments, track volumes, and live audio metering</p>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">Instruments & Playing Rule</div>
+      <div class="row"><span class="row-label">Lead Instrument</span><span id="v-lead" class="row-value bright">-</span></div>
+      <div class="row"><span class="row-label">Bass Instrument</span><span id="v-bass" class="row-value bright">-</span></div>
+      <div class="row"><span class="row-label">Chord Rule</span><span id="v-rule" class="row-value bright">-</span></div>
+      <div class="row"><span class="row-label">Lead Type</span><span id="v-leadtype" class="row-value">-</span></div>
+      <div class="row"><span class="row-label">Bass Type</span><span id="v-basstype" class="row-value">-</span></div>
+      <div class="row"><span class="row-label">Note Indices</span><span id="v-noteindices" class="row-value dim">-</span></div>
+      <div style="margin-top:4px">
+        <span class="row-label">Bass Beat Offsets</span>
+        <div id="v-bassoffsets" class="notes-display" style="margin-top:3px"></div>
+      </div>
+      <div id="instrument-selectors"></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">Track Volumes</div>
+      <div id="volume-sliders"></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">Live Levels <span class="panel-hint">RMS + peak metering</span></div>
+      <div id="vu-meters"></div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════ -->
+    <!-- EFFECTS & AUTOMATION                                   -->
+    <!-- ══════════════════════════════════════════════════════ -->
+    <div class="section-header">
+      <h2>Effects & Automation</h2>
+      <p>Signal chain per track with live parameter values. Effects marked <span style="color:#c678dd">purple</span> are randomized each song cycle. Effects marked <span style="color:#61afef">blue</span> are driven by section automation.</p>
+    </div>
+
+    <div class="panel span-2" id="panel-effects">
+      <div class="panel-title">Per-Track Signal Chains</div>
+
+      <!-- Legend -->
+      <div class="fx-legend">
+        <div class="fx-legend-item">
+          <div class="fx-legend-swatch" style="background:#2c313a;border-color:#3e4451;"></div>
+          Static effect
+        </div>
+        <div class="fx-legend-item">
+          <div class="fx-legend-swatch" style="background:#2c2035;border-color:#c678dd;"></div>
+          Randomized each cycle
+        </div>
+        <div class="fx-legend-item">
+          <div class="fx-legend-swatch" style="background:#1e2830;border-color:#61afef;"></div>
+          Section-automated
+        </div>
+      </div>
+
+      <div id="effects-display"></div>
+    </div>
+
+    <div class="panel" id="panel-master-fx">
+      <div class="panel-title">Master Bus</div>
+      <div id="master-fx-display">
+        <div class="mfx-group">
+          <div class="mfx-title">Reverb</div>
+          <div class="mfx-row">
+            <span class="mfx-label">wet</span>
+            <div class="mfx-bar"><div class="mfx-fill blue" id="mfx-reverb-wet" style="width:0%"></div></div>
+            <span class="mfx-val" id="mfx-reverb-wet-val">-</span>
+          </div>
+          <div class="mfx-row">
+            <span class="mfx-label">decay</span>
+            <span class="mfx-val" id="mfx-reverb-decay-val">-</span>
+          </div>
+          <div class="mfx-row">
+            <span class="mfx-label">damp</span>
+            <span class="mfx-val" id="mfx-reverb-damp-val">-</span>
+          </div>
+        </div>
+        <div class="mfx-group">
+          <div class="mfx-title">Delay</div>
+          <div class="mfx-row">
+            <span class="mfx-label">wet</span>
+            <div class="mfx-bar"><div class="mfx-fill green" id="mfx-delay-wet" style="width:0%"></div></div>
+            <span class="mfx-val" id="mfx-delay-wet-val">-</span>
+          </div>
+          <div class="mfx-row">
+            <span class="mfx-label">time</span>
+            <span class="mfx-val" id="mfx-delay-time-val">-</span>
+          </div>
+          <div class="mfx-row">
+            <span class="mfx-label">feedback</span>
+            <span class="mfx-val" id="mfx-delay-fb-val">-</span>
+          </div>
+        </div>
+        <div class="mfx-group">
+          <div class="mfx-title">Filter LFO</div>
+          <div class="mfx-row">
+            <span class="mfx-label">depth</span>
+            <div class="mfx-bar"><div class="mfx-fill orange" id="mfx-filter-depth" style="width:0%"></div></div>
+            <span class="mfx-val" id="mfx-filter-depth-val">-</span>
+          </div>
+          <div class="mfx-row">
+            <span class="mfx-label">rate</span>
+            <span class="mfx-val" id="mfx-filter-rate-val">-</span>
+          </div>
+          <div class="mfx-row">
+            <span class="mfx-label">center</span>
+            <span class="mfx-val" id="mfx-filter-center-val">-</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════ -->
+    <!-- CONTROLS                                              -->
+    <!-- ══════════════════════════════════════════════════════ -->
+    <div class="section-header">
+      <h2>Controls</h2>
+      <p>Engine parameters, timing, and external audio sources</p>
+    </div>
+
+    <div class="panel">
       <div class="panel-title">Engine</div>
       <div class="row"><span class="row-label">Status</span><span id="v-running" class="row-value">-</span></div>
       <div class="row"><span class="row-label">Tempo</span><span id="v-tempo" class="row-value accent">-</span></div>
@@ -636,102 +899,12 @@
       <div class="row"><span class="row-label">Release Level</span><span id="v-release" class="row-value">-</span></div>
     </div>
 
-    <!-- Panel 5: Rules -->
-    <div class="panel" id="panel-rules">
-      <div class="panel-title">Chord Rule</div>
-      <div class="row"><span class="row-label">Rule</span><span id="v-rule" class="row-value bright">-</span></div>
-      <div class="row"><span class="row-label">Lead Type</span><span id="v-leadtype" class="row-value">-</span></div>
-      <div class="row"><span class="row-label">Bass Type</span><span id="v-basstype" class="row-value">-</span></div>
-      <div class="row"><span class="row-label">Note Indices</span><span id="v-noteindices" class="row-value dim">-</span></div>
-      <div style="margin-top:6px">
-        <span class="row-label">Bass Beat Offsets</span>
-        <div id="v-bassoffsets" class="notes-display" style="margin-top:3px"></div>
-      </div>
-    </div>
-
-    <!-- Panel 6: Instruments -->
-    <div class="panel" id="panel-instruments">
-      <div class="panel-title">Instruments</div>
-      <div class="row"><span class="row-label">Lead</span><span id="v-lead" class="row-value bright">-</span></div>
-      <div class="row"><span class="row-label">Bass</span><span id="v-bass" class="row-value bright">-</span></div>
-      <div id="instrument-selectors"></div>
-    </div>
-
-    <!-- Panel 7: Track Volumes (sliders) -->
-    <div class="panel" id="panel-volumes">
-      <div class="panel-title">Track Volumes</div>
-      <div id="volume-sliders"></div>
-    </div>
-
-    <!-- Panel 7b: VU Meters -->
-    <div class="panel" id="panel-meters">
-      <div class="panel-title">Live Levels</div>
-      <div id="vu-meters"></div>
-    </div>
-
-    <!-- Panel 8: Track Effects & Automation -->
-    <div class="panel span-2" id="panel-effects">
-      <div class="panel-title">Effects & Section Automation</div>
-      <div id="effects-display"></div>
-    </div>
-
-    <!-- Panel 8b: Master Effects -->
-    <div class="panel" id="panel-master-fx">
-      <div class="panel-title">Master Effects</div>
-      <div id="master-fx-display">
-        <div class="fx-track" style="margin-bottom:6px">
-          <div class="fx-track-header"><span class="fx-track-name">reverb</span></div>
-          <div class="fx-live-row">
-            <span class="fx-live-label">wet</span>
-            <div class="fx-live-bar-bg"><div class="fx-live-bar-fill bright" id="mfx-reverb-wet" style="width:0%"></div></div>
-            <span class="fx-live-val" id="mfx-reverb-wet-val">-</span>
-          </div>
-          <div class="fx-live-row">
-            <span class="fx-live-label">decay</span>
-            <span class="fx-live-val" id="mfx-reverb-decay-val">-</span>
-            <span class="fx-live-label" style="margin-left:8px">damp</span>
-            <span class="fx-live-val" id="mfx-reverb-damp-val">-</span>
-          </div>
-        </div>
-        <div class="fx-track" style="margin-bottom:6px">
-          <div class="fx-track-header"><span class="fx-track-name">delay</span></div>
-          <div class="fx-live-row">
-            <span class="fx-live-label">wet</span>
-            <div class="fx-live-bar-bg"><div class="fx-live-bar-fill duck" id="mfx-delay-wet" style="width:0%"></div></div>
-            <span class="fx-live-val" id="mfx-delay-wet-val">-</span>
-          </div>
-          <div class="fx-live-row">
-            <span class="fx-live-label">time</span>
-            <span class="fx-live-val" id="mfx-delay-time-val">-</span>
-            <span class="fx-live-label" style="margin-left:8px">fb</span>
-            <span class="fx-live-val" id="mfx-delay-fb-val">-</span>
-          </div>
-        </div>
-        <div class="fx-track">
-          <div class="fx-track-header"><span class="fx-track-name">filter LFO</span></div>
-          <div class="fx-live-row">
-            <span class="fx-live-label">depth</span>
-            <div class="fx-live-bar-bg"><div class="fx-live-bar-fill freq" id="mfx-filter-depth" style="width:0%"></div></div>
-            <span class="fx-live-val" id="mfx-filter-depth-val">-</span>
-          </div>
-          <div class="fx-live-row">
-            <span class="fx-live-label">rate</span>
-            <span class="fx-live-val" id="mfx-filter-rate-val">-</span>
-            <span class="fx-live-label" style="margin-left:8px">center</span>
-            <span class="fx-live-val" id="mfx-filter-center-val">-</span>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Panel 9: Parameters -->
-    <div class="panel" id="panel-params">
+    <div class="panel">
       <div class="panel-title">Parameters</div>
       <div id="param-sliders"></div>
     </div>
 
-    <!-- Panel 10: Archive & Freesound -->
-    <div class="panel" id="panel-external">
+    <div class="panel">
       <div class="panel-title">External Layers</div>
       <div style="margin-bottom:8px">
         <span class="row-label">Archive.org</span>
@@ -743,8 +916,10 @@
       </div>
     </div>
 
-    <!-- Panel 11: Log -->
-    <div class="panel span-3" id="panel-log">
+    <!-- ══════════════════════════════════════════════════════ -->
+    <!-- LOG                                                    -->
+    <!-- ══════════════════════════════════════════════════════ -->
+    <div class="panel span-3">
       <div class="panel-title">Console Log</div>
       <div id="log-feed"></div>
     </div>
@@ -789,7 +964,7 @@
     }
 
     /* ================================================================ */
-    /*  Message handling                                                  */
+    /*  Message routing                                                  */
     /* ================================================================ */
 
     function handleMessage(msg) {
@@ -806,6 +981,7 @@
           applyLevels(msg.levels);
           if (msg.automation) applyAutomation(msg.automation);
           if (msg.masterFX) applyMasterFX(msg.masterFX);
+          if (msg.liveEffects) applyLiveEffects(msg.liveEffects);
           break;
         case 'log':
           addLogLine(msg.text);
@@ -814,7 +990,7 @@
     }
 
     /* ================================================================ */
-    /*  Build UI (one-time on connect)                                    */
+    /*  Build UI (once on connect)                                       */
     /* ================================================================ */
 
     let uiBuilt = false;
@@ -823,7 +999,6 @@
       if (uiBuilt) return;
       uiBuilt = true;
 
-      // Play button
       document.getElementById('play-btn').addEventListener('click', function () {
         send({ type: this._isPlaying ? 'stop' : 'start' });
       });
@@ -834,25 +1009,18 @@
         const block = document.createElement('div');
         block.className = 'section-block';
         block.dataset.section = s;
-        block.textContent = s === 'innerTransition' ? 'inner' : s.slice(0, 5);
+        block.textContent = s === 'innerTransition' ? 'inner' : s;
         mapEl.appendChild(block);
       }
 
-      // Volume sliders
       buildVolumeSliders(state.debugState);
-
-      // Parameter sliders
       buildParamSliders(state.config, state.debugState);
-
-      // Instrument selectors
       buildInstrumentSelectors(state.instruments);
-
-      // Effects display (live from server)
       buildEffectsDisplay(state.effectChains);
-
-      // VU meters
       buildVUMeters();
     }
+
+    /* ── Volume sliders ── */
 
     function buildVolumeSliders(debugState) {
       const container = document.getElementById('volume-sliders');
@@ -893,6 +1061,8 @@
       }
     }
 
+    /* ── Parameter sliders ── */
+
     function buildParamSliders(config, debugState) {
       const container = document.getElementById('param-sliders');
       const params = [
@@ -905,23 +1075,18 @@
         const val = (debugState && debugState[p.param] !== null) ? debugState[p.param] : p.def;
         const row = document.createElement('div');
         row.className = 'slider-row';
-
         const label = document.createElement('label');
         label.textContent = p.label;
-
         const slider = document.createElement('input');
         slider.type = 'range'; slider.min = p.min; slider.max = p.max; slider.step = p.step; slider.value = val;
-
         const valSpan = document.createElement('span');
         valSpan.className = 'slider-val';
         valSpan.textContent = Number(val).toFixed(2);
-
         slider.addEventListener('input', () => {
           const v = Number(slider.value);
           valSpan.textContent = v.toFixed(2);
           send({ type: 'param', param: p.param, value: v });
         });
-
         row.appendChild(label);
         row.appendChild(slider);
         row.appendChild(valSpan);
@@ -949,21 +1114,24 @@
       container.appendChild(masterRow);
     }
 
+    /* ── Instrument selectors ── */
+
     function buildInstrumentSelectors(instruments) {
       const container = document.getElementById('instrument-selectors');
       if (!instruments) return;
 
-      if (instruments.lead) {
+      for (const [key, label, msgType] of [['lead', 'Lead Instruments', 'swapLead'], ['bass', 'Bass Instruments', 'swapBass']]) {
+        if (!instruments[key]) continue;
         const group = document.createElement('div');
         group.className = 'inst-group';
-        const label = document.createElement('div');
-        label.className = 'inst-group-label';
-        label.textContent = 'Lead Instruments';
-        group.appendChild(label);
+        const lbl = document.createElement('div');
+        lbl.className = 'inst-group-label';
+        lbl.textContent = label;
+        group.appendChild(lbl);
         const btns = document.createElement('div');
         btns.className = 'inst-buttons';
-        btns.id = 'lead-buttons';
-        for (const inst of instruments.lead) {
+        btns.id = `${key}-buttons`;
+        for (const inst of instruments[key]) {
           const btn = document.createElement('button');
           btn.className = 'inst-btn';
           btn.textContent = inst.name;
@@ -971,33 +1139,7 @@
           btn.addEventListener('click', () => {
             btns.querySelectorAll('.inst-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
-            send({ type: 'swapLead', instrumentId: inst.id });
-          });
-          btns.appendChild(btn);
-        }
-        group.appendChild(btns);
-        container.appendChild(group);
-      }
-
-      if (instruments.bass) {
-        const group = document.createElement('div');
-        group.className = 'inst-group';
-        const label = document.createElement('div');
-        label.className = 'inst-group-label';
-        label.textContent = 'Bass Instruments';
-        group.appendChild(label);
-        const btns = document.createElement('div');
-        btns.className = 'inst-buttons';
-        btns.id = 'bass-buttons';
-        for (const inst of instruments.bass) {
-          const btn = document.createElement('button');
-          btn.className = 'inst-btn';
-          btn.textContent = inst.name;
-          btn.dataset.id = inst.id;
-          btn.addEventListener('click', () => {
-            btns.querySelectorAll('.inst-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            send({ type: 'swapBass', instrumentId: inst.id });
+            send({ type: msgType, instrumentId: inst.id });
           });
           btns.appendChild(btn);
         }
@@ -1006,18 +1148,99 @@
       }
     }
 
-    // Effect chain info — populated from server on connect
-    let effectChainInfo = null;
-    const FX_TRACK_ORDER = ['pad', 'drone', 'lead', 'sampleTexture', 'archive', 'freesound'];
+    /* ================================================================ */
+    /*  Effects display                                                  */
+    /* ================================================================ */
 
-    function effectLabel(fx) {
-      if (fx.type === 'Filter' && fx.subtype === 'highpass') return 'HPF';
-      if (fx.type === 'Filter' && fx.lfo) return 'LPF~LFO';
-      if (fx.type === 'Filter') return fx.id === 'dynamicFilter' ? 'LPF [auto]' : 'LPF';
-      if (fx.type === 'Gain') return fx.id === 'duckGain' ? 'Duck [auto]' : 'Gain';
-      if (fx.type === 'PingPongDelay') return 'Delay';
-      if (fx.type === 'Compressor') return 'Comp';
-      return fx.type;
+    let effectChainInfo = null;
+    const FX_TRACK_ORDER = ['pad', 'drone', 'lead', 'sampleTexture', 'archive', 'freesound', 'pedalPad', 'bassSupport'];
+    const FX_NAMES = { sampleTexture: 'Texture', pedalPad: 'Pedal Pad', bassSupport: 'Bass Sup.' };
+
+    function fxLabel(fx) {
+      const map = {
+        TapeSat: 'Tape Sat', VinylWobble: 'Vinyl', RingMod: 'Ring Mod',
+        SpectralFreeze: 'Freeze', SpectralSmear: 'Smear', SpectralShift: 'Shift',
+        PingPongDelay: 'Delay', Compressor: 'Comp', AGC: 'AGC',
+      };
+      if (fx.type === 'Filter') {
+        if (fx.subtype === 'highpass') return 'HPF';
+        if (fx.lfo) return 'LPF + LFO';
+        return fx.id === 'dynamicFilter' ? 'LPF' : 'LPF';
+      }
+      if (fx.type === 'Gain') return fx.id === 'duckGain' ? 'Duck Gain' : 'Gain';
+      return map[fx.type] || fx.type;
+    }
+
+    function fxPillClass(fx) {
+      if (fx.randomized) return 'fx-pill randomized';
+      if (fx.id === 'dynamicFilter' || fx.id === 'duckGain') return 'fx-pill auto';
+      return 'fx-pill';
+    }
+
+    /**
+     * Which params to show for each effect type, with their display ranges.
+     * color: purple = randomized, blue = automated, green/orange = static
+     */
+    function getDisplayParams(fx) {
+      const p = fx.params || {};
+      const items = [];
+      const color = fx.randomized ? 'purple' : 'green';
+
+      switch (fx.type) {
+        case 'TapeSat':
+          items.push({ key: 'drive', val: p.drive, min: 0, max: 5, color, unit: '' });
+          items.push({ key: 'mix',   val: p.mix,   min: 0, max: 1, color, unit: '' });
+          break;
+        case 'RingMod':
+          items.push({ key: 'rate',  val: p.rate,  min: 0, max: 2, color, unit: 'Hz' });
+          items.push({ key: 'depth', val: p.depth, min: 0, max: 1, color, unit: '' });
+          break;
+        case 'VinylWobble':
+          items.push({ key: 'density', val: p.density, min: 0, max: 0.5, color: 'green', unit: '' });
+          items.push({ key: 'depth',   val: p.depth,   min: 0, max: 0.02, color: 'green', unit: '' });
+          break;
+        case 'SpectralFreeze':
+          items.push({ key: 'density', val: p.density, min: 0, max: 0.2, color: 'green', unit: '' });
+          items.push({ key: 'mix',     val: p.mix,     min: 0, max: 1,   color: 'green', unit: '' });
+          break;
+        case 'SpectralSmear':
+          items.push({ key: 'bins', val: p.bins, min: 0, max: 16, color, unit: '' });
+          items.push({ key: 'mix',  val: p.mix,  min: 0, max: 1,  color, unit: '' });
+          break;
+        case 'SpectralShift':
+          items.push({ key: 'stretch', val: p.stretch, min: 0.9, max: 1.1, color, unit: 'x' });
+          items.push({ key: 'mix',     val: p.mix,     min: 0,   max: 1,   color, unit: '' });
+          break;
+        case 'Filter':
+          if (fx.id !== 'dynamicFilter') {
+            items.push({ key: 'freq', val: p.frequency, min: 20, max: 20000, color: 'orange', unit: 'Hz' });
+          }
+          break;
+        case 'Compressor':
+          items.push({ key: 'ratio', val: p.ratio, min: 1, max: 20, color: 'green', unit: ':1' });
+          break;
+        case 'PingPongDelay':
+          items.push({ key: 'wet', val: p.wet,      min: 0, max: 1, color: 'green', unit: '' });
+          items.push({ key: 'fb',  val: p.feedback,  min: 0, max: 1, color: 'green', unit: '' });
+          break;
+        case 'AGC':
+          items.push({ key: 'target', val: p.targetAmp, min: 0, max: 0.1, color: 'green', unit: '' });
+          items.push({ key: 'maxG',   val: p.maxGain,   min: 0, max: 20,  color: 'green', unit: 'x' });
+          break;
+      }
+      return items;
+    }
+
+    function fmtVal(v, unit) {
+      if (v === undefined || v === null) return '-';
+      if (typeof v === 'string') return v;
+      const s = v >= 100 ? v.toFixed(0) : v >= 1 ? v.toFixed(2) : v.toFixed(3);
+      return s + (unit || '');
+    }
+
+    function barPct(val, min, max) {
+      if (val === undefined || val === null) return 0;
+      return Math.max(0, Math.min(100, ((val - min) / (max - min)) * 100));
     }
 
     function buildEffectsDisplay(chains) {
@@ -1025,134 +1248,228 @@
       const container = document.getElementById('effects-display');
       container.innerHTML = '';
 
-      for (const name of FX_TRACK_ORDER) {
-        const info = effectChainInfo[name];
+      for (const trackName of FX_TRACK_ORDER) {
+        const info = effectChainInfo[trackName];
         if (!info) continue;
 
         const track = document.createElement('div');
         track.className = 'fx-track';
-        track.id = `fx-track-${name}`;
+        track.id = `fx-track-${trackName}`;
 
-        // Header: track name + effect chain tags + reverb send
+        // ── Header: name → chain pills → status badge ──
         const header = document.createElement('div');
-        header.className = 'fx-track-header';
+        header.className = 'fx-header';
 
-        const label = document.createElement('span');
-        label.className = 'fx-track-name';
-        label.textContent = name === 'sampleTexture' ? 'texture' : name;
-        header.appendChild(label);
+        const name = document.createElement('span');
+        name.className = 'fx-name';
+        name.textContent = FX_NAMES[trackName] || (trackName.charAt(0).toUpperCase() + trackName.slice(1));
+        header.appendChild(name);
 
         const chain = document.createElement('div');
-        chain.className = 'effect-chain';
+        chain.className = 'fx-chain';
 
-        if (info.effects.length > 0) {
-          for (const fx of info.effects) {
-            const tag = document.createElement('span');
-            tag.className = 'effect-tag' + (fx.id ? ' automated' : '');
-            tag.textContent = effectLabel(fx);
-            chain.appendChild(tag);
+        for (let i = 0; i < info.effects.length; i++) {
+          if (i > 0) {
+            const arrow = document.createElement('span');
+            arrow.className = 'fx-arrow';
+            arrow.textContent = '\u2192';
+            chain.appendChild(arrow);
           }
+          const fx = info.effects[i];
+          const pill = document.createElement('span');
+          pill.className = fxPillClass(fx);
+          pill.textContent = fxLabel(fx);
+          if (fx.randomized) pill.title = 'Randomized each song cycle';
+          if (fx.id === 'dynamicFilter') pill.title = 'Cutoff controlled by section automation';
+          if (fx.id === 'duckGain') pill.title = 'Gain controlled by section automation';
+          chain.appendChild(pill);
         }
 
-        // Reverb send tag
+        // Reverb send
         if (info.reverbSend > 0) {
-          const revTag = document.createElement('span');
-          revTag.className = 'effect-tag';
-          revTag.textContent = `Rev ${info.reverbBus} ${(info.reverbSend * 100).toFixed(0)}%`;
-          chain.appendChild(revTag);
-        }
-
-        if (info.effects.length === 0 && info.reverbSend <= 0) {
-          const pass = document.createElement('span');
-          pass.style.fontSize = '9px';
-          pass.style.color = '#333355';
-          pass.textContent = '(pass-through)';
-          chain.appendChild(pass);
+          const arrow = document.createElement('span');
+          arrow.className = 'fx-arrow';
+          arrow.textContent = '\u2192';
+          chain.appendChild(arrow);
+          const rev = document.createElement('span');
+          rev.className = 'fx-pill';
+          rev.textContent = `Rev ${info.reverbBus} ${(info.reverbSend * 100).toFixed(0)}%`;
+          rev.title = `Reverb send: ${info.reverbBus} bus at ${(info.reverbSend * 100).toFixed(0)}%`;
+          chain.appendChild(rev);
         }
 
         header.appendChild(chain);
+
+        // Status badge
+        const status = document.createElement('span');
+        status.className = 'fx-status';
+        status.id = `fx-status-${trackName}`;
+        header.appendChild(status);
+
         track.appendChild(header);
 
-        // Live automation bars (brightness, filter freq, duck gain)
-        const liveRow = document.createElement('div');
-        liveRow.className = 'fx-live-row';
-        liveRow.id = `fx-live-${name}`;
-
-        // Brightness bar
-        liveRow.innerHTML = `
-          <span class="fx-live-label">bright</span>
-          <div class="fx-live-bar-bg"><div class="fx-live-bar-fill bright" id="fx-bright-${name}" style="width:0%"></div></div>
-          <span class="fx-live-val" id="fx-bright-val-${name}">-</span>
-          <span class="fx-live-label" style="margin-left:6px">duck</span>
-          <div class="fx-live-bar-bg"><div class="fx-live-bar-fill duck" id="fx-duck-${name}" style="width:0%"></div></div>
-          <span class="fx-live-val" id="fx-duck-val-${name}">-</span>
-          <span class="fx-status-badge" id="fx-status-${name}"></span>
-        `;
-        track.appendChild(liveRow);
-
-        // Filter freq bar (only for tracks with dynamicFilter)
-        const hasDynFilter = info.effects.some(fx => fx.id === 'dynamicFilter');
-        if (hasDynFilter) {
-          const freqRow = document.createElement('div');
-          freqRow.className = 'fx-live-row';
-          freqRow.innerHTML = `
-            <span class="fx-live-label">filter</span>
-            <div class="fx-live-bar-bg" style="width:160px"><div class="fx-live-bar-fill freq" id="fx-freq-${name}" style="width:0%"></div></div>
-            <span class="fx-live-val" id="fx-freq-val-${name}">-</span>
-          `;
-          track.appendChild(freqRow);
+        // ── Effect parameter values ──
+        // Collect all displayable params across the chain
+        const allParams = [];
+        for (const fx of info.effects) {
+          const dp = getDisplayParams(fx);
+          for (const item of dp) {
+            allParams.push({
+              ...item,
+              fxType: fx.type,
+              fxId: fx.id || null,
+              randomized: !!fx.randomized,
+            });
+          }
         }
 
-        // Static brightness rule overview per section
-        if (info.automation && info.automation.brightness) {
-          const ruleRow = document.createElement('div');
-          ruleRow.className = 'fx-live-row';
-          ruleRow.style.gap = '4px';
+        if (allParams.length > 0) {
+          const paramsDiv = document.createElement('div');
+          paramsDiv.className = 'fx-params';
 
-          const ruleLabel = document.createElement('span');
-          ruleLabel.className = 'fx-live-label';
-          ruleLabel.textContent = 'rule';
-          ruleRow.appendChild(ruleLabel);
+          for (const p of allParams) {
+            const el = document.createElement('div');
+            el.className = 'fx-param';
 
-          for (const s of SECTION_ORDER) {
-            const bright = info.automation.brightness[s] ?? 0.5;
-            const cell = document.createElement('div');
-            cell.style.flex = '1';
-            cell.style.textAlign = 'center';
+            const label = document.createElement('span');
+            label.className = 'fx-param-label';
+            label.textContent = p.key;
 
-            const bar = document.createElement('div');
-            bar.className = 'auto-bright-bar';
-            bar.style.margin = '0 auto';
-            const fill = document.createElement('div');
-            fill.className = 'auto-bright-fill';
-            fill.style.width = (bright * 100) + '%';
-            bar.appendChild(fill);
+            const barOuter = document.createElement('div');
+            barOuter.className = 'fx-param-bar';
+            const barFill = document.createElement('div');
+            barFill.className = `fx-param-fill ${p.color}`;
+            barFill.style.width = barPct(p.val, p.min, p.max) + '%';
+            // Give randomized params a data attribute for live updates
+            if (p.randomized && p.fxId) {
+              barFill.dataset.track = trackName;
+              barFill.dataset.fxId = p.fxId;
+              barFill.dataset.param = p.key;
+              barFill.dataset.min = p.min;
+              barFill.dataset.max = p.max;
+            }
+            barOuter.appendChild(barFill);
 
-            const sLabel = document.createElement('div');
-            sLabel.style.fontSize = '7px';
-            sLabel.style.color = '#333355';
-            sLabel.textContent = s === 'innerTransition' ? 'inner' : s.slice(0, 5);
+            const val = document.createElement('span');
+            val.className = 'fx-param-value';
+            val.textContent = fmtVal(p.val, p.unit);
+            if (p.randomized && p.fxId) {
+              val.dataset.track = trackName;
+              val.dataset.fxId = p.fxId;
+              val.dataset.param = p.key;
+              val.dataset.unit = p.unit || '';
+            }
 
-            cell.appendChild(bar);
-            cell.appendChild(sLabel);
-            ruleRow.appendChild(cell);
+            el.appendChild(label);
+            el.appendChild(barOuter);
+            el.appendChild(val);
+            paramsDiv.appendChild(el);
           }
 
-          if (info.automation.duckFloor !== undefined) {
-            const floor = document.createElement('span');
-            floor.style.fontSize = '8px';
-            floor.style.color = '#444466';
-            floor.style.marginLeft = '6px';
-            floor.textContent = `floor:${info.automation.duckFloor}`;
-            ruleRow.appendChild(floor);
+          track.appendChild(paramsDiv);
+        }
+
+        // ── Live automation bars (brightness + duck + freq) ──
+        if (info.automation) {
+          // Brightness
+          const brightRow = document.createElement('div');
+          brightRow.className = 'fx-auto-row';
+          brightRow.innerHTML = `
+            <span class="fx-auto-label">bright</span>
+            <div class="fx-auto-bar"><div class="fx-auto-fill bright" id="fx-bright-${trackName}" style="width:0%"></div></div>
+            <span class="fx-auto-val" id="fx-bright-val-${trackName}">-</span>
+            <span class="fx-auto-label" style="margin-left:8px">duck</span>
+            <div class="fx-auto-bar"><div class="fx-auto-fill duck" id="fx-duck-${trackName}" style="width:0%"></div></div>
+            <span class="fx-auto-val" id="fx-duck-val-${trackName}">-</span>
+          `;
+          track.appendChild(brightRow);
+
+          // Filter freq (only if dynamicFilter exists)
+          if (info.effects.some(fx => fx.id === 'dynamicFilter')) {
+            const freqRow = document.createElement('div');
+            freqRow.className = 'fx-auto-row';
+            freqRow.innerHTML = `
+              <span class="fx-auto-label">filter</span>
+              <div class="fx-auto-bar" style="width:120px"><div class="fx-auto-fill freq" id="fx-freq-${trackName}" style="width:0%"></div></div>
+              <span class="fx-auto-val" id="fx-freq-val-${trackName}">-</span>
+            `;
+            track.appendChild(freqRow);
           }
 
-          track.appendChild(ruleRow);
+          // Per-section brightness chart
+          if (info.automation.brightness) {
+            const ruleRow = document.createElement('div');
+            ruleRow.className = 'fx-section-rule';
+
+            const ruleLabel = document.createElement('span');
+            ruleLabel.className = 'fx-section-rule-label';
+            ruleLabel.textContent = 'per section';
+            ruleRow.appendChild(ruleLabel);
+
+            for (const s of SECTION_ORDER) {
+              const bright = info.automation.brightness[s] ?? 0.5;
+              const cell = document.createElement('div');
+              cell.className = 'fx-section-cell';
+
+              const bar = document.createElement('div');
+              bar.className = 'fx-section-bar';
+              const fill = document.createElement('div');
+              fill.className = 'fx-section-fill';
+              fill.style.height = (bright * 100) + '%';
+              bar.appendChild(fill);
+
+              const lbl = document.createElement('div');
+              lbl.className = 'fx-section-lbl';
+              lbl.textContent = s === 'innerTransition' ? 'inner' : s;
+
+              cell.appendChild(bar);
+              cell.appendChild(lbl);
+              ruleRow.appendChild(cell);
+            }
+
+            if (info.automation.duckFloor !== undefined) {
+              const floor = document.createElement('span');
+              floor.style.cssText = 'font-size:9px;color:#4b5263;margin-left:8px;align-self:center;';
+              floor.textContent = `floor ${info.automation.duckFloor}`;
+              ruleRow.appendChild(floor);
+            }
+
+            track.appendChild(ruleRow);
+          }
         }
 
         container.appendChild(track);
       }
     }
+
+    /* ── Live effect param updates (from liveEffects in levels message) ── */
+
+    function applyLiveEffects(liveEffects) {
+      if (!liveEffects) return;
+
+      // Update all bar fills and values that have data-track/data-fxId/data-param
+      for (const [trackName, effects] of Object.entries(liveEffects)) {
+        for (const [fxId, params] of Object.entries(effects)) {
+          for (const [paramName, value] of Object.entries(params)) {
+            // Update bar fill
+            const fills = document.querySelectorAll(`.fx-param-fill[data-track="${trackName}"][data-fx-id="${fxId}"][data-param="${paramName}"]`);
+            for (const fill of fills) {
+              const min = parseFloat(fill.dataset.min) || 0;
+              const max = parseFloat(fill.dataset.max) || 1;
+              fill.style.width = barPct(value, min, max) + '%';
+            }
+
+            // Update value text
+            const vals = document.querySelectorAll(`.fx-param-value[data-track="${trackName}"][data-fx-id="${fxId}"][data-param="${paramName}"]`);
+            for (const val of vals) {
+              val.textContent = fmtVal(value, val.dataset.unit || '');
+            }
+          }
+        }
+      }
+    }
+
+    /* ── Section automation updates ── */
 
     function applyAutomation(automation) {
       if (!automation || !automation.tracks) return;
@@ -1160,21 +1477,20 @@
       for (const name of FX_TRACK_ORDER) {
         const data = automation.tracks[name];
 
-        const brightEl = document.getElementById(`fx-bright-${name}`);
+        const brightEl  = document.getElementById(`fx-bright-${name}`);
         const brightVal = document.getElementById(`fx-bright-val-${name}`);
-        const duckEl = document.getElementById(`fx-duck-${name}`);
-        const duckVal = document.getElementById(`fx-duck-val-${name}`);
-        const statusEl = document.getElementById(`fx-status-${name}`);
-        const freqEl = document.getElementById(`fx-freq-${name}`);
-        const freqVal = document.getElementById(`fx-freq-val-${name}`);
+        const duckEl    = document.getElementById(`fx-duck-${name}`);
+        const duckVal   = document.getElementById(`fx-duck-val-${name}`);
+        const statusEl  = document.getElementById(`fx-status-${name}`);
+        const freqEl    = document.getElementById(`fx-freq-${name}`);
+        const freqVal   = document.getElementById(`fx-freq-val-${name}`);
 
         if (!data) {
-          // No automation for this track — show as pass-through
           if (brightEl) brightEl.style.width = '0%';
           if (brightVal) brightVal.textContent = '-';
           if (duckEl) duckEl.style.width = '0%';
           if (duckVal) duckVal.textContent = '-';
-          if (statusEl) { statusEl.textContent = ''; statusEl.className = 'fx-status-badge'; }
+          if (statusEl) { statusEl.textContent = ''; statusEl.className = 'fx-status'; }
           if (freqEl) freqEl.style.width = '0%';
           if (freqVal) freqVal.textContent = '-';
           continue;
@@ -1182,59 +1498,63 @@
 
         if (brightEl) brightEl.style.width = (data.bright * 100) + '%';
         if (brightVal) brightVal.textContent = data.bright.toFixed(2);
-
         if (duckEl) duckEl.style.width = (data.duck * 100) + '%';
         if (duckVal) duckVal.textContent = data.duck.toFixed(2);
 
         if (statusEl) {
-          statusEl.textContent = data.status !== 'active' ? data.status : '';
-          statusEl.className = 'fx-status-badge ' + data.status;
+          if (data.status !== 'active') {
+            statusEl.textContent = data.status.toUpperCase();
+            statusEl.className = 'fx-status ' + data.status;
+          } else {
+            statusEl.textContent = '';
+            statusEl.className = 'fx-status';
+          }
         }
 
-        if (freqEl && data.freq !== null) {
-          // Log scale mapping: 200 Hz → 0%, 18000 Hz → 100%
+        if (freqEl && data.freq !== null && data.freq !== undefined) {
           const logMin = Math.log(200), logMax = Math.log(18000);
           const pct = Math.max(0, Math.min(100, ((Math.log(data.freq) - logMin) / (logMax - logMin)) * 100));
           freqEl.style.width = pct + '%';
         }
-        if (freqVal && data.freq !== null) freqVal.textContent = data.freq + ' Hz';
+        if (freqVal && data.freq !== null && data.freq !== undefined) {
+          freqVal.textContent = data.freq + ' Hz';
+        }
       }
     }
+
+    /* ── Master effects ── */
 
     function applyMasterFX(mfx) {
       if (!mfx) return;
 
-      // Reverb
       if (mfx.reverb) {
         const wetEl = document.getElementById('mfx-reverb-wet');
         const wetVal = document.getElementById('mfx-reverb-wet-val');
         const decayVal = document.getElementById('mfx-reverb-decay-val');
         const dampVal = document.getElementById('mfx-reverb-damp-val');
-        if (wetEl) wetEl.style.width = (mfx.reverb.wet * 100 / 0.7) + '%'; // 0.7 = max
+        if (wetEl) wetEl.style.width = (mfx.reverb.wet * 100 / 0.7) + '%';
         if (wetVal) wetVal.textContent = (mfx.reverb.wet * 100).toFixed(0) + '%';
         if (decayVal) decayVal.textContent = mfx.reverb.decay.toFixed(1) + 's';
         if (dampVal) dampVal.textContent = mfx.reverb.damp.toFixed(2);
       }
 
-      // Delay
       if (mfx.delay) {
         const wetEl = document.getElementById('mfx-delay-wet');
         const wetVal = document.getElementById('mfx-delay-wet-val');
         const timeVal = document.getElementById('mfx-delay-time-val');
         const fbVal = document.getElementById('mfx-delay-fb-val');
-        if (wetEl) wetEl.style.width = (mfx.delay.wet * 100 / 0.4) + '%'; // 0.4 = max
+        if (wetEl) wetEl.style.width = (mfx.delay.wet * 100 / 0.4) + '%';
         if (wetVal) wetVal.textContent = (mfx.delay.wet * 100).toFixed(0) + '%';
         if (timeVal) timeVal.textContent = mfx.delay.delayTime.toFixed(1) + 's';
         if (fbVal) fbVal.textContent = mfx.delay.feedback.toFixed(2);
       }
 
-      // Filter LFO
       if (mfx.filter) {
         const depthEl = document.getElementById('mfx-filter-depth');
         const depthVal = document.getElementById('mfx-filter-depth-val');
         const rateVal = document.getElementById('mfx-filter-rate-val');
         const centerVal = document.getElementById('mfx-filter-center-val');
-        if (depthEl) depthEl.style.width = (mfx.filter.depth * 100 / 0.55) + '%'; // 0.55 = max
+        if (depthEl) depthEl.style.width = (mfx.filter.depth * 100 / 0.55) + '%';
         if (depthVal) depthVal.textContent = mfx.filter.depth.toFixed(2);
         if (rateVal) rateVal.textContent = mfx.filter.lfoRate.toFixed(3) + ' Hz';
         if (centerVal) centerVal.textContent = Math.round(mfx.filter.centerFreq) + ' Hz';
@@ -1252,32 +1572,25 @@
       for (const name of VU_TRACKS) {
         const row = document.createElement('div');
         row.className = 'vu-row';
-
         const label = document.createElement('span');
         label.className = 'vu-name';
         label.textContent = name;
-
         const barBg = document.createElement('div');
         barBg.className = 'vu-bar-bg';
-
         const rmsBar = document.createElement('div');
         rmsBar.className = 'vu-bar-rms';
         rmsBar.id = `vu-rms-${name}`;
         rmsBar.style.width = '0%';
-
         const peakBar = document.createElement('div');
         peakBar.className = 'vu-bar-peak';
         peakBar.id = `vu-peak-${name}`;
         peakBar.style.left = '0%';
-
         barBg.appendChild(rmsBar);
         barBg.appendChild(peakBar);
-
         const dbLabel = document.createElement('span');
         dbLabel.className = 'vu-db';
         dbLabel.id = `vu-db-${name}`;
         dbLabel.textContent = '-inf';
-
         row.appendChild(label);
         row.appendChild(barBg);
         row.appendChild(dbLabel);
@@ -1290,20 +1603,14 @@
       for (const name of VU_TRACKS) {
         const data = levels[name];
         if (!data) continue;
-
-        // Map RMS to percentage (0 = -60dB, 100 = 0dB)
         const dbClamped = Math.max(-60, Math.min(0, data.db));
         const pct = ((dbClamped + 60) / 60) * 100;
-
-        // Peak percentage
         const peakDb = data.peak > 0.00001 ? 20 * Math.log10(data.peak) : -100;
         const peakClamped = Math.max(-60, Math.min(0, peakDb));
         const peakPct = ((peakClamped + 60) / 60) * 100;
-
         const rmsEl = document.getElementById(`vu-rms-${name}`);
         const peakEl = document.getElementById(`vu-peak-${name}`);
         const dbEl = document.getElementById(`vu-db-${name}`);
-
         if (rmsEl) rmsEl.style.width = pct + '%';
         if (peakEl) peakEl.style.left = Math.min(peakPct, 99) + '%';
         if (dbEl) {
@@ -1314,11 +1621,10 @@
     }
 
     /* ================================================================ */
-    /*  Apply status updates                                             */
+    /*  Status updates                                                   */
     /* ================================================================ */
 
     function applyStatus(s, engine, song, mixer) {
-      // Play button
       const playBtn = document.getElementById('play-btn');
       if (playBtn) {
         playBtn.textContent = s.running ? 'Stop' : 'Start';
@@ -1326,59 +1632,38 @@
         playBtn._isPlaying = s.running;
       }
 
-      // Running status
       setText('v-running', s.running
         ? '<span class="tag running">running</span>'
         : '<span class="tag stopped">stopped</span>', true);
 
-      // Tempo
       if (s.currentTempo) setText('v-tempo', s.currentTempo + ' bpm');
-
-      // Current chord from status string
       if (s.currentChord) addLogLine(s.currentChord);
-
-      // Archive/freesound
       if (s.archiveStatus) setText('archive-status', s.archiveStatus);
       if (s.freesoundStatus) setText('freesound-status', s.freesoundStatus);
 
-      // Song state
       if (song) {
         setText('v-section', song.section);
         setText('v-cycle', `${song.cycleCount + 1}`);
         setText('v-pass', `${song.progressionsInSection + 1} / ${song.sectionDuration}`);
-
-        // Section progress bar
-        const progress = song.sectionDuration > 1
-          ? song.progressionsInSection / song.sectionDuration
-          : 0.5;
+        const progress = song.sectionDuration > 1 ? song.progressionsInSection / song.sectionDuration : 0.5;
         const progressEl = document.getElementById('section-progress-fill');
         if (progressEl) progressEl.style.width = (progress * 100) + '%';
-
-        // Section map highlighting
         const sectionIdx = song.sectionIndex;
         document.querySelectorAll('.section-block').forEach((block, i) => {
-          block.className = 'section-block' +
-            (i === sectionIdx ? ' active' : '') +
-            (i < sectionIdx ? ' completed' : '');
+          block.className = 'section-block' + (i === sectionIdx ? ' active' : '') + (i < sectionIdx ? ' completed' : '');
         });
       }
 
-      // Engine state
       if (engine) {
         setText('v-chordcount', engine.chordCount);
         setText('v-rule', engine.currentRule);
         setText('v-looppos', `${engine.lastPlayedPosition + 1} / ${engine.loopLength}`);
-        setText('v-leadtype', engine.leadIsPlucked
-          ? '<span class="tag plucked">plucked</span>'
-          : '<span class="tag loopable">loopable</span>', true);
-        setText('v-basstype', engine.bassIsPlucked
-          ? '<span class="tag plucked">plucked</span>'
-          : '<span class="tag loopable">loopable</span>', true);
+        setText('v-leadtype', engine.leadIsPlucked ? '<span class="tag plucked">plucked</span>' : '<span class="tag loopable">loopable</span>', true);
+        setText('v-basstype', engine.bassIsPlucked ? '<span class="tag plucked">plucked</span>' : '<span class="tag loopable">loopable</span>', true);
 
         // Progression pills
         const progEl = document.getElementById('progression-display');
         if (progEl && engine.progression && engine.progression.length > 0) {
-          // Only rebuild if chord count changed
           const pills = progEl.children;
           const needsRebuild = pills.length !== engine.progression.length ||
             Array.from(pills).some((p, i) => p.dataset.sym !== engine.progression[i].symbol);
@@ -1390,27 +1675,17 @@
               const pill = document.createElement('div');
               pill.className = 'chord-pill';
               pill.dataset.sym = chord.symbol;
-              // Show rhythm multiplier if not 1x
               const mult = chord.rhythmMultiplier;
               pill.textContent = chord.symbol + (mult !== 1 ? ` (${mult}x)` : '');
-              // Show duration on hover
               pill.title = `${chord.durationSec}s | ${mult}x base`;
               progEl.appendChild(pill);
             }
           }
 
-          // Highlight active
           Array.from(progEl.children).forEach((pill, i) => {
-            if (i === engine.lastPlayedPosition) {
-              pill.className = 'chord-pill active';
-            } else if (i < engine.lastPlayedPosition) {
-              pill.className = 'chord-pill played';
-            } else {
-              pill.className = 'chord-pill';
-            }
+            pill.className = 'chord-pill' + (i === engine.lastPlayedPosition ? ' active' : i < engine.lastPlayedPosition ? ' played' : '');
           });
 
-          // Current chord details
           const current = engine.progression[engine.lastPlayedPosition];
           if (current) {
             setText('v-chordsym', current.symbol);
@@ -1420,8 +1695,6 @@
             setText('v-chorddursec', current.durationSec + 's');
             setText('v-chordrhythm', current.rhythmMultiplier + 'x base (' + current.durationTicks + ' ticks)');
             setText('v-key', current.root + ' minor');
-
-            // Voiced notes
             const notesEl = document.getElementById('v-voicednotes');
             if (notesEl) {
               notesEl.innerHTML = '';
@@ -1435,14 +1708,9 @@
           }
         }
 
-        // Base duration in seconds
-        if (engine.baseDurationSec) {
-          setText('v-basedursec', engine.baseDurationSec + 's');
-        }
+        if (engine.baseDurationSec) setText('v-basedursec', engine.baseDurationSec + 's');
 
-        // Rule state details
         if (engine.ruleState) {
-          // Bass offsets
           const offsetsEl = document.getElementById('v-bassoffsets');
           if (offsetsEl) {
             offsetsEl.innerHTML = '';
@@ -1450,9 +1718,9 @@
               engine.ruleState.bassOffsets.forEach((offset, i) => {
                 const tag = document.createElement('span');
                 tag.className = 'note-tag';
-                tag.style.background = offset > 0 ? '#2a2a1a' : '#14142e';
-                tag.style.color = offset > 0 ? '#ccaa55' : '#555577';
-                tag.style.borderColor = offset > 0 ? '#444422' : '#222244';
+                tag.style.background = offset > 0 ? '#2c2818' : '#21252b';
+                tag.style.color = offset > 0 ? '#e5c07b' : '#636d83';
+                tag.style.borderColor = offset > 0 ? '#4a4020' : '#3e4451';
                 tag.textContent = 'beat ' + (offset === 0 ? '1' : (offset + 1));
                 tag.title = `Chord ${i + 1}: bass enters on beat ${offset === 0 ? '1' : (offset + 1)}`;
                 offsetsEl.appendChild(tag);
@@ -1460,13 +1728,12 @@
             } else {
               const tag = document.createElement('span');
               tag.className = 'note-tag';
-              tag.style.color = '#444466';
+              tag.style.color = '#4b5263';
               tag.textContent = 'all on beat 1';
               offsetsEl.appendChild(tag);
             }
           }
 
-          // Partial note indices
           const indices = engine.ruleState.partialSeqIndices || engine.ruleState.partialSimIndices;
           if (indices) {
             const example = indices['3'] || indices['4'] || Object.values(indices)[0];
@@ -1476,7 +1743,6 @@
           }
         }
 
-        // Config values
         const config = serverState ? serverState.config : null;
         if (config) {
           setText('v-chorddur', config.chordDuration + ' measures');
@@ -1485,16 +1751,19 @@
         }
       }
 
-      // Mixer state
       if (mixer) {
         setText('v-lead', mixer.currentLeadName);
-        setText('v-bass', mixer.currentBassName);
-
-        // Highlight active instrument buttons
+        if (mixer.currentBass2Name) {
+          setText('v-bass', `${mixer.currentBassName} + ${mixer.currentBass2Name}`, false);
+        } else {
+          setText('v-bass', mixer.currentBassName);
+        }
         highlightInstButton('lead-buttons', mixer.currentLeadId);
-        highlightInstButton('bass-buttons', mixer.currentBassId);
+        highlightInstButton('bass-buttons', mixer.currentBassId, mixer.currentBass2Id);
       }
     }
+
+    /* ── Helpers ── */
 
     function setText(id, value, isHTML) {
       const el = document.getElementById(id);
@@ -1502,11 +1771,12 @@
       if (isHTML) { el.innerHTML = value; } else { el.textContent = value ?? '-'; }
     }
 
-    function highlightInstButton(containerId, activeId) {
+    function highlightInstButton(containerId, activeId, secondActiveId) {
       const container = document.getElementById(containerId);
       if (!container) return;
       container.querySelectorAll('.inst-btn').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.id === activeId);
+        const id = btn.dataset.id;
+        btn.classList.toggle('active', id === activeId || id === secondActiveId);
       });
     }
 

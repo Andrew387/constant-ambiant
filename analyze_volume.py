@@ -20,6 +20,7 @@ BASE = Path(__file__).parent / "samples"
 CATEGORIES = {
     "Bass": BASE / "Bass",
     "Lead": BASE / "Lead",
+    "Bass-Lead": BASE / "Bass-Lead",
 }
 
 def rms_db(data):

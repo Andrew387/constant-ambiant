@@ -1,0 +1,239 @@
+{
+  "Bass": [
+    {
+      "name": "bloomingbasslong",
+      "sub_category": "Loopable",
+      "avg_rms": -29.59,
+      "min_rms": -45.5,
+      "max_rms": -26.06,
+      "range_db": 19.44,
+      "std_db": 4.64,
+      "avg_peak": -20.3,
+      "n_files": 72
+    },
+    {
+      "name": "bytebass",
+      "sub_category": "Loopable",
+      "avg_rms": -29.59,
+      "min_rms": -41.23,
+      "max_rms": -22.49,
+      "range_db": 18.74,
+      "std_db": 5.6,
+      "avg_peak": -13.82,
+      "n_files": 72
+    },
+    {
+      "name": "darkglidebass",
+      "sub_category": "Loopable",
+      "avg_rms": -25.59,
+      "min_rms": -31.09,
+      "max_rms": -22.96,
+      "range_db": 8.13,
+      "std_db": 1.71,
+      "avg_peak": -15.48,
+      "n_files": 72
+    },
+    {
+      "name": "basskeylong",
+      "sub_category": "Plucked",
+      "avg_rms": -29.59,
+      "min_rms": -30.16,
+      "max_rms": -29.05,
+      "range_db": 1.11,
+      "std_db": 0.28,
+      "avg_peak": -6.65,
+      "n_files": 72
+    },
+    {
+      "name": "heavyHandedbass",
+      "sub_category": "Plucked",
+      "avg_rms": -29.59,
+      "min_rms": -32.35,
+      "max_rms": -27.58,
+      "range_db": 4.77,
+      "std_db": 1.35,
+      "avg_peak": -6.16,
+      "n_files": 72
+    },
+    {
+      "name": "jazzSessBass",
+      "sub_category": "Plucked",
+      "avg_rms": -29.59,
+      "min_rms": -33.06,
+      "max_rms": -28.25,
+      "range_db": 4.81,
+      "std_db": 1.03,
+      "avg_peak": -10.7,
+      "n_files": 72
+    },
+    {
+      "name": "weighted pluck",
+      "sub_category": "Plucked",
+      "avg_rms": -43.63,
+      "min_rms": -66.82,
+      "max_rms": -34.6,
+      "range_db": 32.22,
+      "std_db": 8.97,
+      "avg_peak": -20.27,
+      "n_files": 72
+    }
+  ],
+  "Lead": [
+    {
+      "name": "DataStreamPad",
+      "sub_category": "Loopable",
+      "avg_rms": -24.29,
+      "min_rms": -29.46,
+      "max_rms": -21.83,
+      "range_db": 7.63,
+      "std_db": 2.12,
+      "avg_peak": -13.46,
+      "n_files": 72
+    },
+    {
+      "name": "analogbellslong",
+      "sub_category": "Loopable",
+      "avg_rms": -24.29,
+      "min_rms": -25.8,
+      "max_rms": -22.79,
+      "range_db": 3.01,
+      "std_db": 0.51,
+      "avg_peak": -19.38,
+      "n_files": 72
+    },
+    {
+      "name": "arctic breeze L-L",
+      "sub_category": "Loopable",
+      "avg_rms": -42.4,
+      "min_rms": -47.57,
+      "max_rms": -24.87,
+      "range_db": 22.7,
+      "std_db": 6.05,
+      "avg_peak": -27.93,
+      "n_files": 72
+    },
+    {
+      "name": "brushstringslong",
+      "sub_category": "Loopable",
+      "avg_rms": -24.29,
+      "min_rms": -24.55,
+      "max_rms": -24.11,
+      "range_db": 0.44,
+      "std_db": 0.13,
+      "avg_peak": -20.68,
+      "n_files": 72
+    },
+    {
+      "name": "calmbeachlong",
+      "sub_category": "Loopable",
+      "avg_rms": -24.29,
+      "min_rms": -24.72,
+      "max_rms": -23.1,
+      "range_db": 1.62,
+      "std_db": 0.46,
+      "avg_peak": -19.27,
+      "n_files": 72
+    },
+    {
+      "name": "crystalbellslong",
+      "sub_category": "Loopable",
+      "avg_rms": -24.29,
+      "min_rms": -24.57,
+      "max_rms": -23.37,
+      "range_db": 1.2,
+      "std_db": 0.31,
+      "avg_peak": -19.07,
+      "n_files": 72
+    },
+    {
+      "name": "malechoirlong",
+      "sub_category": "Loopable",
+      "avg_rms": -24.29,
+      "min_rms": -26.43,
+      "max_rms": -23.3,
+      "range_db": 3.13,
+      "std_db": 0.7,
+      "avg_peak": -10.33,
+      "n_files": 72
+    },
+    {
+      "name": "silkystringslong",
+      "sub_category": "Loopable",
+      "avg_rms": -24.29,
+      "min_rms": -24.51,
+      "max_rms": -24.13,
+      "range_db": 0.38,
+      "std_db": 0.1,
+      "avg_peak": -17.9,
+      "n_files": 72
+    },
+    {
+      "name": "distant bells",
+      "sub_category": "Plucked",
+      "avg_rms": -26.3,
+      "min_rms": -29.53,
+      "max_rms": -22.44,
+      "range_db": 7.09,
+      "std_db": 1.77,
+      "avg_peak": -3.64,
+      "n_files": 72
+    }
+  ],
+  "Bass-Lead": [
+    {
+      "name": "calm and storm B:L-L",
+      "sub_category": "Loopable",
+      "avg_rms": -39.04,
+      "min_rms": -64.38,
+      "max_rms": -26.6,
+      "range_db": 37.78,
+      "std_db": 10.08,
+      "avg_peak": -32.59,
+      "n_files": 72
+    },
+    {
+      "name": "eastern hammers bass:lead plucked",
+      "sub_category": "Plucked",
+      "avg_rms": -19.88,
+      "min_rms": -25.78,
+      "max_rms": -18.84,
+      "range_db": 6.94,
+      "std_db": 1.46,
+      "avg_peak": -2.27,
+      "n_files": 72
+    },
+    {
+      "name": "metallic echo tines B:L-P",
+      "sub_category": "Plucked",
+      "avg_rms": -35.57,
+      "min_rms": -46.04,
+      "max_rms": -24.93,
+      "range_db": 21.11,
+      "std_db": 5.91,
+      "avg_peak": -9.67,
+      "n_files": 72
+    },
+    {
+      "name": "mutantacousticbass",
+      "sub_category": "Plucked",
+      "avg_rms": -40.08,
+      "min_rms": -47.27,
+      "max_rms": -36.66,
+      "range_db": 10.61,
+      "std_db": 3.18,
+      "avg_peak": -16.45,
+      "n_files": 72
+    },
+    {
+      "name": "rock harpsichord B:L-P",
+      "sub_category": "Plucked",
+      "avg_rms": -47.93,
+      "min_rms": -67.6,
+      "max_rms": -30.86,
+      "range_db": 36.74,
+      "std_db": 9.4,
+      "avg_peak": -22.59,
+      "n_files": 72
+    }
+  ]
+}

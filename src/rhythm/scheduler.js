@@ -49,8 +49,12 @@ export function triggerDrone(synths, note, duration) {
     console.warn('[scheduler] drone synth not available — skipping');
     return;
   }
-  console.log(`[scheduler] triggerDrone → ${note} (${duration.toFixed(1)}s)`);
+  console.log(`[scheduler] triggerDrone → ${note} (${duration.toFixed(1)}s)${synths.drone2 ? ' [dual]' : ''}`);
   synths.drone.triggerAttackRelease(note, duration);
+  // Dual plucked bass: trigger second instrument simultaneously
+  if (synths.drone2) {
+    synths.drone2.triggerAttackRelease(note, duration);
+  }
 }
 
 /**

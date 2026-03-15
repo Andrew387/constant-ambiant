@@ -5,7 +5,7 @@
  */
 
 import {
-  LEAD_INSTRUMENTS, BASS_INSTRUMENTS, DEFAULT_LEAD, DEFAULT_BASS,
+  LEAD_INSTRUMENTS, BASS_INSTRUMENTS, BASS_LEAD_INSTRUMENTS, DEFAULT_LEAD, DEFAULT_BASS,
 } from '../audio/synths/sampleRegistry.js';
 
 /**
@@ -65,11 +65,11 @@ export function createControls({ onStart, onStop, onVolumeChange, onLeadChange, 
 
   // ── Instrument selectors ──
 
-  const leadGroup = buildInstrumentGroup('Lead', LEAD_INSTRUMENTS, DEFAULT_LEAD, (id) => {
+  const leadGroup = buildInstrumentGroup('Lead', [...LEAD_INSTRUMENTS, ...BASS_LEAD_INSTRUMENTS], DEFAULT_LEAD, (id) => {
     if (onLeadChange) onLeadChange(id);
   });
 
-  const bassGroup = buildInstrumentGroup('Bass', BASS_INSTRUMENTS, DEFAULT_BASS, (id) => {
+  const bassGroup = buildInstrumentGroup('Bass', [...BASS_INSTRUMENTS, ...BASS_LEAD_INSTRUMENTS], DEFAULT_BASS, (id) => {
     if (onBassChange) onBassChange(id);
   });
 

@@ -38,12 +38,13 @@ export async function createSampleSynth(config, options = {}) {
     id: instrumentId, folder, filePrefix, plucked,
     loopStart = DEFAULT_LOOP_START, loopEnd = DEFAULT_LOOP_END,
     gain: instrumentGain = 1,
+    startOctave, endOctave,
   } = config;
   const outBus = options.outBus ?? BUSES.LEAD;
   const groupId = options.groupId ?? GROUPS.LEAD;
 
-  // Load samples into SC buffers
-  const noteBuffers = await loadInstrumentSamples(instrumentId, folder, filePrefix);
+  // Load samples into SC buffers (octave range limits which files are loaded)
+  const noteBuffers = await loadInstrumentSamples(instrumentId, folder, filePrefix, startOctave, endOctave);
 
   console.log(
     `[samplePlayer] ${filePrefix} ready ` +

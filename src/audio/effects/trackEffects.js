@@ -184,6 +184,17 @@ export function getEffectChainInfo() {
       if (spec.lfo) entry.lfo = true;
       if (spec.params?.type === 'highpass') entry.subtype = 'highpass';
       else if (spec.type === 'Filter') entry.subtype = 'lowpass';
+      // Include static params for UI display
+      if (spec.params) {
+        const p = { ...spec.params };
+        delete p.type; // filter subtype already captured above
+        entry.params = p;
+      }
+      // Flag if this effect has per-cycle randomization
+      if (spec.id && TRACK_EFFECT_RANGES[spec.id]) {
+        entry.randomized = true;
+        entry.ranges = TRACK_EFFECT_RANGES[spec.id];
+      }
       effects.push(entry);
     }
     const sendLevel = REVERB_SEND_LEVELS[name] ?? 0;
@@ -200,6 +211,10 @@ export function getEffectChainInfo() {
   }
   return info;
 }
+
+// ── Live effect param snapshot (for UI) ──────────────────────
+// Populated by randomizeTrackEffects(), read by getLiveEffectParams()
+const _liveParams = {};
 
 // ── Per-cycle track effect randomization ──────────────────────
 //
@@ -225,10 +240,27 @@ const TRACK_EFFECT_RANGES = {
     shift:   { min: -1.5, max: 1.5 },  // ±1.5 bins — subtle ghosting only (was ±3)
     mix:     { min: 0.05, max: 0.15 }, // halved max from 0.3 — this is the main resonance fix
   },
+  vinylWobble: {
+    density: { min: 0.04, max: 0.25 },  // how often wobbles occur
+    depth:   { min: 0.002, max: 0.008 }, // pitch wobble intensity
+  },
+  lfoFilter: {
+    lfoRate: { min: 0.02, max: 0.08 },   // speed of filter sweep
+    lfoMin:  { min: 400, max: 1200 },     // low point of sweep
+    lfoMax:  { min: 3000, max: 8000 },    // high point of sweep
+  },
+  spectralFreeze: {
+    density: { min: 0.02, max: 0.08 },   // freeze trigger rate
+    mix:     { min: 0.1, max: 0.35 },     // wet mix
+  },
 };
 
 function randRange(range) {
   return range.min + Math.random() * (range.max - range.min);
+}
+
+function normalize(value, min, max) {
+  return Math.max(0, Math.min(1, (value - min) / (max - min)));
 }
 
 /**
@@ -257,6 +289,10 @@ export function randomizeTrackEffects(effects) {
       }
       nodeSet(ref.nodeId, params);
 
+      // Store for UI
+      if (!_liveParams[trackName]) _liveParams[trackName] = {};
+      _liveParams[trackName][id] = { ...params };
+
       const desc = Object.entries(params)
         .map(([k, v]) => `${k}:${typeof v === 'number' ? v.toFixed(2) : v}`)
         .join(' ');
@@ -264,9 +300,77 @@ export function randomizeTrackEffects(effects) {
     }
   }
 
+  // ── Derive compressor from resonance-contributing effects ──
+  // After all random effects are set, compute a resonance score (0–1)
+  // from the effects that feed energy into the compressor, and set
+  // threshold/ratio accordingly. More resonance → harder compression.
+  for (const [trackName, group] of Object.entries(effects)) {
+    const { refs } = group;
+    if (!refs?.compressor) continue;
+
+    const live = _liveParams[trackName] || {};
+    let score = 0;
+    let contributors = 0;
+
+    // TapeSat drive: more drive → more harmonics
+    if (live.tapeSat) {
+      const r = TRACK_EFFECT_RANGES.tapeSat;
+      score += normalize(live.tapeSat.drive, r.drive.min, r.drive.max);
+      contributors++;
+    }
+    // SpectralShift mix: more mix → more resonant ghosting
+    if (live.spectralShift) {
+      const r = TRACK_EFFECT_RANGES.spectralShift;
+      score += normalize(live.spectralShift.mix, r.mix.min, r.mix.max);
+      contributors++;
+    }
+    // SpectralFreeze mix: frozen partials stack energy
+    if (live.spectralFreeze) {
+      const r = TRACK_EFFECT_RANGES.spectralFreeze;
+      score += normalize(live.spectralFreeze.mix, r.mix.min, r.mix.max);
+      contributors++;
+    }
+    // LFO filter: wider sweep range → more potential peaks
+    if (live.lfoFilter) {
+      const r = TRACK_EFFECT_RANGES.lfoFilter;
+      const sweep = live.lfoFilter.lfoMax - live.lfoFilter.lfoMin;
+      const maxSweep = r.lfoMax.max - r.lfoMin.min;
+      const minSweep = r.lfoMax.min - r.lfoMin.max;
+      score += normalize(sweep, minSweep, maxSweep);
+      contributors++;
+    }
+
+    if (contributors > 0) score /= contributors;
+
+    // Map score 0–1 → compressor params:
+    //   score 0 (gentle effects)  → thresh -14, ratio 2.5 (light)
+    //   score 1 (aggressive)      → thresh -24, ratio 5   (heavy)
+    const thresh = -14 + score * -10;
+    const ratio = 2.5 + score * 2.5;
+
+    const params = { thresh, ratio };
+    nodeSet(refs.compressor.nodeId, params);
+
+    if (!_liveParams[trackName]) _liveParams[trackName] = {};
+    _liveParams[trackName].compressor = { ...params, resonanceScore: score };
+
+    log.push(`${trackName}.compressor(score:${score.toFixed(2)} thresh:${thresh.toFixed(1)} ratio:${ratio.toFixed(1)})`);
+  }
+
   if (log.length > 0) {
     console.log(`[trackFX] randomized — ${log.join(' | ')}`);
   }
+}
+
+/**
+ * Returns current live effect parameter values for all tracks.
+ * Updated each cycle by randomizeTrackEffects().
+ *
+ * @returns {Object<string, Object<string, Object<string, number>>>}
+ *   e.g. { lead: { tapeSat: { drive: 2.1, mix: 0.15 } } }
+ */
+export function getLiveEffectParams() {
+  return _liveParams;
 }
 
 /**
