@@ -25,6 +25,7 @@ import { start, stop, updateRules, getConfig, getEngineState } from './engine/ru
 import { getSongState } from './engine/songStructure.js';
 import { startArchiveLayer, stopArchiveLayer } from './archive/player.js';
 import { startFreesoundLayer, stopFreesoundLayer } from './freesound/player.js';
+import { startRiserBoomerLayer, stopRiserBoomerLayer } from './fx/riserBoomerPlayer.js';
 import { startServer, stopServer, broadcast, sendTo } from './server.js';
 import {
   LEAD_INSTRUMENTS, BASS_INSTRUMENTS, BASS_LEAD_INSTRUMENTS,
@@ -202,7 +203,9 @@ function startEngine() {
 
   const config = getConfig();
   if (config.archiveEnabled) startArchiveLayer();
-  if (config.freesoundEnabled) startFreesoundLayer();
+  // Freesound layer disabled — riser-boomer FX replaces it
+  // if (config.freesoundEnabled) startFreesoundLayer();
+  startRiserBoomerLayer();
 
   startLevelPolling();
   broadcastStatus();
@@ -213,6 +216,7 @@ function stopEngine() {
   stop();
   stopArchiveLayer();
   stopFreesoundLayer();
+  stopRiserBoomerLayer();
   stopLevelPolling();
   isRunning = false;
   status.running = false;

@@ -25,6 +25,7 @@ export const LEAD_INSTRUMENTS = [
   { id: 'silkystringslong', name: 'Silky Strings', folder: 'Lead/Loopable/silkystringslong', filePrefix: 'silkystringslong', startOctave: 2, endOctave: 4, plucked: false, gain: 0.7 },
   { id: 'DataStreamPad',    name: 'Data Stream',   folder: 'Lead/Loopable/DataStreamPad',    filePrefix: 'DataStreamPad',    startOctave: 2, endOctave: 4, plucked: false },
   { id: 'arcticBreeze',     name: 'Arctic Breeze', folder: 'Lead/Loopable/arctic breeze L-L', filePrefix: 'Arctic Breeze L-L', startOctave: 2, endOctave: 4, plucked: false },
+  { id: 'rockHarpsichord',  name: 'Rock Harpsichord', folder: 'Bass-Lead/Plucked/rock harpsichord B:L-P', filePrefix: 'rockharpsichord B:L-P', startOctave: 2, endOctave: 4, plucked: true },
 ];
 
 // Pad instruments: octaves 1–3 (bassSupport at oct 1, pedalPad at oct 3)
@@ -54,7 +55,6 @@ export const BASS_LEAD_INSTRUMENTS = [
   { id: 'easternHammers',     name: 'Eastern Hammers',      folder: 'Bass-Lead/Plucked/eastern hammers bass:lead plucked', filePrefix: 'easternhammer B:L-P',    startOctave: 2, endOctave: 4, plucked: true },
   { id: 'metallicEchoTines',  name: 'Metallic Echo Tines',  folder: 'Bass-Lead/Plucked/metallic echo tines B:L-P',        filePrefix: 'metalicechotines B:L-P', startOctave: 2, endOctave: 4, plucked: true },
   { id: 'mutantAcousticBass', name: 'Mutant Acoustic Bass', folder: 'Bass-Lead/Plucked/mutantacousticbass',               filePrefix: 'mutantacousticbass',     startOctave: 2, endOctave: 4, plucked: true },
-  { id: 'rockHarpsichord',   name: 'Rock Harpsichord',     folder: 'Bass-Lead/Plucked/rock harpsichord B:L-P',            filePrefix: 'rockharpsichord B:L-P', startOctave: 2, endOctave: 4, plucked: true },
 ];
 
 export const DEFAULT_LEAD = 'malechoirlong';

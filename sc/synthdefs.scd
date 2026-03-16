@@ -231,6 +231,48 @@ SynthDef(\sfxPlayerStereo, { |out=0, buf=0, amp=0.25, lpFreq=2500|
     Out.ar(out, sig * amp);
 }).add;
 
+// ── RISER-BOOMER (sample-accurate back-to-back) ─────────────
+// Plays a riser buffer then immediately a boomer buffer with
+// zero gap — timing is handled entirely in scsynth via BufRd
+// phase tracking, not JavaScript setTimeout.
+// Each buffer has its own amp and lowpass frequency.
+// Self-frees after both buffers have played.
+
+SynthDef(\riserBoomer, { |out=0, riserBuf=0, boomerBuf=0,
+    riserAmp=0.12, boomerAmp=0.2, riserLpFreq=1500, boomerLpFreq=2500|
+
+    var riserFrames  = BufFrames.kr(riserBuf);
+    var boomerFrames = BufFrames.kr(boomerBuf);
+    var riserDur     = BufDur.kr(riserBuf);
+    var boomerDur    = BufDur.kr(boomerBuf);
+    var riserRate    = BufRateScale.kr(riserBuf);
+    var boomerRate   = BufRateScale.kr(boomerBuf);
+
+    // Audio-rate frame counter — counts elapsed playback frames
+    var elapsed = Sweep.ar(0, SampleRate.ir);
+
+    // Riser: frames 0..riserFrames (rate-scaled)
+    var riserEnd   = riserFrames / riserRate;
+    var riserPhase = (elapsed * riserRate).clip(0, riserFrames - 1);
+    var riserSig   = BufRd.ar(2, riserBuf, riserPhase, 0, 2);
+    var riserGate  = (elapsed < riserEnd);
+
+    // Boomer: starts exactly at riserEnd, frames 0..boomerFrames
+    var boomerStart = riserEnd;
+    var boomerEnd   = boomerStart + (boomerFrames / boomerRate);
+    var boomerPhase = ((elapsed - boomerStart) * boomerRate).clip(0, boomerFrames - 1);
+    var boomerSig   = BufRd.ar(2, boomerBuf, boomerPhase, 0, 2);
+    var boomerGate  = (elapsed >= boomerStart) * (elapsed < boomerEnd);
+
+    var riserOut  = LPF.ar(riserSig  * riserGate,  riserLpFreq)  * riserAmp;
+    var boomerOut = LPF.ar(boomerSig * boomerGate, boomerLpFreq) * boomerAmp;
+
+    // Self-free after both buffers finish (0.5 s safety margin)
+    FreeSelf.kr(Sweep.kr(0, 1) > (riserDur + boomerDur + 0.5));
+
+    Out.ar(out, riserOut + boomerOut);
+}).add;
+
 
 // ════════════════════════════════════════════════════════════
 //  EFFECT SYNTHDEFS — in-place processing on track buses
@@ -362,6 +404,30 @@ SynthDef(\fxSpectralShift, { |bus=0, stretch=1.0, shift=0, mix=0.25, lagTime=8|
     shifted = [IFFT(chain0), IFFT(chain1)];
     wet = XFade2.ar(dry, shifted, m * 2 - 1);
     ReplaceOut.ar(bus, wet);
+}).add;
+
+// ── SIDECHAIN DUCK (riser-boomer → master) ──────────────────
+// Reads a stereo key bus (e.g. riser-boomer) and compresses the
+// signal on the target bus proportionally. When the key is loud
+// the target ducks; when the key is silent the target passes through.
+// depth blends dry→compressed (0 = bypass, 1 = full sidechain).
+SynthDef(\fxSidechainDuck, { |bus=2, keyBus=24,
+    thresh=(-30), ratio=8, attack=0.005, release=0.8, depth=1.0|
+
+    var sig      = In.ar(bus, 2);
+    var key      = In.ar(keyBus, 2);
+    var keyMono  = (key[0] + key[1]) * 0.5;
+
+    // Compander: when keyMono exceeds thresh, compress sig
+    var ducked = Compander.ar(sig, keyMono,
+        thresh.dbamp,       // threshold in linear amplitude
+        1,                  // slopeBelow (1:1 — no change below thresh)
+        1 / ratio,          // slopeAbove (1:ratio compression)
+        attack, release
+    );
+
+    var d = Lag.kr(depth, 0.1);
+    ReplaceOut.ar(bus, XFade2.ar(sig, ducked, d * 2 - 1));
 }).add;
 
 // ── GAIN (track gain, duck gain) ────────────────────────────

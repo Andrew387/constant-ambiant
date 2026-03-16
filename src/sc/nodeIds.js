@@ -62,6 +62,7 @@ export const GROUPS = {
   FREESOUND:   115,
   PEDAL_PAD:   116,
   BASS_SUPPORT: 117,
+  RISER_BOOMER: 118,
   EFFECTS:     200,
   REVERBS:     300,
   MASTER:      400,
@@ -81,6 +82,7 @@ export const BUSES = {
   REVERB_LONG:  18,
   PEDAL_PAD:    20,
   BASS_SUPPORT: 22,
+  RISER_BOOMER: 24,
 };
 
 // ── Control buses for metering (written by \busMeter synths) ──

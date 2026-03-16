@@ -35,6 +35,8 @@ import { freeInstrumentSamples } from '../sc/bufferManager.js';
 let trackGainNodeIds = {};
 let trackEffects = null;
 let masterGainNodeId = null;
+let sidechainDuckNodeId = null;
+let rbOutputNodeId = null;
 let synths = null;
 let texturePlayer = null;
 let pendingDisposeTimers = [];
@@ -98,6 +100,32 @@ export async function initMixer() {
 
   // ── Master effects (reverb, delay, filter LFO — placed in master group BEFORE masterOut) ──
   initMasterEffects();
+
+  // ── Sidechain duck (riser-boomer FX ducks the master bus) ──
+  // Added at HEAD after master effects, so execution order is:
+  //   ducker → rbOutput → masterFilter → masterDelay → masterReverb → masterOut
+  // The riser-boomer output (bus 24 → bus 2) is added after the ducker,
+  // so the FX signal bypasses ducking and flows through master effects.
+  sidechainDuckNodeId = allocNodeId();
+  rbOutputNodeId = allocNodeId();
+
+  // rbOutput first (will be pushed down when ducker is added at head)
+  synthNew('fxTrackOut', rbOutputNodeId, 0, GROUPS.MASTER, {
+    bus: BUSES.RISER_BOOMER,
+    masterBus: BUSES.MASTER,
+    gain: 1,
+  });
+
+  // Ducker at head (runs before rbOutput)
+  synthNew('fxSidechainDuck', sidechainDuckNodeId, 0, GROUPS.MASTER, {
+    bus: BUSES.MASTER,
+    keyBus: BUSES.RISER_BOOMER,
+    thresh: -30,
+    ratio: 8,
+    attack: 0.005,
+    release: 0.8,
+    depth: 1.0,
+  });
 
   // ── Master output (placed in master group, AFTER master effects) ──
   masterGainNodeId = allocNodeId();
@@ -506,6 +534,10 @@ function disposeMixer() {
     Object.values(trackEffects).forEach(fx => fx.dispose());
     trackEffects = null;
   }
+  // Sidechain duck + riser-boomer output
+  if (sidechainDuckNodeId) { nodeFree(sidechainDuckNodeId); sidechainDuckNodeId = null; }
+  if (rbOutputNodeId) { nodeFree(rbOutputNodeId); rbOutputNodeId = null; }
+
   // Track gain nodes and master are freed when SC server is rebooted
   trackGainNodeIds = {};
   masterGainNodeId = null;

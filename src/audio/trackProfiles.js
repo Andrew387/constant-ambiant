@@ -203,7 +203,7 @@ export const TRACK_PROFILES = {
   },
 
   pedalPad: {
-    gain: 0.2,
+    gain: 0.1,
     chain: [
       {
         id: 'tapeSat',
