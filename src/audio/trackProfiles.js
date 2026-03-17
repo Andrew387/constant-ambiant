@@ -117,6 +117,7 @@ export const TRACK_PROFILES = {
         params: { drive: 2.5, mix: 0.25 },
       },
       {
+        id: 'vinylWobble',
         type: 'VinylWobble',
         params: { density: 0.12, depth: 0.004 },
       },
@@ -126,11 +127,13 @@ export const TRACK_PROFILES = {
         params: { type: 'lowpass', frequency: 18000, Q: 0.7, rolloff: -12, lagTime: 3 },
       },
       {
+        id: 'lfoFilter',
         type: 'Filter',
         params: { type: 'lowpass', frequency: 3000, Q: 1.0, rolloff: -12 },
         lfo: { frequency: 0.04, min: 800, max: 6000, type: 'sine', target: 'frequency' },
       },
       {
+        id: 'spectralFreeze',
         type: 'SpectralFreeze',
         params: { density: 0.04, minHold: 2, maxHold: 5, mix: 0.2 },
       },
@@ -140,6 +143,7 @@ export const TRACK_PROFILES = {
         params: { stretch: 1.0, shift: 0, mix: 0.1 },
       },
       {
+        id: 'compressor',
         type: 'Compressor',
         params: { threshold: -18, ratio: 3, attack: 0.005, release: 0.15 },
       },
@@ -199,7 +203,7 @@ export const TRACK_PROFILES = {
   },
 
   pedalPad: {
-    gain: 0.35,
+    gain: 0.1,
     chain: [
       {
         id: 'tapeSat',
@@ -212,10 +216,12 @@ export const TRACK_PROFILES = {
         params: { rate: 0.2, depth: 0.12 },
       },
       {
+        id: 'vinylWobble',
         type: 'VinylWobble',
         params: { density: 0.2, depth: 0.008, decay: 3.0 },
       },
       {
+        id: 'spectralFreeze',
         type: 'SpectralFreeze',
         params: { density: 0.05, minHold: 3, maxHold: 8, mix: 0.25 },
       },

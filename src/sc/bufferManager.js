@@ -9,7 +9,7 @@
  *   100+    : Dynamically allocated by this module
  *
  * Sample loading strategies:
- *   - 72-note instrument sets (Lead, Bass): loaded at startup or on swap
+ *   - Note-range instrument sets (Lead, Bass, Pad): loaded at startup or on swap
  *   - Texture samples: loaded on-demand (one at a time)
  *   - Archive/Freesound: downloaded to temp files, loaded into buffers
  */
@@ -27,7 +27,7 @@ let nextBufNum = 100;
 const freeBufPool = [];
 
 // Active buffer sets: Map<string, Map<string, number>>
-// e.g. 'malechoirlong' → Map('C1' → 100, 'C#1' → 101, ...)
+// e.g. 'malechoirlong' → Map('C2' → 100, 'C#2' → 101, ...)
 const instrumentBuffers = new Map();
 
 // Reference counts: how many slots are using each instrument's buffers.
@@ -44,6 +44,9 @@ const namedBuffers = new Map();
 const allocatedBuffers = new Set();
 
 const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+
+// Filesystem-safe note names (# → s) used in sample filenames
+const FILE_NOTE_NAMES = ['C', 'Cs', 'D', 'Ds', 'E', 'F', 'Fs', 'G', 'Gs', 'A', 'As', 'B'];
 
 /**
  * Allocates a buffer number.
@@ -69,14 +72,19 @@ function resolveSamplePath(relativePath) {
 }
 
 /**
- * Loads a 72-note instrument sample set into scsynth buffers.
+ * Loads an instrument sample set into scsynth buffers.
+ *
+ * Files use note-name format: {prefix}_{NoteName}.wav
+ * e.g. malechoirlong_C2.wav, malechoirlong_Cs2.wav (Cs = C#)
  *
  * @param {string} instrumentId - Unique instrument identifier
  * @param {string} folder - Folder path relative to samples/
  * @param {string} filePrefix - Filename prefix (e.g. 'malechoirlong')
+ * @param {number} [startOctave=1] - First octave to load
+ * @param {number} [endOctave=6] - Last octave to load
  * @returns {Promise<Map<string, number>>} Map of note name → buffer number
  */
-export async function loadInstrumentSamples(instrumentId, folder, filePrefix) {
+export async function loadInstrumentSamples(instrumentId, folder, filePrefix, startOctave = 1, endOctave = 6) {
   // If already loaded, bump ref count and return existing
   if (instrumentBuffers.has(instrumentId)) {
     instrumentRefCounts.set(instrumentId, (instrumentRefCounts.get(instrumentId) || 1) + 1);
@@ -85,13 +93,12 @@ export async function loadInstrumentSamples(instrumentId, folder, filePrefix) {
 
   const noteBuffers = new Map();
   const loadPromises = [];
-  let fileIndex = 1;
 
-  for (let octave = 1; octave <= 6; octave++) {
+  for (let octave = startOctave; octave <= endOctave; octave++) {
     for (let note = 0; note < 12; note++) {
       const noteName = `${NOTE_NAMES[note]}${octave}`;
-      const padded = String(fileIndex).padStart(2, '0');
-      const filename = `${filePrefix}${padded}.wav`;
+      const fileNote = `${FILE_NOTE_NAMES[note]}${octave}`;
+      const filename = `${filePrefix}_${fileNote}.wav`;
       const filePath = resolveSamplePath(path.join(folder, filename));
 
       // Only load if file exists
@@ -108,8 +115,6 @@ export async function loadInstrumentSamples(instrumentId, folder, filePrefix) {
           })
         );
       }
-
-      fileIndex++;
     }
   }
 

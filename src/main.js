@@ -25,12 +25,13 @@ import { start, stop, updateRules, getConfig, getEngineState } from './engine/ru
 import { getSongState } from './engine/songStructure.js';
 import { startArchiveLayer, stopArchiveLayer } from './archive/player.js';
 import { startFreesoundLayer, stopFreesoundLayer } from './freesound/player.js';
+import { startRiserBoomerLayer, stopRiserBoomerLayer } from './fx/riserBoomerPlayer.js';
 import { startServer, stopServer, broadcast, sendTo } from './server.js';
 import {
-  LEAD_INSTRUMENTS, BASS_INSTRUMENTS,
+  LEAD_INSTRUMENTS, BASS_INSTRUMENTS, BASS_LEAD_INSTRUMENTS,
 } from './audio/synths/sampleRegistry.js';
 import { getAutomationState } from './audio/effects/sectionAutomation.js';
-import { getEffectChainInfo } from './audio/effects/trackEffects.js';
+import { getEffectChainInfo, getLiveEffectParams } from './audio/effects/trackEffects.js';
 import { resetBufferState } from './sc/bufferManager.js';
 import { resetNodeIds } from './sc/nodeIds.js';
 
@@ -202,7 +203,9 @@ function startEngine() {
 
   const config = getConfig();
   if (config.archiveEnabled) startArchiveLayer();
-  if (config.freesoundEnabled) startFreesoundLayer();
+  // Freesound layer disabled — riser-boomer FX replaces it
+  // if (config.freesoundEnabled) startFreesoundLayer();
+  startRiserBoomerLayer();
 
   startLevelPolling();
   broadcastStatus();
@@ -213,6 +216,7 @@ function stopEngine() {
   stop();
   stopArchiveLayer();
   stopFreesoundLayer();
+  stopRiserBoomerLayer();
   stopLevelPolling();
   isRunning = false;
   status.running = false;
@@ -232,7 +236,8 @@ function startLevelPolling() {
     if (levels) {
       const automation = getAutomationState();
       const masterFX = mixer.getMasterEffectsState();
-      broadcast({ type: 'levels', levels, automation, masterFX });
+      const liveEffects = getLiveEffectParams();
+      broadcast({ type: 'levels', levels, automation, masterFX, liveEffects });
 
       // Periodic diagnostic: log bus signal levels to console
       const now = Date.now();
@@ -284,7 +289,7 @@ function handleWSMessage(ws, msg) {
         status,
         config: getConfig(),
         debugState,
-        instruments: { lead: LEAD_INSTRUMENTS, bass: BASS_INSTRUMENTS },
+        instruments: { lead: [...LEAD_INSTRUMENTS, ...BASS_LEAD_INSTRUMENTS], bass: [...BASS_INSTRUMENTS, ...BASS_LEAD_INSTRUMENTS] },
         engine: isRunning ? getEngineState() : null,
         song: isRunning ? getSongState() : null,
         mixer: isRunning ? getMixerState() : null,
