@@ -194,6 +194,7 @@ function startEngine() {
     onSwapBass: mixer.swapBassRandom,
     onSwapPedalPad: mixer.swapPedalPadRandom,
     onSwapBassSupport: mixer.swapBassSupportRandom,
+    onSwapLeadReversed: mixer.swapLeadReversedRandom,
     onRandomizeMasterEffects: mixer.randomizeMasterEffects,
     onRandomizeTrackEffects: mixer.randomizeTrackEffects,
   });

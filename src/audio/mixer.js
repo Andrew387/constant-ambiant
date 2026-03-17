@@ -18,7 +18,8 @@ import { createAllTrackEffects, randomizeTrackEffects } from './effects/trackEff
 import { initSectionAutomation, disposeSectionAutomation } from './effects/sectionAutomation.js';
 import { initMasterEffects, randomizeMasterEffects, disposeMasterEffects, getMasterEffectsState } from './effects/masterEffects.js';
 import { TRACK_PROFILES } from './trackProfiles.js';
-import { triggerLeadChord, triggerDrone } from '../rhythm/scheduler.js';
+import { triggerLeadChord, triggerLeadReversed, triggerDrone } from '../rhythm/scheduler.js';
+import { startSwellTimer, stopSwellTimer } from './effects/leadReversedSwell.js';
 import { createSineSynth } from './synths/sineSynth.js';
 import { createSampleSynth } from './synths/samplePlayer.js';
 import { createTexturePlayer } from './synths/texturePlayer.js';
@@ -30,6 +31,13 @@ import {
 // Bass-Lead instruments are eligible for both slots
 const LEAD_POOL = [...LEAD_INSTRUMENTS, ...BASS_LEAD_INSTRUMENTS];
 const BASS_POOL = [...BASS_INSTRUMENTS, ...BASS_LEAD_INSTRUMENTS];
+
+// leadReversed: all loopable instruments covering octaves 2–4
+const LEAD_REVERSED_POOL = [
+  ...LEAD_INSTRUMENTS.filter(i => !i.plucked && i.type !== 'sine'),
+  ...PAD_INSTRUMENTS.filter(i => !i.plucked),
+  ...BASS_LEAD_INSTRUMENTS.filter(i => !i.plucked),
+];
 import { freeInstrumentSamples } from '../sc/bufferManager.js';
 
 let trackGainNodeIds = {};
@@ -52,6 +60,7 @@ const TRACK_BUS = {
   freesound:     BUSES.FREESOUND,
   pedalPad:      BUSES.PEDAL_PAD,
   bassSupport:   BUSES.BASS_SUPPORT,
+  leadReversed:  BUSES.LEAD_REVERSED,
 };
 
 /**
@@ -138,11 +147,12 @@ export async function initMixer() {
   // ── Per-track bus meters (at tail of effects group for track buses) ──
   meterNodeIds = [];
   const trackMeters = [
-    { audioBus: BUSES.DRONE,     ctlBus: METER_CTL_BUSES.DRONE },
-    { audioBus: BUSES.LEAD,      ctlBus: METER_CTL_BUSES.LEAD },
-    { audioBus: BUSES.TEXTURE,   ctlBus: METER_CTL_BUSES.TEXTURE },
-    { audioBus: BUSES.ARCHIVE,   ctlBus: METER_CTL_BUSES.ARCHIVE },
-    { audioBus: BUSES.FREESOUND, ctlBus: METER_CTL_BUSES.FREESOUND },
+    { audioBus: BUSES.DRONE,         ctlBus: METER_CTL_BUSES.DRONE },
+    { audioBus: BUSES.LEAD,          ctlBus: METER_CTL_BUSES.LEAD },
+    { audioBus: BUSES.TEXTURE,       ctlBus: METER_CTL_BUSES.TEXTURE },
+    { audioBus: BUSES.ARCHIVE,       ctlBus: METER_CTL_BUSES.ARCHIVE },
+    { audioBus: BUSES.FREESOUND,     ctlBus: METER_CTL_BUSES.FREESOUND },
+    { audioBus: BUSES.LEAD_REVERSED, ctlBus: METER_CTL_BUSES.LEAD_REVERSED },
   ];
   for (const { audioBus, ctlBus } of trackMeters) {
     const nodeId = allocNodeId();
@@ -169,14 +179,16 @@ export async function initMixer() {
     : await createSampleSynth(leadConfig, { outBus: BUSES.LEAD, groupId: GROUPS.LEAD });
 
   const bassSupportConfig = PAD_INSTRUMENTS.find(i => i.id === bassSupportSlot.getCurrentId());
+  const leadReversedConfig = LEAD_REVERSED_POOL.find(i => i.id === leadReversedSlot.getCurrentId());
 
-  const [drone, pedalPad, bassSupport] = await Promise.all([
+  const [drone, pedalPad, bassSupport, leadReversed] = await Promise.all([
     createSampleSynth(bassConfig, { outBus: BUSES.DRONE, groupId: GROUPS.DRONE }),
     createSampleSynth(padSampleConfig, { outBus: BUSES.PEDAL_PAD, groupId: GROUPS.PEDAL_PAD }),
     createSampleSynth(bassSupportConfig, { outBus: BUSES.BASS_SUPPORT, groupId: GROUPS.BASS_SUPPORT }),
+    createSampleSynth(leadReversedConfig, { outBus: BUSES.LEAD_REVERSED, groupId: GROUPS.LEAD_REVERSED }),
   ]);
 
-  synths = { drone, lead, pedalPad, bassSupport, drone2: null };
+  synths = { drone, lead, pedalPad, bassSupport, leadReversed, drone2: null };
 
   // ── Chord trigger registry ──
   // Each entry defines how a track responds to a chord event.
@@ -202,6 +214,13 @@ export async function initMixer() {
         }
       },
     },
+    {
+      track: 'leadReversed',
+      trigger(synthsRef, { leadReversedChord }) {
+        if (!leadReversedChord) return;
+        triggerLeadReversed(synthsRef, leadReversedChord.voicedNotes);
+      },
+    },
     // TODO: Bass support disabled while evaluating dual-plucked bass balance
     // {
     //   track: 'bassSupport',
@@ -215,6 +234,13 @@ export async function initMixer() {
     //   },
     // },
   ];
+
+  // ── Lead reversed swell timer ──
+  const swellFilterRef = trackEffects.leadReversed?.refs?.swellFilter;
+  const swellGainRef = trackEffects.leadReversed?.refs?.swellGain;
+  if (swellFilterRef && swellGainRef) {
+    startSwellTimer(swellFilterRef.nodeId, swellGainRef.nodeId);
+  }
 
   // ── Texture player ──
   texturePlayer = createTexturePlayer({ outBus: BUSES.TEXTURE });
@@ -237,6 +263,7 @@ export async function initMixer() {
     swapBassRandom: bassSlot.swapRandom,
     swapPedalPadRandom: pedalPadSlot.swapRandom,
     swapBassSupportRandom: bassSupportSlot.swapRandom,
+    swapLeadReversedRandom: leadReversedSlot.swapRandom,
     pollLevels,
     dispose: disposeMixer,
   };
@@ -435,6 +462,11 @@ const bassSupportSlot = createSwappableSlot({
   instruments: PAD_INSTRUMENTS, defaultId: DEFAULT_PAD_SAMPLE,
   outBus: BUSES.BASS_SUPPORT, groupId: GROUPS.BASS_SUPPORT,
 });
+const leadReversedSlot = createSwappableSlot({
+  label: 'leadReversed', synthKey: 'leadReversed',
+  instruments: LEAD_REVERSED_POOL, defaultId: LEAD_REVERSED_POOL[Math.floor(Math.random() * LEAD_REVERSED_POOL.length)].id,
+  outBus: BUSES.LEAD_REVERSED, groupId: GROUPS.LEAD_REVERSED,
+});
 
 /**
  * Sets the volume for a specific track via OSC.
@@ -483,12 +515,13 @@ export function getMixerState() {
 // Map meter names to their control bus offset within the METER_CTL block.
 // Each meter writes 2 values (rms, peak), so DRONE at ctl bus 102 = offset 2.
 const METER_LAYOUT = [
-  { name: 'drone',     offset: (METER_CTL_BUSES.DRONE     - METER_CTL_START) },
-  { name: 'lead',      offset: (METER_CTL_BUSES.LEAD      - METER_CTL_START) },
-  { name: 'texture',   offset: (METER_CTL_BUSES.TEXTURE   - METER_CTL_START) },
-  { name: 'archive',   offset: (METER_CTL_BUSES.ARCHIVE   - METER_CTL_START) },
-  { name: 'freesound', offset: (METER_CTL_BUSES.FREESOUND - METER_CTL_START) },
-  { name: 'master',    offset: (METER_CTL_BUSES.MASTER    - METER_CTL_START) },
+  { name: 'drone',        offset: (METER_CTL_BUSES.DRONE         - METER_CTL_START) },
+  { name: 'lead',         offset: (METER_CTL_BUSES.LEAD          - METER_CTL_START) },
+  { name: 'texture',      offset: (METER_CTL_BUSES.TEXTURE       - METER_CTL_START) },
+  { name: 'archive',      offset: (METER_CTL_BUSES.ARCHIVE       - METER_CTL_START) },
+  { name: 'freesound',    offset: (METER_CTL_BUSES.FREESOUND     - METER_CTL_START) },
+  { name: 'master',       offset: (METER_CTL_BUSES.MASTER        - METER_CTL_START) },
+  { name: 'leadReversed', offset: (METER_CTL_BUSES.LEAD_REVERSED - METER_CTL_START) },
 ];
 
 /**
@@ -521,6 +554,7 @@ function disposeMixer() {
 
   disposeMasterEffects();
   disposeSectionAutomation();
+  stopSwellTimer();
 
   if (texturePlayer) {
     texturePlayer.dispose();

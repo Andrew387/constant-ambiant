@@ -28,13 +28,14 @@ A **generative ambient music web app** built with **Tone.js** and **vanilla JS (
 | **scheduler** | `src/rhythm/scheduler.js` | Triggers pad/drone/lead synths with voiced notes |
 | **sectionAutomation** | `src/audio/effects/sectionAutomation.js` | Per-section brightness filters & gain ducking driven by `trackProfiles` automation config |
 
-### Audio Tracks (6 layers)
+### Audio Tracks (7 layers)
 1. **pad** — Two detuned PolySynths, slow crossfade (`src/audio/synths/pad.js`)
 2. **drone** — MonoSynth sub-bass, heavy lowpass at 150 Hz (`src/audio/synths/drone.js`)
 3. **lead** — Sample-based loopable instrument (`src/audio/synths/samplePlayer.js`) — 6 voice options (male choir, strings, bells, etc.)
-4. **sampleTexture** — Seamless-looping ambient WAV from `samples/texturesNew/` (`src/audio/synths/texturePlayer.js`)
-5. **archive** — Archive.org ambient audio, time-stretched 800%, filtered (`src/archive/`)
-6. **freesound** — Freesound SFX layer (`src/freesound/`)
+4. **leadReversed** — Any loopable instrument (`LEAD_REVERSED_POOL`) playing the lead's chord progression in reverse order with heavy variation; held at gain 0 (silent) with a lowpass at 200 Hz, then dramatic gain+filter swells every 15–30 s (`src/audio/effects/leadReversedSwell.js`)
+5. **sampleTexture** — Seamless-looping ambient WAV from `samples/texturesNew/` (`src/audio/synths/texturePlayer.js`)
+6. **archive** — Archive.org ambient audio, time-stretched 800%, filtered (`src/archive/`)
+7. **freesound** — Freesound SFX layer (`src/freesound/`)
 
 ### How Timing Works
 - Chord scheduling uses **`setTimeout`** (NOT `Tone.Transport.schedule`) to avoid accumulated drift over 7+ second intervals
@@ -173,6 +174,7 @@ Adding or modifying a track requires keeping these maps consistent. `createAllTr
 | Freesound | `freesound` | — | `BUSES.FREESOUND` | |
 | Pedal Pad | `pedalPad` | `synths.pedalPad` | `BUSES.PEDAL_PAD` | No VU meter |
 | Bass Support | `bassSupport` | `synths.bassSupport` | `BUSES.BASS_SUPPORT` | No VU meter |
+| Lead Reversed | `leadReversed` | `synths.leadReversed` | `BUSES.LEAD_REVERSED` | Any loopable instrument from `LEAD_REVERSED_POOL`, reversed progression with gain+filter swell |
 
 ### VU Meter Control Buses
 
@@ -185,3 +187,25 @@ The drone and bassSupport use `triggerAttackRelease(note, duration)` which start
 ### Deferred Fade-In
 
 Tracks with `deferredFadeIn` in their automation config (drone, bassSupport) start each cycle with duckGain = 0 (silent). At a random point during the configured window sections, the automation triggers a fade-in by setting the duck gain to its normal calculated value. The SC `Lag3` smoothing (lagTime: 4s) handles the actual fade curve.
+
+### Lead Reversed Track
+
+The `leadReversed` track creates dramatic, wave-like swells by playing the lead's chord progression in reverse order through any loopable instrument. The track is held completely silent (gain 0) and periodically bursts to life with a combined gain + filter swell.
+
+**How it works:**
+- **Reversed progression**: `ruleEngine.js` maintains a `leadReversedLoop` — the current `baseLoop` reversed and heavily varied (40–70% of chords get 1–2 random variations: inversions, revoicing, color changes, octave shifts, drop-fifth)
+- **Instrument pool**: Uses `LEAD_REVERSED_POOL` (all loopable non-sine instruments from LEAD, PAD, and BASS_LEAD pools), randomly swapped each song cycle. Notes are shifted to octaves 2–3 via `toPadOctave()` in `scheduler.js` — the overlap range all instrument pools support
+- **Dual swell mechanism**: The track's effect chain has two swell-controlled nodes:
+  1. `swellFilter` — lowpass at 200 Hz (closed) → 12000–18000 Hz (open), lagTime 1.5 s
+  2. `swellGain` — gain 0 (closed) → 0.8 (open), lagTime 1.5 s
+  The gain at 0 guarantees absolute silence when closed (no filter leakage). Both ramp simultaneously via SC `Lag3` smoothing (~4.5 s to 95%), creating a slow dramatic rise from silence to full bright harmonics
+- **Swell timing**: `leadReversedSwell.js` fires every 15–30 s, holds at peak for 0.3–1 s, then snaps both nodes back to closed state. The Lag3 smoothing shapes both the rise and the fall
+- **No section automation**: The track plays continuously in all sections. The swell timer operates independently of section state
+- **Sustains through chord skips**: `TRACK_SKIP_RELEASE[leadReversed] = false` — notes are not released when chords are skipped
+
+**Key files:**
+- `src/audio/effects/leadReversedSwell.js` — Swell timer controlling both filter freq and gain (start/stop, random interval scheduling)
+- `src/engine/ruleEngine.js` — `createLeadReversedLoop()`, reversed loop state, `leadReversedChord` in triggerCtx
+- `src/rhythm/scheduler.js` — `triggerLeadReversed()`, `toPadOctave()` octave mapping
+
+**Important**: The SC SynthDef `fxLPF` uses parameter name `freq` (not `frequency`). Always use `nodeSet(id, { freq: value })` when controlling filter frequency.

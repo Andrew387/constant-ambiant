@@ -228,6 +228,22 @@ export const TRACK_PROFILES = {
     ],
   },
 
+  leadReversed: {
+    gain: 1.0,
+    chain: [
+      {
+        id: 'swellFilter',
+        type: 'Filter',
+        params: { type: 'lowpass', frequency: 200, Q: 0.7, rolloff: -24, lagTime: 1.5 },
+      },
+      {
+        id: 'swellGain',
+        type: 'Gain',
+        params: { gain: 0, lagTime: 1.5 },
+      },
+    ],
+  },
+
   sampleTexture: {
     gain: 0.05,
     chain: [

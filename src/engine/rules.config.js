@@ -29,6 +29,7 @@ export const TRACK_SKIP_RELEASE = {
   lead: true,
   drone: false,
   bassSupport: false,
+  leadReversed: false,
 };
 
 /** Humanization: random timing offset range in seconds (±half this value). */
