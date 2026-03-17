@@ -336,8 +336,19 @@ export function randomizeTrackEffects(effects) {
       const sweep = live.lfoFilter.lfoMax - live.lfoFilter.lfoMin;
       const maxSweep = r.lfoMax.max - r.lfoMin.min;
       const minSweep = r.lfoMax.min - r.lfoMin.max;
-      score += normalize(sweep, minSweep, maxSweep);
+      const sweepNorm = normalize(sweep, minSweep, maxSweep);
+      score += sweepNorm;
       contributors++;
+
+      // Compensate volume: wider sweep lets more signal through at peaks.
+      // sweepNorm 0 (narrow) → gain 1.0, sweepNorm 1 (widest) → gain 0.55
+      const lfoGain = 1.0 - sweepNorm * 0.45;
+      const lfoRef = refs.lfoFilter;
+      if (lfoRef) {
+        nodeSet(lfoRef.nodeId, { gain: lfoGain });
+        live.lfoFilter.gain = lfoGain;
+        log.push(`${trackName}.lfoFilter.gain(${lfoGain.toFixed(2)})`);
+      }
     }
 
     if (contributors > 0) score /= contributors;

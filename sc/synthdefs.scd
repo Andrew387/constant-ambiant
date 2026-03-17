@@ -452,12 +452,13 @@ SynthDef(\fxLPF, { |bus=0, freq=18000, lagTime=3|
 // ── LFO-MODULATED LOWPASS ───────────────────────────────────
 // Cascaded 2× LPF (24 dB/oct) with mild resonance for audible sweep.
 SynthDef(\fxLPFLfo, { |bus=0, centerFreq=3000,
-    lfoRate=0.04, lfoMin=800, lfoMax=6000, rq=0.7|
+    lfoRate=0.04, lfoMin=800, lfoMax=6000, rq=0.7, gain=1, lagTime=4|
 
     var lfo = SinOsc.kr(lfoRate).range(lfoMin, lfoMax);
     var sig = In.ar(bus, 2);
     sig = RLPF.ar(sig, lfo, rq);
     sig = LPF.ar(sig, lfo);   // second stage for 24 dB/oct total
+    sig = sig * Lag3.kr(gain, lagTime);
     ReplaceOut.ar(bus, sig);
 }).add;
 
