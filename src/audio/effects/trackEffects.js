@@ -27,6 +27,7 @@ const TRACK_BUS_MAP = {
   freesound:     BUSES.FREESOUND,
   pedalPad:      BUSES.PEDAL_PAD,
   bassSupport:   BUSES.BASS_SUPPORT,
+  leadReversed:  BUSES.LEAD_REVERSED,
 };
 
 // Map from TRACK_PROFILES track name → which reverb bus to send to
@@ -38,6 +39,7 @@ const TRACK_REVERB_MAP = {
   freesound:     BUSES.REVERB_LONG,
   pedalPad:      BUSES.REVERB_LONG,
   bassSupport:   BUSES.REVERB_LONG,
+  leadReversed:  BUSES.REVERB_LONG,
 };
 
 // Dry output gain per track (1 = full dry, lower = more reverb-dominant)
@@ -47,13 +49,14 @@ const TRACK_DRY_GAIN = {
 
 // Reverb send levels per track (from original effect chains)
 const REVERB_SEND_LEVELS = {
-  drone:         0.2,    // subtle reverb to fill low end
-  lead:          0.45,   // from lead chain: Reverb wet: 0.45
-  sampleTexture: 0.4,    // heavy reverb wash, mostly wet
-  archive:       0.3,    // moderate reverb (lowered — AGC already normalizes levels)
+  drone:         0.15,   // subtle reverb to fill low end
+  lead:          0.45,   // moderate reverb for lead presence
+  sampleTexture: 0.30,   // reverb wash, pulled back to avoid mud
+  archive:       0.20,   // moderate reverb (lowered — AGC already normalizes levels)
   freesound:     0.0,    // freesound has its own reverb per-sound
-  pedalPad:      0.45,   // warm reverb wash for pedal tone
-  bassSupport:   0.3,    // moderate reverb for bass support pad
+  pedalPad:      0.30,   // warm reverb wash for pedal tone
+  bassSupport:   0.20,   // moderate reverb for bass support pad
+  leadReversed:  0.50,   // reverb for washy ethereal swells
 };
 
 /**

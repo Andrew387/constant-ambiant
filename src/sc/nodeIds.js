@@ -63,6 +63,7 @@ export const GROUPS = {
   PEDAL_PAD:   116,
   BASS_SUPPORT: 117,
   RISER_BOOMER: 118,
+  LEAD_REVERSED: 119,
   EFFECTS:     200,
   REVERBS:     300,
   MASTER:      400,
@@ -83,19 +84,21 @@ export const BUSES = {
   PEDAL_PAD:    20,
   BASS_SUPPORT: 22,
   RISER_BOOMER: 24,
+  LEAD_REVERSED: 26,
 };
 
 // ── Control buses for metering (written by \busMeter synths) ──
 // Each meter writes 2 values: [rms, peak] to adjacent control buses.
 // Total: 6 meters × 2 = 12 control buses (100–111).
 export const METER_CTL_BUSES = {
-  DRONE:     100,  // 100=rms, 101=peak
-  LEAD:      102,
-  TEXTURE:   104,
-  ARCHIVE:   106,
-  FREESOUND: 108,
-  MASTER:    110,
+  DRONE:         100,  // 100=rms, 101=peak
+  LEAD:          102,
+  TEXTURE:       104,
+  ARCHIVE:       106,
+  FREESOUND:     108,
+  MASTER:        110,
+  LEAD_REVERSED: 112,
 };
 
 export const METER_CTL_START = 100;
-export const METER_CTL_COUNT = 12;  // 6 meters × 2 values
+export const METER_CTL_COUNT = 14;  // 7 meters × 2 values

@@ -19,42 +19,42 @@ export const SECTIONS = [
     duration: 4,           // loop passes
     holdUntil: 0,          // automation hold threshold (0–1)
     chordSkipProbability: 0.30,
-    tracks: { drone: true, bassSupport: true, archive: true, freesound: true, lead: true },
+    tracks: { drone: true, bassSupport: true, archive: true, freesound: true, lead: true, leadReversed: true },
   },
   {
     type: 'intro',
     duration: 4,
     holdUntil: 0.5,
     chordSkipProbability: 0.20,
-    tracks: { drone: true, bassSupport: true, archive: true, freesound: true, lead: true },
+    tracks: { drone: true, bassSupport: true, archive: true, freesound: true, lead: true, leadReversed: true },
   },
   {
     type: 'main',
     duration: 4,
     holdUntil: 0.8,
     chordSkipProbability: 0,
-    tracks: { drone: true, bassSupport: true, archive: true, freesound: true, lead: true },
+    tracks: { drone: true, bassSupport: true, archive: true, freesound: true, lead: true, leadReversed: true },
   },
   {
     type: 'innerTransition',
     duration: 1,
     holdUntil: 0,
     chordSkipProbability: 0,
-    tracks: { drone: true, bassSupport: true, archive: true, freesound: true, lead: true },
+    tracks: { drone: true, bassSupport: true, archive: true, freesound: true, lead: true, leadReversed: true },
   },
   {
     type: 'main2',
     duration: 4,
     holdUntil: 0.8,
     chordSkipProbability: 0,
-    tracks: { drone: true, bassSupport: true, archive: true, freesound: true, lead: true },
+    tracks: { drone: true, bassSupport: true, archive: true, freesound: true, lead: true, leadReversed: true },
   },
   {
     type: 'outro',
     duration: 2,
     holdUntil: 0.4,
     chordSkipProbability: 0,
-    tracks: { drone: true, bassSupport: true, archive: true, freesound: true, lead: true },
+    tracks: { drone: true, bassSupport: true, archive: true, freesound: true, lead: true, leadReversed: true },
   },
 ];
 

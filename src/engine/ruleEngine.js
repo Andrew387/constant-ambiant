@@ -40,6 +40,7 @@ let swapLeadFn = null;
 let swapBassFn = null;
 let swapPedalPadFn = null;
 let swapBassSupportFn = null;
+let swapLeadReversedFn = null;
 let randomizeMasterEffectsFn = null;
 let randomizeTrackEffectsFn = null;
 let running = false;
@@ -56,6 +57,12 @@ let loop = [];
 let loopPosition = 0;
 let loopPassCount = 0;
 let lastPlayedPosition = 0;
+
+// ── Lead reversed loop state ──
+// Reversed + heavily varied version of the current progression.
+// Advanced in sync with the main loop but plays chords in reverse order.
+let leadReversedLoop = [];
+let leadReversedPosition = 0;
 
 /**
  * Converts chordDuration (in measures of 4/4) to seconds.
@@ -131,9 +138,12 @@ function swapInstrumentsForCycle() {
   if (swapLeadFn) swaps.push(swapLeadFn().catch(err => { console.warn('[engine] lead swap failed:', err); return null; }));
   if (swapBassFn) swaps.push(swapBassFn().catch(err => { console.warn('[engine] bass swap failed:', err); return null; }));
 
-  // Swap bass-support pad independently (fire-and-forget)
+  // Swap bass-support and lead-reversed pads independently (fire-and-forget)
   if (swapBassSupportFn) {
     swapBassSupportFn().catch(err => { console.warn('[engine] bassSupport swap failed:', err); });
+  }
+  if (swapLeadReversedFn) {
+    swapLeadReversedFn().catch(err => { console.warn('[engine] leadReversed swap failed:', err); });
   }
 
   if (swaps.length === 0) {
@@ -275,6 +285,34 @@ function createVariedLoop(base) {
   return varied;
 }
 
+/**
+ * Creates a reversed + heavily varied version of a progression for the
+ * leadReversed track. 40–70% of chords receive 1–2 random variations.
+ */
+function createLeadReversedLoop(base) {
+  const reversed = [...base].reverse().map(c => ({ ...c }));
+  const count = reversed.length;
+  if (count === 0) return reversed;
+
+  const numChanges = Math.max(1, Math.floor(count * (0.4 + Math.random() * 0.3)));
+  const indices = new Set();
+  while (indices.size < numChanges) {
+    indices.add(Math.floor(Math.random() * count));
+  }
+
+  for (const idx of indices) {
+    let chord = reversed[idx];
+    const numOps = Math.random() < 0.5 ? 1 : 2;
+    for (let i = 0; i < numOps; i++) {
+      const fn = VARIATION_FNS[Math.floor(Math.random() * VARIATION_FNS.length)];
+      chord = fn(chord);
+    }
+    reversed[idx] = chord;
+  }
+
+  return reversed;
+}
+
 function generateLoopProgression() {
   const loopOctave = pickOctave();
   const opts = { octave: loopOctave };
@@ -308,6 +346,8 @@ function generateLoopProgression() {
   loop = chords;
   loopPosition = 0;
   loopPassCount = 0;
+  leadReversedLoop = createLeadReversedLoop(chords);
+  leadReversedPosition = 0;
 
   const symbols = chords.map(c => c.symbol).join(' → ');
   const rhythmStr = prog.rhythm.map(t => `×${t / TICKS_PER_UNIT}`).join(' ');
@@ -409,6 +449,8 @@ function advanceLoop() {
         baseLoop = chords;
         loop = chords;
         loopPosition = 0;
+        leadReversedLoop = createLeadReversedLoop(chords);
+        leadReversedPosition = 0;
         lastChord = chords[chords.length - 1];
 
         const symbols = chords.map(c => c.symbol).join(' → ');
@@ -452,6 +494,7 @@ function advanceLoop() {
       swapInstrumentsForCycle();
     } else if (loopPassCount > 0) {
       loop = createVariedLoop(baseLoop);
+      leadReversedLoop = createLeadReversedLoop(baseLoop);
     }
   }
 
@@ -482,6 +525,13 @@ function scheduleNextChord() {
     const chord = advanceLoop();
     const { voicedNotes, offsets, notes, durationTicks } = chord;
 
+    // Advance lead reversed position in sync with main loop
+    let leadReversedChord = null;
+    if (leadReversedLoop.length > 0) {
+      leadReversedChord = leadReversedLoop[leadReversedPosition];
+      leadReversedPosition = (leadReversedPosition + 1) % leadReversedLoop.length;
+    }
+
     const chordSec = baseSec * durationTicks / TICKS_PER_UNIT;
 
     // ── Section-aware chord skip ──
@@ -506,7 +556,7 @@ function scheduleNextChord() {
       const droneNote = `${bassNoteName}2`;
       const bassOffset = getBassOffsetBeat(lastPlayedPosition);
 
-      const triggerCtx = { schedule, offsets, chordSec, droneNote, bassOffset, bassIsPlucked };
+      const triggerCtx = { schedule, offsets, chordSec, droneNote, bassOffset, bassIsPlucked, leadReversedChord };
 
       // Fire all registered chord triggers for tracks active in this section
       for (const entry of chordTriggers) {
@@ -553,6 +603,7 @@ export function start(mixerSynths, mixerTexturePlayer, callbacks = {}) {
   swapBassFn = callbacks.onSwapBass || null;
   swapPedalPadFn = callbacks.onSwapPedalPad || null;
   swapBassSupportFn = callbacks.onSwapBassSupport || null;
+  swapLeadReversedFn = callbacks.onSwapLeadReversed || null;
   randomizeMasterEffectsFn = callbacks.onRandomizeMasterEffects || null;
   randomizeTrackEffectsFn = callbacks.onRandomizeTrackEffects || null;
   running = true;
@@ -564,6 +615,8 @@ export function start(mixerSynths, mixerTexturePlayer, callbacks = {}) {
   lastPlayedPosition = 0;
   leadIsPlucked = false;
   bassIsPlucked = false;
+  leadReversedLoop = [];
+  leadReversedPosition = 0;
 
   initSongStructure();
   pickChordPlayingRule();
@@ -620,6 +673,7 @@ export function stop() {
   if (synths && synths.lead && synths.lead.releaseAll)  synths.lead.releaseAll();
   if (synths && synths.drone && synths.drone.releaseAll) synths.drone.releaseAll();
   if (synths && synths.drone2 && synths.drone2.releaseAll) synths.drone2.releaseAll();
+  if (synths && synths.leadReversed && synths.leadReversed.releaseAll) synths.leadReversed.releaseAll();
 
   stopPedal();
 
@@ -631,10 +685,13 @@ export function stop() {
   lastPlayedPosition = 0;
   lastChord = null;
   pendingProgression = null;
+  leadReversedLoop = [];
+  leadReversedPosition = 0;
   swapLeadFn = null;
   swapBassFn = null;
   swapPedalPadFn = null;
   swapBassSupportFn = null;
+  swapLeadReversedFn = null;
   randomizeMasterEffectsFn = null;
   randomizeTrackEffectsFn = null;
   leadIsPlucked = false;
@@ -660,6 +717,7 @@ function syncEnvelopesToDuration() {
   if (synths.drone2 && synths.drone2.updateEnvelopes) synths.drone2.updateEnvelopes(chordSec, atk, rel);
   if (synths.lead && synths.lead.updateEnvelopes)  synths.lead.updateEnvelopes(chordSec, atk, rel);
   if (synths.bassSupport && synths.bassSupport.updateEnvelopes) synths.bassSupport.updateEnvelopes(chordSec, atk, rel);
+  if (synths.leadReversed && synths.leadReversed.updateEnvelopes) synths.leadReversed.updateEnvelopes(chordSec, atk, rel);
 }
 
 export function getConfig() {
