@@ -178,16 +178,19 @@ export async function startArchiveLayer() {
   console.log('[archive] Starting...');
 
   const track = await loadTrack();
-  if (!track || !isActive) {
-    console.warn('[archive] failed to load first track, retrying...');
-    setTimeout(() => {
-      if (isActive) {
-        isActive = false;
-        startArchiveLayer();
-      }
-    }, 10000);
+  if (!track) {
+    if (isActive) {
+      console.warn('[archive] failed to load first track, retrying in 10s...');
+      setTimeout(() => {
+        if (isActive) {
+          isActive = false;
+          startArchiveLayer();
+        }
+      }, 10000);
+    }
     return;
   }
+  if (!isActive) return;
 
   activeTrack = track;
   startPlayback(activeTrack);

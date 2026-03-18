@@ -11,19 +11,13 @@
  */
 
 import { BUSES } from '../../sc/nodeIds.js';
+import { TRACK_BUS_MAP } from '../trackRegistry.js';
+import rulesConfig from '../../engine/rules.config.js';
 
-// Resolve track names to SC bus numbers for sidechain key inputs
+// Extend the track bus map with non-track buses used for sidechain keying
 const TRACK_BUS_LOOKUP = {
-  drone:         BUSES.DRONE,
-  lead:          BUSES.LEAD,
-  pad:           BUSES.PAD,
-  sampleTexture: BUSES.TEXTURE,
-  archive:       BUSES.ARCHIVE,
-  freesound:     BUSES.FREESOUND,
-  pedalPad:      BUSES.PEDAL_PAD,
-  bassSupport:   BUSES.BASS_SUPPORT,
-  leadReversed:  BUSES.LEAD_REVERSED,
-  riserBoomer:   BUSES.RISER_BOOMER,
+  ...TRACK_BUS_MAP,
+  riserBoomer: BUSES.RISER_BOOMER,
 };
 
 const EFFECT_REGISTRY = [
@@ -73,7 +67,7 @@ const EFFECT_REGISTRY = [
     mapParams(spec) {
       let delayTime = spec.params.delayTime;
       if (typeof delayTime === 'string') {
-        const beatSec = 60 / 56;
+        const beatSec = 60 / rulesConfig.tempo.current;
         if (delayTime === '4n.') delayTime = beatSec * 1.5;
         else if (delayTime === '2n.') delayTime = beatSec * 3;
         else if (delayTime === '4n') delayTime = beatSec;

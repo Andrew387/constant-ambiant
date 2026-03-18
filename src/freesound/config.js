@@ -1,5 +1,5 @@
-export const FREESOUND_API_KEY = 'eToc2P9I24psIWSbd1ga5ICs1PYdhtcFJmLxVItx';
-export const FREESOUND_CLIENT_ID = 'qALGlVBP9kxq5nAOybXL';
+export const FREESOUND_API_KEY = process.env.FREESOUND_API_KEY || '';
+export const FREESOUND_CLIENT_ID = process.env.FREESOUND_CLIENT_ID || '';
 
 export const SEARCH_QUERIES = [
   'water drip',

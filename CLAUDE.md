@@ -18,7 +18,9 @@ A **generative ambient music web app** built with **Tone.js** and **vanilla JS (
 | Module | Path | Role |
 |--------|------|------|
 | **main.js** | `src/main.js` | Wires UI ↔ engine ↔ mixer, manages debug state |
-| **ruleEngine** | `src/engine/ruleEngine.js` | Central brain — generates progressions, schedules chords via `setTimeout`, manages loop state |
+| **ruleEngine** | `src/engine/ruleEngine.js` | Central brain — schedules chords via `setTimeout`, orchestrates instrument swaps, triggers synths |
+| **loopManager** | `src/engine/loopManager.js` | Owns chord progression loop state: base loop, variation, position tracking, lead reversed loop |
+| **trackRegistry** | `src/audio/trackRegistry.js` | Single source of truth for track wiring: bus mapping, reverb routing, send levels |
 | **songStructure** | `src/engine/songStructure.js` | 6-section state machine: `transition → intro → main → innerTransition → main2 → outro → repeat` |
 | **rules.config** | `src/engine/rules.config.js` | Tempo (45–72 BPM), chord duration, section durations, chord skip probabilities, feature flags |
 | **mixer** | `src/audio/mixer.js` | Master audio graph: per-track gains, effect chains, instrument swapping |
@@ -30,7 +32,7 @@ A **generative ambient music web app** built with **Tone.js** and **vanilla JS (
 
 ### Audio Tracks (7 layers)
 1. **pad** — Two detuned PolySynths, slow crossfade (`src/audio/synths/pad.js`)
-2. **drone** — MonoSynth sub-bass, heavy lowpass at 150 Hz (`src/audio/synths/drone.js`)
+2. **drone** — Sample-based bass, heavy lowpass at 150 Hz (`src/audio/synths/samplePlayer.js`)
 3. **lead** — Sample-based loopable instrument (`src/audio/synths/samplePlayer.js`) — 6 voice options (male choir, strings, bells, etc.)
 4. **leadReversed** — Any loopable instrument (`LEAD_REVERSED_POOL`) playing the lead's chord progression in reverse order with heavy variation; held at gain 0 (silent) with a lowpass at 200 Hz, then dramatic gain+filter swells every 15–30 s (`src/audio/effects/leadReversedSwell.js`)
 5. **sampleTexture** — Seamless-looping ambient WAV from `samples/texturesNew/` (`src/audio/synths/texturePlayer.js`)
@@ -138,10 +140,10 @@ Original pre-normalization samples are preserved in `samples_backup/` with the s
   1. `sc/startup.scd` — Add a new source group (e.g. `s.sendMsg(\g_new, 117, 0, 100)`) and add the bus number to the bus-clear array
   2. `src/sc/nodeIds.js` — Add entries to both `GROUPS` and `BUSES`
   3. `src/audio/trackProfiles.js` — Add the track's `TRACK_PROFILES` entry (gain, effect chain, automation)
-  4. **`src/audio/effects/trackEffects.js`** — Add the track to **all three maps**: `TRACK_BUS_MAP`, `TRACK_REVERB_MAP`, and `REVERB_SEND_LEVELS`. **Without this, the effect chain won't be built, sectionAutomation won't discover the track's duckGain/dynamicFilter nodes, and any automation (including deferred fade-in) will silently fail — the track stays at its initial gain (often 0) forever.**
+  4. **`src/audio/trackRegistry.js`** — Add the track to `TRACK_WIRING`. This is the single source of truth for bus mapping, reverb routing, and send levels. **Without this, the effect chain won't be built, sectionAutomation won't discover the track's duckGain/dynamicFilter nodes, and any automation (including deferred fade-in) will silently fail — the track stays at its initial gain (often 0) forever.**
   5. `src/engine/sections.config.js` — Add the track to each section's `tracks` object for chord-trigger gating
   6. `src/engine/rules.config.js` — Add to `TRACK_SKIP_RELEASE` if the track responds to chord triggers
-  7. `src/audio/mixer.js` — Add to `TRACK_BUS` map, create a swappable slot (if applicable), add chord trigger, init the synth, expose swap in return object
+  7. `src/audio/mixer.js` — Create a swappable slot (if applicable), add chord trigger, init the synth, expose swap in return object
   8. `src/engine/ruleEngine.js` — Wire up swap callback, pass any needed state in `triggerCtx`, add to `syncEnvelopesToDuration()`, clean up in `stop()`
   9. `src/main.js` — Pass the swap function in the `start()` callbacks
 - **Change song structure timing**: Edit `SECTION_DURATIONS` in `rules.config.js`
@@ -210,19 +212,18 @@ constant-ambiant-samples/
 
 ## Track Wiring Architecture (March 2026)
 
-### The 5 Maps That Must Stay In Sync
+### Track Wiring — Single Source of Truth
 
-Adding or modifying a track requires keeping these maps consistent. `createAllTrackEffects()` validates at startup and logs errors for mismatches.
+`src/audio/trackRegistry.js` contains `TRACK_WIRING`, the single source of truth for track bus mapping, reverb routing, and send levels. All derived maps (`TRACK_BUS_MAP`, `TRACK_REVERB_MAP`, `REVERB_SEND_LEVELS`, `TRACK_DRY_GAIN`) are automatically generated from it.
+
+Adding a track = add one entry to `TRACK_WIRING`. `createAllTrackEffects()` validates at startup and logs errors for mismatches with `TRACK_PROFILES`.
 
 | Map | File | Purpose |
 |-----|------|---------|
-| `TRACK_BUS_MAP` | `trackEffects.js` | Track name → SC audio bus |
-| `TRACK_REVERB_MAP` | `trackEffects.js` | Track name → reverb bus (short/long) |
-| `REVERB_SEND_LEVELS` | `trackEffects.js` | Track name → reverb send amount |
-| `TRACK_BUS` | `mixer.js` | Track name → SC bus (for gain synths) |
+| `TRACK_WIRING` | `trackRegistry.js` | Single source of truth: bus, reverb bus, reverb send, dry gain |
 | `TRACK_PROFILES` | `trackProfiles.js` | Track name → gain, effect chain, automation |
 
-**Critical**: `TRACK_BUS_MAP` and `TRACK_BUS` are separate but must have identical mappings. They exist in two places because `trackEffects.js` and `mixer.js` have no import dependency on each other.
+Both `trackEffects.js` and `mixer.js` import `TRACK_BUS_MAP` from `trackRegistry.js`, so bus mappings are always consistent.
 
 ### Naming Conventions (Confusing Legacy)
 

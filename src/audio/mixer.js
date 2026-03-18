@@ -39,6 +39,7 @@ const LEAD_REVERSED_POOL = [
   ...BASS_LEAD_INSTRUMENTS.filter(i => !i.plucked),
 ];
 import { freeInstrumentSamples } from '../sc/bufferManager.js';
+import { TRACK_BUS_MAP } from './trackRegistry.js';
 
 let trackGainNodeIds = {};
 let trackEffects = null;
@@ -51,29 +52,17 @@ let pendingDisposeTimers = [];
 
 let meterNodeIds = [];
 
-// Map from track name → SC bus for gain synths
-const TRACK_BUS = {
-  drone:         BUSES.DRONE,
-  lead:          BUSES.LEAD,
-  sampleTexture: BUSES.TEXTURE,
-  archive:       BUSES.ARCHIVE,
-  freesound:     BUSES.FREESOUND,
-  pedalPad:      BUSES.PEDAL_PAD,
-  bassSupport:   BUSES.BASS_SUPPORT,
-  leadReversed:  BUSES.LEAD_REVERSED,
-};
-
 /**
  * Initializes the mixer: creates SC synth nodes for gains, effects,
  * reverbs, and instruments.
  *
  * @returns {Promise<object>} Mixer API
  */
-export async function initMixer() {
+export async function initMixer(deps = {}) {
   // ── Per-track gain synths ──
   trackGainNodeIds = {};
   for (const [name, profile] of Object.entries(TRACK_PROFILES)) {
-    const bus = TRACK_BUS[name];
+    const bus = TRACK_BUS_MAP[name];
     if (bus === undefined) continue;
 
     const nodeId = allocNodeId();
@@ -239,7 +228,7 @@ export async function initMixer() {
   const swellFilterRef = trackEffects.leadReversed?.refs?.swellFilter;
   const swellGainRef = trackEffects.leadReversed?.refs?.swellGain;
   if (swellFilterRef && swellGainRef) {
-    startSwellTimer(swellFilterRef.nodeId, swellGainRef.nodeId);
+    startSwellTimer(swellFilterRef.nodeId, swellGainRef.nodeId, deps);
   }
 
   // ── Texture player ──

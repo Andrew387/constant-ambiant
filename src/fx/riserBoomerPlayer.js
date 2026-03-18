@@ -13,8 +13,6 @@ import path from 'path';
 import { synthNew } from '../sc/osc.js';
 import { allocNodeId, GROUPS, BUSES } from '../sc/nodeIds.js';
 import { loadNamedBuffer, freeNamedBuffer } from '../sc/bufferManager.js';
-import { getCurrentSection } from '../engine/songStructure.js';
-import { getCurrentRule } from '../engine/chordPlayingRule.js';
 
 // ── Collection definitions ───────────────────────────────────────────────────
 const RISER_COLLECTIONS = [
@@ -60,6 +58,8 @@ let totalPlayed = 0;
 let activeRiser = null;
 let activeBoomer = null;
 let leadPlucked = false;
+let _getCurrentSection = () => ({ type: 'main' });
+let _getCurrentRule = () => 'complete-simultaneous';
 const pendingTimers = new Set();
 const activeSlots = new Set();
 
@@ -67,11 +67,11 @@ const activeSlots = new Set();
  * Computes the current interval range [min, max] in ms.
  */
 function getInterval() {
-  const section = getCurrentSection();
+  const section = _getCurrentSection();
   let speed = SECTION_SPEED[section?.type] ?? DEFAULT_SPEED;
 
   if (leadPlucked) {
-    const rule = getCurrentRule();
+    const rule = _getCurrentRule();
     const isSimultaneous = rule.includes('simultaneous');
     speed *= isSimultaneous ? PLUCKED_SIMULTANEOUS_SPEED : PLUCKED_SPEED;
   }
@@ -178,9 +178,14 @@ export function setRiserBoomerLeadPlucked(plucked) {
 
 /**
  * Starts the riser-boomer FX layer.
+ * @param {object} [deps] — Optional dependency injection for engine state
+ * @param {function} [deps.getCurrentSection] — Returns current song section
+ * @param {function} [deps.getCurrentRule] — Returns current chord playing rule
  */
-export function startRiserBoomerLayer() {
+export function startRiserBoomerLayer(deps = {}) {
   if (isActive) return;
+  if (deps.getCurrentSection) _getCurrentSection = deps.getCurrentSection;
+  if (deps.getCurrentRule) _getCurrentRule = deps.getCurrentRule;
   isActive = true;
   totalPlayed = 0;
   activeRiser = pickCollection(RISER_COLLECTIONS);

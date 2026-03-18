@@ -22,13 +22,10 @@ export function setTempoImmediate(bpm) {
 }
 
 /**
- * Ramps the BPM. In the SC architecture this is just an instant set
- * since we don't have a transport ramp — the next chord event will
- * pick up the new tempo.
+ * Sets the BPM. The next chord event will pick up the new tempo.
  * @param {number} bpm
- * @param {number} [rampSeconds=4] - Ignored (kept for API compat)
  */
-export function rampTempo(bpm, rampSeconds = 4) {
+export function rampTempo(bpm) {
   _targetBpm = bpm;
 }
 

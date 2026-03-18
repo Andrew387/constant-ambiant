@@ -88,56 +88,6 @@ function _maybeResetFadeIns(currentSection) {
   _fadeInLastSection = currentSection;
 }
 
-// ── Gain swell state ──
-const _swellState = {};
-
-function _planSwellsForSection(trackName, swellConfig, sectionType) {
-  const duration = SECTION_DURATIONS[sectionType];
-  if (!duration || !swellConfig.sections.includes(sectionType)) {
-    _swellState[trackName] = { section: sectionType, swells: [] };
-    return;
-  }
-
-  const swells = [];
-  let loop = 0;
-  while (loop < duration) {
-    if (Math.random() < swellConfig.probability) {
-      const gain = swellConfig.gainRange[0] +
-        Math.random() * (swellConfig.gainRange[1] - swellConfig.gainRange[0]);
-      const loopDur = Math.floor(Math.random() * (swellConfig.loopRange[1] - swellConfig.loopRange[0] + 1)) +
-        swellConfig.loopRange[0];
-      const endLoop = Math.min(loop + loopDur, duration);
-      swells.push({ startLoop: loop, endLoop, gain });
-      loop = endLoop;
-    } else {
-      loop++;
-    }
-  }
-
-  _swellState[trackName] = { section: sectionType, swells };
-  if (swells.length > 0) {
-    console.log(
-      `[automation] ${trackName} gain swells for ${sectionType}: ` +
-      swells.map(s => `loops ${s.startLoop}–${s.endLoop - 1} @ ${s.gain.toFixed(2)}`).join(', ')
-    );
-  }
-}
-
-function _getSwellGain(trackName, sectionType, progress) {
-  const state = _swellState[trackName];
-  if (!state || state.section !== sectionType) return null;
-
-  const duration = SECTION_DURATIONS[sectionType] || 1;
-  const currentLoop = Math.min(duration - 1, Math.floor(progress * duration));
-
-  for (const swell of state.swells) {
-    if (currentLoop >= swell.startLoop && currentLoop < swell.endLoop) {
-      return swell.gain;
-    }
-  }
-  return null;
-}
-
 // ── Helpers ──
 
 function ease(t) {
@@ -218,7 +168,7 @@ export function updateSectionAutomation(currentSection, nextSection, progress, r
   const liveState = {};
 
   for (const [name, { filter, duckGain, config }] of Object.entries(automatedTracks)) {
-    const { brightness, freqRange, duckFloor, deferredFadeIn, holdOverride, gainSwells } = config;
+    const { brightness, freqRange, duckFloor, deferredFadeIn, holdOverride } = config;
 
     let baseCurrent = brightness[currentSection] ?? 0.5;
     let baseNext    = brightness[nextSection]    ?? 0.5;
@@ -278,28 +228,13 @@ export function updateSectionAutomation(currentSection, nextSection, progress, r
       continue;
     }
 
-    // ── Gain swell override ──
-    let swellActive = false;
-    if (gainSwells) {
-      if (!_swellState[name] || _swellState[name].section !== currentSection) {
-        _planSwellsForSection(name, gainSwells, currentSection);
-      }
-      const swellGain = _getSwellGain(name, currentSection, progress);
-      if (swellGain !== null) {
-        duck = swellGain;
-        swellActive = true;
-        trackStatus = 'swell';
-      }
-    }
-
     // ── Send duck gain to SC via OSC ──
     nodeSet(duckGain.nodeId, { gain: duck });
 
     liveState[name] = { bright, freq, duck, status: trackStatus };
 
     const freqStr = freq !== null ? ` freq:${freq}Hz` : '';
-    const swellStr = swellActive ? ' SWELL' : '';
-    debugParts.push(`${name}(bright:${bright.toFixed(2)}${freqStr} duck:${duck.toFixed(2)}${swellStr})`);
+    debugParts.push(`${name}(bright:${bright.toFixed(2)}${freqStr} duck:${duck.toFixed(2)})`);
   }
 
   _lastLiveState = { currentSection, nextSection, progress, tracks: liveState };
@@ -341,7 +276,6 @@ export function disposeSectionAutomation() {
   _lastLiveState = null;
   for (const key of Object.keys(_brightCache)) delete _brightCache[key];
   for (const key of Object.keys(_fadeInState)) delete _fadeInState[key];
-  for (const key of Object.keys(_swellState)) delete _swellState[key];
   for (const key of Object.keys(_mainPresenceOverrides)) delete _mainPresenceOverrides[key];
   _fadeInLastSection = null;
 }

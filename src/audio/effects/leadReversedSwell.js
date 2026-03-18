@@ -20,8 +20,6 @@
  */
 
 import { nodeSet } from '../../sc/osc.js';
-import { getCurrentSection } from '../../engine/songStructure.js';
-import { getCurrentRule } from '../../engine/chordPlayingRule.js';
 
 const CLOSED_FREQ = 200;         // Lowpass frequency when closed
 const OPEN_FREQ_MIN = 12000;     // Swell minimum reveal frequency
@@ -57,16 +55,18 @@ let swellTimeoutId = null;
 let holdTimeoutId = null;
 let running = false;
 let leadPlucked = false;
+let _getCurrentSection = () => ({ type: 'main' });
+let _getCurrentRule = () => 'complete-simultaneous';
 
 /**
  * Computes the current swell interval range [min, max] in seconds.
  */
 function getSwellInterval() {
-  const section = getCurrentSection();
+  const section = _getCurrentSection();
   let speed = SECTION_SPEED[section?.type] ?? DEFAULT_SPEED;
 
   if (leadPlucked) {
-    const rule = getCurrentRule();
+    const rule = _getCurrentRule();
     const isSimultaneous = rule.includes('simultaneous');
     speed *= isSimultaneous ? PLUCKED_SIMULTANEOUS_SPEED : PLUCKED_SPEED;
   }
@@ -91,7 +91,7 @@ function doSwell() {
   const openFreq = OPEN_FREQ_MIN + Math.random() * (OPEN_FREQ_MAX - OPEN_FREQ_MIN);
   nodeSet(filterNodeId, { freq: openFreq });
   nodeSet(gainNodeId, { gain: OPEN_GAIN });
-  const section = getCurrentSection();
+  const section = _getCurrentSection();
   const { min, max } = getSwellInterval();
   console.log(`[leadReversed] swell → ${Math.round(openFreq)} Hz, gain ${OPEN_GAIN} (${section?.type}, interval ${min.toFixed(0)}–${max.toFixed(0)}s)`);
 
@@ -118,10 +118,15 @@ export function setLeadPlucked(plucked) {
  * Starts the swell timer for the leadReversed track.
  * @param {number} filterId — SC node ID of the swellFilter effect
  * @param {number} gainId — SC node ID of the swellGain effect
+ * @param {object} [deps] — Optional dependency injection for engine state
+ * @param {function} [deps.getCurrentSection] — Returns current song section
+ * @param {function} [deps.getCurrentRule] — Returns current chord playing rule
  */
-export function startSwellTimer(filterId, gainId) {
+export function startSwellTimer(filterId, gainId, deps = {}) {
   filterNodeId = filterId;
   gainNodeId = gainId;
+  if (deps.getCurrentSection) _getCurrentSection = deps.getCurrentSection;
+  if (deps.getCurrentRule) _getCurrentRule = deps.getCurrentRule;
   running = true;
   scheduleNextSwell();
   console.log('[leadReversed] swell timer started (filter + gain)');
