@@ -6,11 +6,7 @@
  * \riserBoomer SynthDef that handles sample-accurate back-to-back
  * sequencing entirely on the server — no JavaScript setTimeout timing.
  *
- * Files: samples/FX/Riser/FX Riser/FX Riser{01–70}.wav  (6 s each)
- *        samples/FX/Boomer/FX boomer /FX Boomer{01–70}.wav  (6 s each)
- *
- * Both are stereo 48 kHz, trimmed to 6 s uniform length.
- * Played on the FREESOUND bus via the \riserBoomer SynthDef.
+ * Stereo 48 kHz samples. Played via the \riserBoomer SynthDef.
  */
 
 import path from 'path';
@@ -18,7 +14,15 @@ import { synthNew } from '../sc/osc.js';
 import { allocNodeId, GROUPS, BUSES } from '../sc/nodeIds.js';
 import { loadNamedBuffer, freeNamedBuffer } from '../sc/bufferManager.js';
 
-const TOTAL_FILES = 70;
+// ── Collection definitions ───────────────────────────────────────────────────
+const RISER_COLLECTIONS = [
+  { folder: path.join('FX', 'Riser', 'FX Riser'), prefix: 'FX Riser', count: 70 },
+];
+
+const BOOMER_COLLECTIONS = [
+  { folder: path.join('FX', 'Boomer', 'FX boomer '), prefix: 'FX Boomer', count: 70 },
+];
+
 const MIN_INTERVAL_MS = 20000;
 const MAX_INTERVAL_MS = 30000;
 
@@ -28,30 +32,28 @@ const RISER_AMP = 0.12;
 const BOOMER_LP_FREQ = 2500;
 const BOOMER_AMP = 0.2;
 
-// Both files are 6 s → total pair duration 12 s. Add margin for reverb tail.
+// Total pair duration + margin for reverb tail.
 const DISPOSE_DELAY_S = 20;
-
-const RISER_FOLDER = path.join('FX', 'Riser', 'FX Riser');
-const BOOMER_FOLDER = path.join('FX', 'Boomer', 'FX boomer ');
 
 let isActive = false;
 let triggerTimer = null;
 let totalPlayed = 0;
+let activeRiser = null;
+let activeBoomer = null;
 const pendingTimers = new Set();
 const activeSlots = new Set();
 
-function riserPath(num) {
-  const nn = String(num).padStart(2, '0');
-  return path.resolve(process.cwd(), 'samples', RISER_FOLDER, `FX Riser${nn}.wav`);
+function pickCollection(collections) {
+  return collections[Math.floor(Math.random() * collections.length)];
 }
 
-function boomerPath(num) {
+function samplePath(collection, num) {
   const nn = String(num).padStart(2, '0');
-  return path.resolve(process.cwd(), 'samples', BOOMER_FOLDER, `FX Boomer${nn}.wav`);
+  return path.resolve(process.cwd(), 'samples', collection.folder, `${collection.prefix}${nn}.wav`);
 }
 
-function randIndex() {
-  return Math.floor(Math.random() * TOTAL_FILES) + 1;
+function randIndex(collection) {
+  return Math.floor(Math.random() * collection.count) + 1;
 }
 
 /**
@@ -60,8 +62,8 @@ function randIndex() {
 async function playPair() {
   if (!isActive) return;
 
-  const riserNum = randIndex();
-  const boomerNum = randIndex();
+  const riserNum = randIndex(activeRiser);
+  const boomerNum = randIndex(activeBoomer);
   const ts = Date.now();
 
   try {
@@ -70,8 +72,8 @@ async function playPair() {
 
     // Load both buffers in parallel
     const [riserBuf, boomerBuf] = await Promise.all([
-      loadNamedBuffer(riserSlot, riserPath(riserNum)),
-      loadNamedBuffer(boomerSlot, boomerPath(boomerNum)),
+      loadNamedBuffer(riserSlot, samplePath(activeRiser, riserNum)),
+      loadNamedBuffer(boomerSlot, samplePath(activeBoomer, boomerNum)),
     ]);
 
     activeSlots.add(riserSlot);
@@ -100,7 +102,7 @@ async function playPair() {
     });
 
     totalPlayed++;
-    console.log(`[riserBoomer] #${totalPlayed}: Riser ${riserNum} → Boomer ${boomerNum}`);
+    console.log(`[riserBoomer] #${totalPlayed}: ${activeRiser.prefix} ${riserNum} → ${activeBoomer.prefix} ${boomerNum}`);
 
     // Free buffers after synth self-frees (6+6+0.5s synth life + safety margin)
     const cleanupTimer = setTimeout(() => {
@@ -132,7 +134,9 @@ export function startRiserBoomerLayer() {
   if (isActive) return;
   isActive = true;
   totalPlayed = 0;
-  console.log('[riserBoomer] Starting...');
+  activeRiser = pickCollection(RISER_COLLECTIONS);
+  activeBoomer = pickCollection(BOOMER_COLLECTIONS);
+  console.log(`[riserBoomer] Starting — riser: "${activeRiser.prefix}" (${activeRiser.count}), boomer: "${activeBoomer.prefix}" (${activeBoomer.count})`);
   triggerTimer = setTimeout(playPair, 3000);
 }
 

@@ -125,8 +125,9 @@ Raw sample instruments had wildly inconsistent loudness — both across notes wi
 
 ### Tools
 - `analyze_volume.py` — reads all samples, prints per-instrument stats, saves `volume_analysis.json`
-- `normalize_volume.py` — backs up originals to `samples_backup/`, runs both passes, verifies
-- Both require a Python venv: `python3 -m venv .venv && source .venv/bin/activate && pip install numpy soundfile`
+- `normalize_volume.py` — normalizes Bass/Lead/Bass-Lead/Pad instruments, backs up originals to `samples_backup/`
+- `normalize_fx_volume.py` — normalizes FX collections (Riser/Boomer), backs up originals to `samples_backup/FX/`
+- All require a Python venv: `python3 -m venv .venv && source .venv/bin/activate && pip install numpy soundfile`
 
 ### Backups
 Original pre-normalization samples are preserved in `samples_backup/` with the same directory structure. To restore: `rm -rf samples/Bass samples/Lead && cp -r samples_backup/* samples/`
@@ -145,7 +146,67 @@ Original pre-normalization samples are preserved in `samples_backup/` with the s
   9. `src/main.js` — Pass the swap function in the `start()` callbacks
 - **Change song structure timing**: Edit `SECTION_DURATIONS` in `rules.config.js`
 - **Change progression behavior**: Edit `progression.js` patterns/coloring/rhythm
-- **Add a new sample instrument**: Add WAVs to `samples/`, register in `sampleRegistry.js`
+- **Add a new sample instrument**: Add WAVs to `samples/`, register in `sampleRegistry.js`, then run `npm run samples:upload` to sync to R2
+
+## Sample Storage (Cloudflare R2)
+
+Samples are **not stored in git**. They live on **Cloudflare R2** (S3-compatible object storage) and are fetched locally on setup. The `samples/` directory is `.gitignore`d.
+
+### Bucket
+- **Provider**: Cloudflare R2
+- **Bucket name**: `constant-ambiant-samples`
+- **Current size**: ~2 GB (951 WAV files)
+- **Format**: 48 kHz, 16-bit, stereo WAV
+
+### Scripts
+| Command | Script | Purpose |
+|---------|--------|---------|
+| `npm run samples:setup` | `scripts/r2-setup.sh` | One-time: installs rclone, configures R2 credentials |
+| `npm run samples:upload` | `scripts/samples-upload.sh` | Syncs local `samples/` → R2 (only uploads changes) |
+| `npm run samples:fetch` | `scripts/samples-fetch.sh` | Downloads R2 → local `samples/` |
+
+All scripts use **rclone** with the `r2` remote. Credentials are stored in `~/.config/rclone/rclone.conf` (not in the repo).
+
+### Setup on a new machine
+```bash
+npm run samples:setup    # configure rclone with R2 credentials
+npm run samples:fetch    # download all samples (~2 GB)
+```
+
+### Adding new sample instruments (Bass/Lead/Pad)
+1. Place WAV files in the appropriate `samples/` subdirectory (e.g. `samples/Lead/Loopable/newInstrument/`)
+2. Run volume normalization: `source .venv/bin/activate && python3 normalize_volume.py`
+3. Register in `src/audio/synths/sampleRegistry.js`
+4. Run `npm run samples:upload` to sync new files to R2
+5. Only changed/new files are uploaded (rclone sync)
+
+### Adding new FX collections (Riser/Boomer)
+1. Place WAV files in `samples/FX/Riser/<collection name>/` or `samples/FX/Boomer/<collection name>/`
+   - File naming: `<prefix>{01–NN}.wav` (zero-padded 2-digit numbers)
+2. Run FX volume normalization: `source .venv/bin/activate && python3 normalize_fx_volume.py`
+   - This normalizes volumes both within each collection and across all collections of the same type
+3. Add the new collection to `RISER_COLLECTIONS` or `BOOMER_COLLECTIONS` in `src/fx/riserBoomerPlayer.js` with the folder path, file prefix, and file count
+4. Run `npm run samples:upload` to sync to R2
+
+### Fetching a specific subfolder
+```bash
+./scripts/samples-fetch.sh Lead/Loopable    # fetch only Lead/Loopable
+./scripts/samples-upload.sh Bass/Plucked    # upload only Bass/Plucked
+```
+
+### Directory structure on R2 (mirrors local)
+```
+constant-ambiant-samples/
+├── Bass/Loopable/         # Loopable bass instruments
+├── Bass/Plucked/          # One-shot bass instruments
+├── Bass-Lead/Loopable/    # Dual-purpose instruments
+├── Bass-Lead/Plucked/
+├── Lead/Loopable/         # Loopable lead instruments
+├── Lead/Plucked/          # One-shot lead instruments
+├── pad/loopable/          # Pad instruments
+├── FX/                    # FX samples (Riser, Boomer)
+└── texturesNew/           # Ambient texture loops
+```
 
 ## Track Wiring Architecture (March 2026)
 
