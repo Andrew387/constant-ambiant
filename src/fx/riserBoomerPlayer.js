@@ -13,6 +13,8 @@ import path from 'path';
 import { synthNew } from '../sc/osc.js';
 import { allocNodeId, GROUPS, BUSES } from '../sc/nodeIds.js';
 import { loadNamedBuffer, freeNamedBuffer } from '../sc/bufferManager.js';
+import { getCurrentSection } from '../engine/songStructure.js';
+import { getCurrentRule } from '../engine/chordPlayingRule.js';
 
 // ── Collection definitions ───────────────────────────────────────────────────
 const RISER_COLLECTIONS = [
@@ -23,9 +25,6 @@ const BOOMER_COLLECTIONS = [
   { folder: path.join('FX', 'Boomer', 'FX boomer '), prefix: 'FX Boomer', count: 70 },
 ];
 
-const MIN_INTERVAL_MS = 20000;
-const MAX_INTERVAL_MS = 30000;
-
 // Per-buffer amp and lowpass (passed to \riserBoomer SynthDef)
 const RISER_LP_FREQ = 1500;
 const RISER_AMP = 0.12;
@@ -35,13 +34,53 @@ const BOOMER_AMP = 0.2;
 // Total pair duration + margin for reverb tail.
 const DISPOSE_DELAY_S = 20;
 
+// ── Base interval (ms) — used for main sections ──
+const BASE_MIN_MS = 20000;
+const BASE_MAX_MS = 30000;
+
+// ── Interval multipliers by section type ──
+// < 1 = faster (more frequent), 1 = base rate
+const SECTION_SPEED = {
+  transition:      0.45,   // ~9–14 s
+  innerTransition: 0.45,
+  intro:           0.65,   // ~13–20 s
+  outro:           0.65,
+  main:            1.0,    // 20–30 s (base)
+  main2:           1.0,
+};
+const DEFAULT_SPEED = 1.0;
+
+// Multiplicative speed boosts for plucked lead (stacks with section)
+const PLUCKED_SPEED = 0.80;                // 20% faster
+const PLUCKED_SIMULTANEOUS_SPEED = 0.60;   // 40% faster
+
 let isActive = false;
 let triggerTimer = null;
 let totalPlayed = 0;
 let activeRiser = null;
 let activeBoomer = null;
+let leadPlucked = false;
 const pendingTimers = new Set();
 const activeSlots = new Set();
+
+/**
+ * Computes the current interval range [min, max] in ms.
+ */
+function getInterval() {
+  const section = getCurrentSection();
+  let speed = SECTION_SPEED[section?.type] ?? DEFAULT_SPEED;
+
+  if (leadPlucked) {
+    const rule = getCurrentRule();
+    const isSimultaneous = rule.includes('simultaneous');
+    speed *= isSimultaneous ? PLUCKED_SIMULTANEOUS_SPEED : PLUCKED_SPEED;
+  }
+
+  return {
+    min: BASE_MIN_MS * speed,
+    max: BASE_MAX_MS * speed,
+  };
+}
 
 function pickCollection(collections) {
   return collections[Math.floor(Math.random() * collections.length)];
@@ -123,8 +162,18 @@ async function playPair() {
 
 function scheduleNext() {
   if (!isActive) return;
-  const delay = MIN_INTERVAL_MS + Math.random() * (MAX_INTERVAL_MS - MIN_INTERVAL_MS);
+  const { min, max } = getInterval();
+  const delay = min + Math.random() * (max - min);
   triggerTimer = setTimeout(playPair, delay);
+}
+
+/**
+ * Updates the lead plucked state so fire probability adjusts accordingly.
+ * Called by ruleEngine after instrument swaps.
+ * @param {boolean} plucked
+ */
+export function setRiserBoomerLeadPlucked(plucked) {
+  leadPlucked = plucked;
 }
 
 /**
@@ -160,4 +209,5 @@ export function stopRiserBoomerLayer() {
     freeNamedBuffer(slot);
   }
   activeSlots.clear();
+  leadPlucked = false;
 }

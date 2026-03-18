@@ -430,6 +430,26 @@ SynthDef(\fxSidechainDuck, { |bus=2, keyBus=24,
     ReplaceOut.ar(bus, XFade2.ar(sig, ducked, d * 2 - 1));
 }).add;
 
+// ── SIDECHAIN DUCK — DUAL KEY (two key buses) ───────────────
+// Same as fxSidechainDuck but sums two stereo key buses before
+// the compander. Used to duck a track by two sources simultaneously
+// (e.g. archive/pedalPad ducked by lead + bass).
+SynthDef(\fxSidechainDuck2, { |bus=0, keyBus1=8, keyBus2=6,
+    thresh=(-20), ratio=4, attack=0.02, release=1.5, depth=1.0|
+
+    var sig   = In.ar(bus, 2);
+    var key1  = In.ar(keyBus1, 2);
+    var key2  = In.ar(keyBus2, 2);
+    var keyMono = ((key1[0] + key1[1]) + (key2[0] + key2[1])) * 0.25;
+
+    var ducked = Compander.ar(sig, keyMono,
+        thresh.dbamp, 1, 1 / ratio, attack, release
+    );
+
+    var d = Lag.kr(depth, 0.1);
+    ReplaceOut.ar(bus, XFade2.ar(sig, ducked, d * 2 - 1));
+}).add;
+
 // ── GAIN (track gain, duck gain) ────────────────────────────
 // Lag3 (3rd-order) produces smooth S-curve transitions instead of
 // the abrupt exponential onset of .lag(). lagTime controls ramp

@@ -19,6 +19,12 @@ import { nodeSet } from '../../sc/osc.js';
 // ── Per-transition brightness randomness ──
 const BRIGHTNESS_JITTER = 0.10;
 
+// ── Main presence overrides (randomized per song cycle) ──
+// Tracks with overrides get their main/innerTransition/main2 brightness
+// replaced by the override value. Set via setMainPresenceOverrides().
+const _MAIN_PRESENCE_SECTIONS = new Set(['main', 'innerTransition', 'main2']);
+const _mainPresenceOverrides = {};
+
 // Cache: track → { key, currentBright, nextBright }
 const _brightCache = {};
 
@@ -214,8 +220,15 @@ export function updateSectionAutomation(currentSection, nextSection, progress, r
   for (const [name, { filter, duckGain, config }] of Object.entries(automatedTracks)) {
     const { brightness, freqRange, duckFloor, deferredFadeIn, holdOverride, gainSwells } = config;
 
-    const baseCurrent = brightness[currentSection] ?? 0.5;
-    const baseNext    = brightness[nextSection]    ?? 0.5;
+    let baseCurrent = brightness[currentSection] ?? 0.5;
+    let baseNext    = brightness[nextSection]    ?? 0.5;
+
+    // Apply per-cycle main presence overrides
+    const presenceOverride = _mainPresenceOverrides[name];
+    if (presenceOverride !== undefined) {
+      if (_MAIN_PRESENCE_SECTIONS.has(currentSection)) baseCurrent = presenceOverride;
+      if (_MAIN_PRESENCE_SECTIONS.has(nextSection))    baseNext = presenceOverride;
+    }
     const { currentBright, nextBright } = _getCachedBrightness(
       name, baseCurrent, baseNext, currentSection, nextSection
     );
@@ -305,6 +318,22 @@ export function getAutomationState() {
 }
 
 /**
+ * Sets per-cycle brightness overrides for main/innerTransition/main2 sections.
+ * Called at each song cycle start from ruleEngine.
+ *
+ * @param {Object<string, number>} overrides - track name → brightness (0–1)
+ */
+export function setMainPresenceOverrides(overrides) {
+  for (const [track, presence] of Object.entries(overrides)) {
+    _mainPresenceOverrides[track] = presence;
+  }
+  const desc = Object.entries(overrides)
+    .map(([t, p]) => `${t}=${(p * 100).toFixed(0)}%`)
+    .join(', ');
+  console.log(`[automation] main presence: ${desc}`);
+}
+
+/**
  * Cleans up references.
  */
 export function disposeSectionAutomation() {
@@ -313,5 +342,6 @@ export function disposeSectionAutomation() {
   for (const key of Object.keys(_brightCache)) delete _brightCache[key];
   for (const key of Object.keys(_fadeInState)) delete _fadeInState[key];
   for (const key of Object.keys(_swellState)) delete _swellState[key];
+  for (const key of Object.keys(_mainPresenceOverrides)) delete _mainPresenceOverrides[key];
   _fadeInLastSection = null;
 }

@@ -25,12 +25,14 @@ import {
   initSongStructure, getCurrentSection, getNextSection, getSectionProgress,
   advanceSongProgression, getSongState,
 } from './songStructure.js';
-import { updateSectionAutomation } from '../audio/effects/sectionAutomation.js';
+import { updateSectionAutomation, setMainPresenceOverrides } from '../audio/effects/sectionAutomation.js';
 import { pickChordPlayingRule, applyChordPlayingRule, getCurrentRule, getBassOffsetBeat, getRuleState } from './chordPlayingRule.js';
 import {
   setPedalSynth, findPedalNote, startPedalFadeIn,
   schedulePedalFadeOut, stopPedal,
 } from './pedalTone.js';
+import { setLeadPlucked } from '../audio/effects/leadReversedSwell.js';
+import { setRiserBoomerLeadPlucked } from '../fx/riserBoomerPlayer.js';
 
 let config = { ...rulesConfig };
 let synths = null;
@@ -169,6 +171,8 @@ function swapInstrumentsForCycle() {
 
     // Pick rule AFTER swaps complete so plucked state is accurate
     pickChordPlayingRule({ leadPlucked: leadIsPlucked, bassPlucked: bassIsPlucked, progressionLength: baseLoop.length });
+    setLeadPlucked(leadIsPlucked);
+    setRiserBoomerLeadPlucked(leadIsPlucked);
     syncEnvelopesToDuration();
 
     console.log(
@@ -473,12 +477,22 @@ function advanceLoop() {
       driftTempo();
       syncEnvelopesToDuration();
 
-      // Schedule pedal tone fade-out during intro or main1
+      // Randomize main-section presence for pedalPad and archive.
+      // Uses previous cycle's leadIsPlucked (swaps haven't completed yet).
+      // Plucked lead → higher minimum ensures these layers stay audible.
+      const presenceMin = leadIsPlucked ? 0.2 : 0;
+      const ppPresence  = presenceMin + Math.random() * (0.7 - presenceMin);
+      const archPresence = presenceMin + Math.random() * (0.7 - presenceMin);
+      setMainPresenceOverrides({ archive: archPresence, pedalPad: ppPresence });
+
+      // Schedule pedal tone fade-out — presence pushes release later
       const baseSec = chordDurationInSeconds();
       const transitionSec = SECTION_DURATIONS.transition * loop.length * baseSec;
       const introSec = SECTION_DURATIONS.intro * loop.length * baseSec;
       const mainSec = SECTION_DURATIONS.main * loop.length * baseSec;
-      schedulePedalFadeOut(transitionSec, introSec, mainSec);
+      const innerTransitionSec = SECTION_DURATIONS.innerTransition * loop.length * baseSec;
+      const main2Sec = SECTION_DURATIONS.main2 * loop.length * baseSec;
+      schedulePedalFadeOut(transitionSec, introSec, mainSec, innerTransitionSec, main2Sec, ppPresence);
 
       if (texturePlayer) {
         texturePlayer.swap();
@@ -615,6 +629,8 @@ export function start(mixerSynths, mixerTexturePlayer, callbacks = {}) {
   lastPlayedPosition = 0;
   leadIsPlucked = false;
   bassIsPlucked = false;
+  setLeadPlucked(false);
+  setRiserBoomerLeadPlucked(false);
   leadReversedLoop = [];
   leadReversedPosition = 0;
 
