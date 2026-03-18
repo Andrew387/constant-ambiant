@@ -29,7 +29,7 @@ import {
 } from './synths/sampleRegistry.js';
 
 // Bass-Lead instruments are eligible for both slots
-const LEAD_POOL = [...LEAD_INSTRUMENTS, ...BASS_LEAD_INSTRUMENTS];
+const LEAD_POOL = [...LEAD_INSTRUMENTS, ...BASS_LEAD_INSTRUMENTS].filter(i => i.id !== 'metallicEchoTines');
 const BASS_POOL = [...BASS_INSTRUMENTS, ...BASS_LEAD_INSTRUMENTS];
 
 // leadReversed: all loopable instruments covering octaves 2–4
