@@ -6,7 +6,10 @@
   "scripts": {
     "start": "node src/main.js",
     "s": "node src/main.js",
-    "dev": "node --watch src/main.js"
+    "dev": "node --watch src/main.js",
+    "samples:setup": "./scripts/r2-setup.sh",
+    "samples:upload": "./scripts/samples-upload.sh",
+    "samples:fetch": "./scripts/samples-fetch.sh"
   },
   "keywords": [],
   "author": "",
