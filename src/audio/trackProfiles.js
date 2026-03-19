@@ -82,7 +82,7 @@ export const TRACK_PROFILES = {
       {
         id: 'sidechainDuck',
         type: 'SidechainDuck',
-        params: { keyTracks: ['lead', 'drone'], thresh: -24, ratio: 5, attack: 0.02, release: 1.8, depth: 0.85 },
+        params: { keyTracks: ['lead', 'drone'], thresh: -30, ratio: 8, attack: 0.01, release: 1.5, depth: 0.9 },
       },
       {
         id: 'duckGain',
@@ -233,7 +233,7 @@ export const TRACK_PROFILES = {
       {
         id: 'sidechainDuck',
         type: 'SidechainDuck',
-        params: { keyTracks: ['lead', 'drone'], thresh: -24, ratio: 5, attack: 0.02, release: 1.8, depth: 0.85 },
+        params: { keyTracks: ['lead', 'drone'], thresh: -30, ratio: 8, attack: 0.01, release: 1.5, depth: 0.9 },
       },
       {
         id: 'duckGain',

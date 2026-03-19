@@ -25,7 +25,7 @@ const CLOSED_FREQ = 200;         // Lowpass frequency when closed
 const OPEN_FREQ_MIN = 12000;     // Swell minimum reveal frequency
 const OPEN_FREQ_MAX = 18000;     // Swell maximum — full brightness
 const CLOSED_GAIN = 0;           // Gain when closed (absolute silence)
-const OPEN_GAIN = 0.8;           // Gain at swell peak
+const OPEN_GAIN = 0.5;           // Gain at swell peak
 const HOLD_MIN = 0.3;            // Minimum hold at peak (seconds)
 const HOLD_MAX = 1.0;            // Maximum hold at peak (seconds)
 

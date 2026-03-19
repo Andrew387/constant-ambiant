@@ -25,9 +25,9 @@ const BOOMER_COLLECTIONS = [
 
 // Per-buffer amp and lowpass (passed to \riserBoomer SynthDef)
 const RISER_LP_FREQ = 1500;
-const RISER_AMP = 0.12;
+const RISER_AMP = 0.3;
 const BOOMER_LP_FREQ = 2500;
-const BOOMER_AMP = 0.2;
+const BOOMER_AMP = 0.3;
 
 // Total pair duration + margin for reverb tail.
 const DISPOSE_DELAY_S = 20;

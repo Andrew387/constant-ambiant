@@ -561,6 +561,30 @@ SynthDef(\reverbLong, { |inBus=18, outBus=2, decay=19, damp=0.2|
 //  MASTER EFFECTS — in-place processing on master bus
 // ════════════════════════════════════════════════════════════
 
+// ── MASTER LO-FI (muffled transistor radio) ──────────────────
+// Lowpass + sample-rate reduction + bit-crushing + soft saturation.
+// No HPF — bass passes through untouched.
+// mix = wet/dry blend (0 = bypass, 1 = full lo-fi).
+// All params smoothed with Lag3 for per-cycle transitions.
+SynthDef(\fxMasterLofi, { |bus=2, mix=0.3, lpFreq=3500,
+    sampleRate=10000, bitDepth=12, drive=1.5, lagTime=8|
+    var dry, wet, sr, bd, steps;
+    dry = In.ar(bus, 2);
+    sr = Lag3.kr(sampleRate, lagTime);
+    bd = Lag3.kr(bitDepth, lagTime);
+    // Sample rate reduction first
+    wet = Latch.ar(dry, Impulse.ar(sr));
+    // Bit depth reduction
+    steps = 2.pow(bd);
+    wet = (wet * steps).round / steps;
+    // Gentle saturation
+    wet = (wet * Lag3.kr(drive, lagTime)).softclip;
+    // Lowpass AFTER crushing — cleans up quantization harmonics
+    wet = LPF.ar(wet, Lag3.kr(lpFreq, lagTime));
+    // Wet/dry blend
+    ReplaceOut.ar(bus, XFade2.ar(dry, wet, Lag3.kr(mix, lagTime) * 2 - 1));
+}).add;
+
 // ── MASTER REVERB (deep, long tail) ─────────────────────────
 // Wet/dry mix with Lag3 for smooth per-song transitions.
 SynthDef(\fxMasterReverb, { |bus=2, wet=0.15, decay=18, damp=0.2, lagTime=8|
