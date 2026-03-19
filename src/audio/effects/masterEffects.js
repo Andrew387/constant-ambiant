@@ -9,7 +9,7 @@
  * values at each cycle start.
  *
  * Signal chain on master bus:
- *   [track outputs + reverb returns] → fxMasterLPFLfo → fxMasterDelay → fxMasterReverb → masterOut
+ *   [track outputs + reverb returns] → fxMasterLofi → fxMasterLPFLfo → fxMasterDelay → fxMasterReverb → masterOut
  */
 
 import { synthNew, nodeSet, nodeFree } from '../../sc/osc.js';
@@ -33,6 +33,13 @@ const RANGES = {
     lfoRate:    { min: 0.01, max: 0.07 },
     centerFreq: { min: 3000, max: 12000 },
   },
+  lofi: {
+    mix:        { min: 0.10, max: 0.50 },
+    lpFreq:     { min: 2500, max: 5000 },
+    sampleRate: { min: 16000, max: 32000 },
+    bitDepth:   { min: 12,   max: 16 },
+    drive:      { min: 1.2,  max: 2.5 },
+  },
 };
 
 function rand(range) {
@@ -44,6 +51,7 @@ function rand(range) {
 let reverbNodeId = null;
 let delayNodeId = null;
 let filterNodeId = null;
+let lofiNodeId = null;
 let currentParams = null;
 
 /**
@@ -55,9 +63,8 @@ let currentParams = null;
  * so the first cycle start can smoothly ramp to the randomized values.
  */
 export function initMasterEffects() {
-  // Order matters: filter first (head), then delay, then reverb.
-  // Since we add at HEAD of master group, we add in reverse order
-  // so the final execution order is: filter → delay → reverb → masterOut.
+  // Order matters: we add at HEAD of master group, so add in reverse
+  // execution order. Final chain: lofi → filter → delay → reverb → masterOut.
 
   reverbNodeId = allocNodeId();
   synthNew('fxMasterReverb', reverbNodeId, 0, GROUPS.MASTER, {
@@ -88,13 +95,25 @@ export function initMasterEffects() {
     lagTime: 8,
   });
 
+  lofiNodeId = allocNodeId();
+  synthNew('fxMasterLofi', lofiNodeId, 0, GROUPS.MASTER, {
+    bus: BUSES.MASTER,
+    mix: 0.1,
+    lpFreq: 5000,
+    sampleRate: 32000,
+    bitDepth: 16,
+    drive: 1.2,
+    lagTime: 8,
+  });
+
   currentParams = {
     reverb: { wet: 0.08, decay: 12, damp: 0.3 },
     delay:  { wet: 0.05, delayTime: 1.5, feedback: 0.35 },
     filter: { depth: 0.0, lfoRate: 0.03, centerFreq: 8000 },
+    lofi:   { mix: 0.1, lpFreq: 5000, sampleRate: 32000, bitDepth: 16, drive: 1.2 },
   };
 
-  console.log('[masterFX] initialized — reverb, delay, filter LFO on master bus');
+  console.log('[masterFX] initialized — lofi, reverb, delay, filter LFO on master bus');
 }
 
 /**
@@ -122,17 +141,27 @@ export function randomizeMasterEffects() {
     centerFreq: rand(RANGES.filter.centerFreq),
   };
 
+  const lofi = {
+    mix:        rand(RANGES.lofi.mix),
+    lpFreq:     rand(RANGES.lofi.lpFreq),
+    sampleRate: rand(RANGES.lofi.sampleRate),
+    bitDepth:   rand(RANGES.lofi.bitDepth),
+    drive:      rand(RANGES.lofi.drive),
+  };
+
   nodeSet(reverbNodeId, reverb);
   nodeSet(delayNodeId, { wet: delay.wet, delayTime: delay.delayTime, feedback: delay.feedback });
   nodeSet(filterNodeId, { depth: filter.depth, lfoRate: filter.lfoRate, centerFreq: filter.centerFreq });
+  nodeSet(lofiNodeId, lofi);
 
-  currentParams = { reverb, delay, filter };
+  currentParams = { reverb, delay, filter, lofi };
 
   console.log(
     `[masterFX] randomized — ` +
     `reverb wet:${reverb.wet.toFixed(2)} decay:${reverb.decay.toFixed(1)}s ` +
     `| delay wet:${delay.wet.toFixed(2)} time:${delay.delayTime.toFixed(1)}s fb:${delay.feedback.toFixed(2)} ` +
-    `| filter depth:${filter.depth.toFixed(2)} rate:${filter.lfoRate.toFixed(3)}Hz center:${Math.round(filter.centerFreq)}Hz`
+    `| filter depth:${filter.depth.toFixed(2)} rate:${filter.lfoRate.toFixed(3)}Hz center:${Math.round(filter.centerFreq)}Hz` +
+    `| lofi mix:${(lofi.mix * 100).toFixed(0)}% lp:${Math.round(lofi.lpFreq)}Hz sr:${Math.round(lofi.sampleRate)} bits:${lofi.bitDepth.toFixed(1)} drive:${lofi.drive.toFixed(1)}`
   );
 }
 
@@ -150,5 +179,6 @@ export function disposeMasterEffects() {
   if (reverbNodeId) { nodeFree(reverbNodeId); reverbNodeId = null; }
   if (delayNodeId)  { nodeFree(delayNodeId);  delayNodeId = null; }
   if (filterNodeId) { nodeFree(filterNodeId);  filterNodeId = null; }
+  if (lofiNodeId)   { nodeFree(lofiNodeId);   lofiNodeId = null; }
   currentParams = null;
 }

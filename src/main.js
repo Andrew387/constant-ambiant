@@ -22,7 +22,8 @@ import { initOSC, closeOSC, sync, startHealthCheck, stopHealthCheck, resetHealth
 import { bootSuperCollider, killSuperCollider } from './sc/boot.js';
 import { initMixer, setMasterVolume, setTrackVolume, getMixerState } from './audio/mixer.js';
 import { start, stop, updateRules, getConfig, getEngineState } from './engine/ruleEngine.js';
-import { getSongState } from './engine/songStructure.js';
+import { getSongState, getCurrentSection } from './engine/songStructure.js';
+import { getCurrentRule } from './engine/chordPlayingRule.js';
 import { startArchiveLayer, stopArchiveLayer } from './archive/player.js';
 import { startFreesoundLayer, stopFreesoundLayer } from './freesound/player.js';
 import { startRiserBoomerLayer, stopRiserBoomerLayer } from './fx/riserBoomerPlayer.js';
@@ -101,7 +102,7 @@ async function boot() {
   // 4. Initialize mixer (creates all SC synth nodes)
   _origLog('[boot] Initializing mixer...');
   try {
-    mixer = await initMixer();
+    mixer = await initMixer({ getCurrentSection, getCurrentRule });
   } catch (err) {
     _origLog('[boot] Mixer initialization failed:', err);
     process.exit(1);
@@ -169,7 +170,7 @@ async function recoverSuperCollider() {
     await initOSC();
     await waitForScsynth();
 
-    mixer = await initMixer();
+    mixer = await initMixer({ getCurrentSection, getCurrentRule });
     _origLog('[recovery] Mixer re-initialized. Restarting engine...');
     startEngine();
     resetHealthCheckFailures();
@@ -206,7 +207,7 @@ function startEngine() {
   if (config.archiveEnabled) startArchiveLayer();
   // Freesound layer disabled — riser-boomer FX replaces it
   // if (config.freesoundEnabled) startFreesoundLayer();
-  startRiserBoomerLayer();
+  startRiserBoomerLayer({ getCurrentSection, getCurrentRule });
 
   startLevelPolling();
   broadcastStatus();

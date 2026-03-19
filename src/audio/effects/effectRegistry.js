@@ -10,6 +10,16 @@
  * When multiple entries share a type, the first whose condition returns true wins.
  */
 
+import { BUSES } from '../../sc/nodeIds.js';
+import { TRACK_BUS_MAP } from '../trackRegistry.js';
+import rulesConfig from '../../engine/rules.config.js';
+
+// Extend the track bus map with non-track buses used for sidechain keying
+const TRACK_BUS_LOOKUP = {
+  ...TRACK_BUS_MAP,
+  riserBoomer: BUSES.RISER_BOOMER,
+};
+
 const EFFECT_REGISTRY = [
   {
     type: 'Gain',
@@ -57,7 +67,7 @@ const EFFECT_REGISTRY = [
     mapParams(spec) {
       let delayTime = spec.params.delayTime;
       if (typeof delayTime === 'string') {
-        const beatSec = 60 / 56;
+        const beatSec = 60 / rulesConfig.tempo.current;
         if (delayTime === '4n.') delayTime = beatSec * 1.5;
         else if (delayTime === '2n.') delayTime = beatSec * 3;
         else if (delayTime === '4n') delayTime = beatSec;
@@ -172,6 +182,39 @@ const EFFECT_REGISTRY = [
         shift: spec.params?.shift ?? 0,
         mix: spec.params?.mix ?? 0.25,
         lagTime: spec.params?.lagTime ?? 8,
+      };
+    },
+  },
+  {
+    type: 'SidechainDuck',
+    condition: (spec) => spec.params?.keyTracks?.length === 2,
+    defName: 'fxSidechainDuck2',
+    mapParams(spec) {
+      return {
+        keyBus1: TRACK_BUS_LOOKUP[spec.params.keyTracks[0]],
+        keyBus2: TRACK_BUS_LOOKUP[spec.params.keyTracks[1]],
+        thresh: spec.params.thresh ?? -20,
+        ratio: spec.params.ratio ?? 4,
+        attack: spec.params.attack ?? 0.02,
+        release: spec.params.release ?? 1.5,
+        depth: spec.params.depth ?? 1.0,
+      };
+    },
+  },
+  {
+    type: 'SidechainDuck',
+    defName: 'fxSidechainDuck',
+    mapParams(spec) {
+      const keyTrack = Array.isArray(spec.params?.keyTracks)
+        ? spec.params.keyTracks[0]
+        : spec.params?.keyTrack;
+      return {
+        keyBus: TRACK_BUS_LOOKUP[keyTrack],
+        thresh: spec.params.thresh ?? -20,
+        ratio: spec.params.ratio ?? 4,
+        attack: spec.params.attack ?? 0.02,
+        release: spec.params.release ?? 1.5,
+        depth: spec.params.depth ?? 1.0,
       };
     },
   },

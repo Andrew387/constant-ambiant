@@ -80,6 +80,11 @@ export const TRACK_PROFILES = {
         params: { bins: 3, mix: 0.2 },
       },
       {
+        id: 'sidechainDuck',
+        type: 'SidechainDuck',
+        params: { keyTracks: ['lead', 'drone'], thresh: -30, ratio: 8, attack: 0.01, release: 1.5, depth: 0.9 },
+      },
+      {
         id: 'duckGain',
         type: 'Gain',
         params: { gain: 1, lagTime: 4 },
@@ -225,7 +230,28 @@ export const TRACK_PROFILES = {
         type: 'SpectralFreeze',
         params: { density: 0.05, minHold: 3, maxHold: 8, mix: 0.25 },
       },
+      {
+        id: 'sidechainDuck',
+        type: 'SidechainDuck',
+        params: { keyTracks: ['lead', 'drone'], thresh: -30, ratio: 8, attack: 0.01, release: 1.5, depth: 0.9 },
+      },
+      {
+        id: 'duckGain',
+        type: 'Gain',
+        params: { gain: 1, lagTime: 4 },
+      },
     ],
+    automation: {
+      brightness: {
+        transition:      1.0,
+        intro:           1.0,
+        main:            0.0,
+        innerTransition: 0.0,
+        main2:           0.0,
+        outro:           1.0,
+      },
+      duckFloor: 0,
+    },
   },
 
   leadReversed: {

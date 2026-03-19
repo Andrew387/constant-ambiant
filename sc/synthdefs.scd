@@ -430,6 +430,26 @@ SynthDef(\fxSidechainDuck, { |bus=2, keyBus=24,
     ReplaceOut.ar(bus, XFade2.ar(sig, ducked, d * 2 - 1));
 }).add;
 
+// ── SIDECHAIN DUCK — DUAL KEY (two key buses) ───────────────
+// Same as fxSidechainDuck but sums two stereo key buses before
+// the compander. Used to duck a track by two sources simultaneously
+// (e.g. archive/pedalPad ducked by lead + bass).
+SynthDef(\fxSidechainDuck2, { |bus=0, keyBus1=8, keyBus2=6,
+    thresh=(-20), ratio=4, attack=0.02, release=1.5, depth=1.0|
+
+    var sig   = In.ar(bus, 2);
+    var key1  = In.ar(keyBus1, 2);
+    var key2  = In.ar(keyBus2, 2);
+    var keyMono = ((key1[0] + key1[1]) + (key2[0] + key2[1])) * 0.25;
+
+    var ducked = Compander.ar(sig, keyMono,
+        thresh.dbamp, 1, 1 / ratio, attack, release
+    );
+
+    var d = Lag.kr(depth, 0.1);
+    ReplaceOut.ar(bus, XFade2.ar(sig, ducked, d * 2 - 1));
+}).add;
+
 // ── GAIN (track gain, duck gain) ────────────────────────────
 // Lag3 (3rd-order) produces smooth S-curve transitions instead of
 // the abrupt exponential onset of .lag(). lagTime controls ramp
@@ -540,6 +560,30 @@ SynthDef(\reverbLong, { |inBus=18, outBus=2, decay=19, damp=0.2|
 // ════════════════════════════════════════════════════════════
 //  MASTER EFFECTS — in-place processing on master bus
 // ════════════════════════════════════════════════════════════
+
+// ── MASTER LO-FI (muffled transistor radio) ──────────────────
+// Lowpass + sample-rate reduction + bit-crushing + soft saturation.
+// No HPF — bass passes through untouched.
+// mix = wet/dry blend (0 = bypass, 1 = full lo-fi).
+// All params smoothed with Lag3 for per-cycle transitions.
+SynthDef(\fxMasterLofi, { |bus=2, mix=0.3, lpFreq=3500,
+    sampleRate=10000, bitDepth=12, drive=1.5, lagTime=8|
+    var dry, wet, sr, bd, steps;
+    dry = In.ar(bus, 2);
+    sr = Lag3.kr(sampleRate, lagTime);
+    bd = Lag3.kr(bitDepth, lagTime);
+    // Sample rate reduction first
+    wet = Latch.ar(dry, Impulse.ar(sr));
+    // Bit depth reduction
+    steps = 2.pow(bd);
+    wet = (wet * steps).round / steps;
+    // Gentle saturation
+    wet = (wet * Lag3.kr(drive, lagTime)).softclip;
+    // Lowpass AFTER crushing — cleans up quantization harmonics
+    wet = LPF.ar(wet, Lag3.kr(lpFreq, lagTime));
+    // Wet/dry blend
+    ReplaceOut.ar(bus, XFade2.ar(dry, wet, Lag3.kr(mix, lagTime) * 2 - 1));
+}).add;
 
 // ── MASTER REVERB (deep, long tail) ─────────────────────────
 // Wet/dry mix with Lag3 for smooth per-song transitions.

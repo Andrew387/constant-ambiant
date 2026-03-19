@@ -103,20 +103,39 @@ export function startPedalFadeIn(pedalPC, fadeInSec) {
 
 /**
  * Called when the new cycle starts (transition section begins).
- * The pedal is now at full volume. Schedules a random fade-out sometime
- * during intro or main1.
+ * The pedal is now at full volume. Schedules a random fade-out.
  *
- * @param {number} transitionSec - Duration of the transition section in seconds
- * @param {number} introSec - Duration of the intro section in seconds
- * @param {number} mainSec - Duration of the main section in seconds
+ * When mainPresence is 0 the pedal fades out during intro/early-main
+ * (original behaviour). Higher mainPresence pushes the release later —
+ * at 0.7 (max) the pedal sustains deep into main2. The duckGain
+ * automation in sectionAutomation controls audible volume throughout;
+ * this timer handles the actual note release for cleanup.
+ *
+ * @param {number} transitionSec
+ * @param {number} introSec
+ * @param {number} mainSec
+ * @param {number} innerTransitionSec
+ * @param {number} main2Sec
+ * @param {number} [mainPresence=0] - 0–0.7, how much presence during main
  */
-export function schedulePedalFadeOut(transitionSec, introSec, mainSec) {
+export function schedulePedalFadeOut(transitionSec, introSec, mainSec, innerTransitionSec, main2Sec, mainPresence = 0) {
   if (!active || !pedalSynth) return;
 
-  // Random fade-out start: somewhere from mid-intro to mid-main1
-  const earliestOffset = transitionSec + introSec * 0.3;
-  const latestOffset = transitionSec + introSec + mainSec * 0.5;
-  const fadeOutAt = earliestOffset + Math.random() * (latestOffset - earliestOffset);
+  // t normalised 0–1 from mainPresence (max 0.7)
+  const t = Math.min(1, mainPresence / 0.7);
+
+  // t=0: mid-intro → mid-main1  (original window)
+  // t=1: mid-main1 → late main2
+  const earliest = transitionSec + introSec * (0.3 + 0.7 * t) + mainSec * 0.3 * t;
+  const latestRaw = transitionSec + introSec + mainSec * (0.5 + 0.5 * t)
+    + (innerTransitionSec + main2Sec * 0.8) * t;
+
+  // Always release at least 3 s before outro to avoid collision with new pedal
+  const totalBeforeOutro = transitionSec + introSec + mainSec + innerTransitionSec + main2Sec;
+  const latest = Math.min(latestRaw, totalBeforeOutro - 3);
+  const safeEarliest = Math.min(earliest, latest);
+
+  const fadeOutAt = safeEarliest + Math.random() * Math.max(0, latest - safeEarliest);
 
   fadeOutTimer = setTimeout(() => {
     fadeOutTimer = null;
@@ -126,7 +145,7 @@ export function schedulePedalFadeOut(transitionSec, introSec, mainSec) {
     active = false;
   }, fadeOutAt * 1000);
 
-  console.log(`[pedal] fade-out scheduled in ${fadeOutAt.toFixed(0)}s`);
+  console.log(`[pedal] fade-out scheduled in ${fadeOutAt.toFixed(0)}s (presence: ${(mainPresence * 100).toFixed(0)}%)`);
 }
 
 /**

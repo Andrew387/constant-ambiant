@@ -182,6 +182,16 @@ export function pickChordPlayingRule({ leadPlucked = false, bassPlucked = false,
 }
 
 /**
+ * Resets chord playing rule state. Called on engine stop/start.
+ */
+export function resetChordPlayingRule() {
+  currentRule = RULES.COMPLETE_SIMULTANEOUS;
+  lockedPartialSeq = null;
+  lockedPartialSim = null;
+  lockedBassOffsets = null;
+}
+
+/**
  * Returns the active rule name (for debug/logging).
  */
 export function getCurrentRule() {
