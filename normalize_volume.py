@@ -174,6 +174,10 @@ def main():
     print("Pass 1: Intra-instrument normalization (compress toward median)…")
     post_intra = {}  # (cat, name) → avg_rms after pass 1
     for cat, sub, name, inst_dir in instruments:
+        wavs = sorted(inst_dir.glob("*.wav"))
+        if not wavs:
+            print(f"  [{cat}/{sub}] {name}: (no files, skipping)")
+            continue
         avg_rms, n = analyze_and_normalize_intra(inst_dir)
         post_intra[(cat, name)] = avg_rms
         print(f"  [{cat}/{sub}] {name}: new avg RMS = {avg_rms:+.1f} dBFS  ({n} files)")
@@ -191,6 +195,8 @@ def main():
         for cat, sub, name, inst_dir in instruments:
             if cat != cat_name:
                 continue
+            if (cat, name) not in post_intra:
+                continue
             current = post_intra[(cat, name)]
             adj = target - current
             print(f"    {name:<25}: {adj:+.1f} dB adjustment")
@@ -204,6 +210,8 @@ def main():
             if cat != cat_name:
                 continue
             wavs = sorted(inst_dir.glob("*.wav"))
+            if not wavs:
+                continue
             rms_vals = []
             for wav in wavs:
                 data, _ = sf.read(str(wav), dtype='float64')

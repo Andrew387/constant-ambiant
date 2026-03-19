@@ -1,11 +1,14 @@
 #!/bin/bash
-# Download samples from R2 to local samples/ directory
+# Download samples from R2 to local samples/ directory (additive — never deletes local files)
 # Usage: npm run samples:fetch
 #   or:  ./scripts/samples-fetch.sh [subfolder]
 #
 # Examples:
 #   npm run samples:fetch                    — fetch everything
 #   ./scripts/samples-fetch.sh Lead/Loopable — fetch only Lead/Loopable
+#
+# SAFETY: Uses 'rclone copy' (not sync) so local files are NEVER deleted.
+# Existing local files with the same name are skipped (not overwritten).
 
 set -e
 
@@ -31,7 +34,7 @@ fi
 
 mkdir -p "$DEST"
 
-rclone sync "$SOURCE" "$DEST" \
+rclone copy "$SOURCE" "$DEST" \
     --progress \
     --transfers 8 \
     --checkers 16 \

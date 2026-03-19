@@ -25,6 +25,11 @@ export const LEAD_INSTRUMENTS = [
   { id: 'silkystringslong', name: 'Silky Strings', folder: 'Lead/Loopable/silkystringslong', filePrefix: 'silkystringslong', startOctave: 2, endOctave: 4, plucked: false, gain: 0.7 },
   { id: 'DataStreamPad',    name: 'Data Stream',   folder: 'Lead/Loopable/DataStreamPad',    filePrefix: 'DataStreamPad',    startOctave: 2, endOctave: 4, plucked: false },
   { id: 'arcticBreeze',     name: 'Arctic Breeze', folder: 'Lead/Loopable/arctic breeze L-L', filePrefix: 'Arctic Breeze L-L', startOctave: 2, endOctave: 4, plucked: false },
+  { id: 'deterioration',    name: 'Deterioration',    folder: 'Lead/Loopable/Deterioration L-L',    filePrefix: 'Deterioration L-L',    startOctave: 2, endOctave: 4, plucked: false },
+  { id: 'distantDrift',     name: 'Distant Drift',    folder: 'Lead/Loopable/distant drift L-L',    filePrefix: 'Distant drift L-L',    startOctave: 2, endOctave: 4, plucked: false },
+  { id: 'dystopian',        name: 'Dystopian',        folder: 'Lead/Loopable/dystopian L-L',        filePrefix: 'Dystopian L-L',        startOctave: 2, endOctave: 4, plucked: false },
+  { id: 'glassSky',         name: 'Glass Sky',        folder: 'Lead/Loopable/glass sky L-L ',       filePrefix: 'Glass sky L-L',        startOctave: 2, endOctave: 4, plucked: false },
+  { id: 'pipeAmbiance',     name: 'Pipe Ambiance',    folder: 'Lead/Loopable/pipe ambiance L-L',    filePrefix: 'Pipe ambiance L-L',    startOctave: 2, endOctave: 4, plucked: false },
   { id: 'rockHarpsichord',  name: 'Rock Harpsichord', folder: 'Bass-Lead/Plucked/rock harpsichord B:L-P', filePrefix: 'rockharpsichord B:L-P', startOctave: 2, endOctave: 4, plucked: true },
 ];
 
@@ -42,8 +47,12 @@ export const DEFAULT_PAD_SAMPLE = 'analogWaves';
 export const BASS_INSTRUMENTS = [
   { id: 'bloomingbasslong', name: 'Blooming Bass',   folder: 'Bass/Loopable/bloomingbasslong', filePrefix: 'bloomingbasslong',    startOctave: 2, endOctave: 2, plucked: false },
   { id: 'bytebass',         name: 'Byte Bass',       folder: 'Bass/Loopable/bytebass',         filePrefix: 'bytebass',            startOctave: 2, endOctave: 2, plucked: false, gain: 0.7 },
-  { id: 'darkglidebass',    name: 'Dark Glide Bass', folder: 'Bass/Loopable/darkglidebass',    filePrefix: 'darkglidebass',       startOctave: 2, endOctave: 2, plucked: false },
-  { id: 'basskeylong',      name: 'Bass Keys',       folder: 'Bass/Plucked/basskeylong',       filePrefix: 'basskeylong',         startOctave: 2, endOctave: 2, plucked: true },
+  { id: 'darkglidebass',    name: 'Dark Glide Bass', folder: 'Bass/Loopable/darkglidebass',       filePrefix: 'darkglidebass',          startOctave: 2, endOctave: 2, plucked: false },
+  { id: 'bigWide',          name: 'Big Wide',        folder: 'Bass/Loopable/big wide B-L',       filePrefix: 'Big wide B-L',           startOctave: 2, endOctave: 2, plucked: false },
+  { id: 'cloudBass',        name: 'Cloud Bass',      folder: 'Bass/Loopable/cloud bass B-L',     filePrefix: 'Cloud Bass B-L',         startOctave: 2, endOctave: 2, plucked: false, gain: 0.5 },
+  { id: 'darGlideBass',     name: 'Dar Glide Bass',  folder: 'Bass/Loopable/dar glide bass B-L', filePrefix: 'Dark glide bass B-L',    startOctave: 2, endOctave: 2, plucked: false },
+  { id: 'darkImpact',       name: 'Dark Impact',     folder: 'Bass/Loopable/dark impact B-L',    filePrefix: 'dark impact B-L',        startOctave: 2, endOctave: 2, plucked: false },
+  { id: 'basskeylong',      name: 'Bass Keys',       folder: 'Bass/Plucked/basskeylong',         filePrefix: 'basskeylong',            startOctave: 2, endOctave: 2, plucked: true },
   { id: 'heavyHandedbass',  name: 'Heavy Handed',    folder: 'Bass/Plucked/heavyHandedbass',   filePrefix: 'heavyhandedbass',     startOctave: 2, endOctave: 2, plucked: true, gain: 0.5 },
   { id: 'jazzSessBass',     name: 'Jazz Bass',       folder: 'Bass/Plucked/jazzSessBass',      filePrefix: 'JazzSessBass',        startOctave: 2, endOctave: 2, plucked: true },
   { id: 'weightedPluck',    name: 'Weighted Pluck',  folder: 'Bass/Plucked/weighted pluck',    filePrefix: 'wieghted pluck B-P',  startOctave: 2, endOctave: 2, plucked: true },

@@ -1,11 +1,14 @@
 #!/bin/bash
-# Upload/sync local samples to R2
+# Upload local samples to R2 (additive — never deletes remote files)
 # Usage: npm run samples:upload
 #   or:  ./scripts/samples-upload.sh [subfolder]
 #
 # Examples:
-#   npm run samples:upload                    — sync everything
-#   ./scripts/samples-upload.sh Lead/Loopable — sync only Lead/Loopable
+#   npm run samples:upload                    — upload everything
+#   ./scripts/samples-upload.sh Lead/Loopable — upload only Lead/Loopable
+#
+# SAFETY: Uses 'rclone copy' (not sync) so remote files are NEVER deleted.
+# To delete remote files, use the Cloudflare dashboard or rclone manually.
 
 set -e
 
@@ -34,7 +37,16 @@ else
     echo "Uploading all samples → $DEST"
 fi
 
-rclone sync "$SOURCE" "$DEST" \
+# Sanity check: reject LFS pointer files (they're ~130 bytes text, not real audio)
+POINTER_COUNT=$(find "$SOURCE" -name "*.wav" -size -1k -exec grep -l "oid sha256:" {} \; 2>/dev/null | wc -l | tr -d ' ')
+if [ "$POINTER_COUNT" -gt 0 ]; then
+    echo ""
+    echo "ERROR: Found $POINTER_COUNT Git LFS pointer files instead of real WAV audio."
+    echo "Run 'git lfs pull' first to fetch the actual sample data."
+    exit 1
+fi
+
+rclone copy "$SOURCE" "$DEST" \
     --progress \
     --transfers 8 \
     --checkers 16 \

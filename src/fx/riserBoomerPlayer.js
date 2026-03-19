@@ -25,32 +25,32 @@ const BOOMER_COLLECTIONS = [
 
 // Per-buffer amp and lowpass (passed to \riserBoomer SynthDef)
 const RISER_LP_FREQ = 1500;
-const RISER_AMP = 0.3;
+const RISER_AMP = 0.15;
 const BOOMER_LP_FREQ = 2500;
-const BOOMER_AMP = 0.3;
+const BOOMER_AMP = 0.15;
 
 // Total pair duration + margin for reverb tail.
 const DISPOSE_DELAY_S = 20;
 
 // ── Base interval (ms) — used for main sections ──
-const BASE_MIN_MS = 20000;
-const BASE_MAX_MS = 30000;
+const BASE_MIN_MS = 35000;
+const BASE_MAX_MS = 50000;
 
 // ── Interval multipliers by section type ──
 // < 1 = faster (more frequent), 1 = base rate
 const SECTION_SPEED = {
-  transition:      0.45,   // ~9–14 s
-  innerTransition: 0.45,
-  intro:           0.65,   // ~13–20 s
-  outro:           0.65,
-  main:            1.0,    // 20–30 s (base)
+  transition:      0.6,    // ~21–30 s
+  innerTransition: 0.6,
+  intro:           0.8,    // ~28–40 s
+  outro:           0.8,
+  main:            1.0,    // 35–50 s (base)
   main2:           1.0,
 };
 const DEFAULT_SPEED = 1.0;
 
 // Multiplicative speed boosts for plucked lead (stacks with section)
-const PLUCKED_SPEED = 0.80;                // 20% faster
-const PLUCKED_SIMULTANEOUS_SPEED = 0.60;   // 40% faster
+const PLUCKED_SPEED = 0.85;                // 15% faster
+const PLUCKED_SIMULTANEOUS_SPEED = 0.70;   // 30% faster
 
 let isActive = false;
 let triggerTimer = null;
