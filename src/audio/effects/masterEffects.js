@@ -9,7 +9,7 @@
  * values at each cycle start.
  *
  * Signal chain on master bus:
- *   [track outputs + reverb returns] → fxMasterLofi → fxMasterLPFLfo → fxMasterDelay → fxMasterReverb → masterOut
+ *   [track outputs + reverb returns] → fxMasterLofi → fxMasterHiShelf → fxMasterLPFLfo → fxMasterDelay → fxMasterReverb → masterOut
  */
 
 import { synthNew, nodeSet, nodeFree } from '../../sc/osc.js';
@@ -52,6 +52,7 @@ let reverbNodeId = null;
 let delayNodeId = null;
 let filterNodeId = null;
 let lofiNodeId = null;
+let hiShelfNodeId = null;
 let currentParams = null;
 
 /**
@@ -64,7 +65,7 @@ let currentParams = null;
  */
 export function initMasterEffects() {
   // Order matters: we add at HEAD of master group, so add in reverse
-  // execution order. Final chain: lofi → filter → delay → reverb → masterOut.
+  // execution order. Final chain: lofi → hiShelf → filter → delay → reverb → masterOut.
 
   reverbNodeId = allocNodeId();
   synthNew('fxMasterReverb', reverbNodeId, 0, GROUPS.MASTER, {
@@ -95,6 +96,16 @@ export function initMasterEffects() {
     lagTime: 8,
   });
 
+  // High shelf — gentle air boost (+3.5 dB above 8kHz)
+  hiShelfNodeId = allocNodeId();
+  synthNew('fxMasterHiShelf', hiShelfNodeId, 0, GROUPS.MASTER, {
+    bus: BUSES.MASTER,
+    freq: 8000,
+    db: 3.5,
+    rs: 0.8,
+    lagTime: 8,
+  });
+
   lofiNodeId = allocNodeId();
   synthNew('fxMasterLofi', lofiNodeId, 0, GROUPS.MASTER, {
     bus: BUSES.MASTER,
@@ -111,9 +122,10 @@ export function initMasterEffects() {
     delay:  { wet: 0.05, delayTime: 1.5, feedback: 0.35 },
     filter: { depth: 0.0, lfoRate: 0.03, centerFreq: 8000 },
     lofi:   { mix: 0.1, lpFreq: 5000, sampleRate: 32000, bitDepth: 16, drive: 1.2 },
+    hiShelf: { freq: 8000, db: 3.5 },
   };
 
-  console.log('[masterFX] initialized — lofi, reverb, delay, filter LFO on master bus');
+  console.log('[masterFX] initialized — lofi, hiShelf, reverb, delay, filter LFO on master bus');
 }
 
 /**
@@ -176,9 +188,10 @@ export function getMasterEffectsState() {
  * Disposes all master effect synths.
  */
 export function disposeMasterEffects() {
-  if (reverbNodeId) { nodeFree(reverbNodeId); reverbNodeId = null; }
-  if (delayNodeId)  { nodeFree(delayNodeId);  delayNodeId = null; }
-  if (filterNodeId) { nodeFree(filterNodeId);  filterNodeId = null; }
-  if (lofiNodeId)   { nodeFree(lofiNodeId);   lofiNodeId = null; }
+  if (reverbNodeId)  { nodeFree(reverbNodeId);  reverbNodeId = null; }
+  if (delayNodeId)   { nodeFree(delayNodeId);   delayNodeId = null; }
+  if (filterNodeId)  { nodeFree(filterNodeId);  filterNodeId = null; }
+  if (lofiNodeId)    { nodeFree(lofiNodeId);    lofiNodeId = null; }
+  if (hiShelfNodeId) { nodeFree(hiShelfNodeId); hiShelfNodeId = null; }
   currentParams = null;
 }

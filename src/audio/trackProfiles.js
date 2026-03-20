@@ -92,12 +92,12 @@ export const TRACK_PROFILES = {
     ],
     automation: {
       brightness: {
-        transition:      1.0,
-        intro:           0.5,
-        main:            0.0,
-        innerTransition: 0.0,
-        main2:           0.0,
-        outro:           0.5,
+        transition:      0.5,
+        intro:           0.25,
+        main:            0.1,
+        innerTransition: 0.1,
+        main2:           0.1,
+        outro:           0.25,
       },
       duckFloor: 0.2,
     },
@@ -271,11 +271,11 @@ export const TRACK_PROFILES = {
   },
 
   sampleTexture: {
-    gain: 0.05,
+    gain: 0.09,
     chain: [
       {
         type: 'Filter',
-        params: { frequency: 800, type: 'highpass', rolloff: -48 },
+        params: { frequency: 1200, type: 'highpass', rolloff: -48 },
       },
       {
         id: 'dynamicFilter',
@@ -285,6 +285,11 @@ export const TRACK_PROFILES = {
       {
         type: 'AGC',
         params: { targetAmp: 0.015, attack: 0.5, release: 3, maxGain: 6 },
+      },
+      {
+        id: 'airShelf',
+        type: 'HiShelf',
+        params: { frequency: 5000, db: 5, rs: 0.8 },
       },
       {
         id: 'spectralSmear',
@@ -317,11 +322,11 @@ export const TRACK_PROFILES = {
     automation: {
       brightness: {
         transition:      1.0,
-        intro:           0.5,
-        main:            0.05,
-        innerTransition: 0.9,
-        main2:           0.05,
-        outro:           0.7,
+        intro:           0.7,
+        main:            0.1,
+        innerTransition: 0.3,
+        main2:           0.1,
+        outro:           0.5,
       },
       freqRange: { min: 800, max: 16000 },
       duckFloor: 0.12,

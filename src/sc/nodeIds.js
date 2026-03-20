@@ -102,3 +102,25 @@ export const METER_CTL_BUSES = {
 
 export const METER_CTL_START = 100;
 export const METER_CTL_COUNT = 14;  // 7 meters × 2 values
+
+// ── Control buses for professional bus analysis (written by \busAnalyzer synths) ──
+// Each analyzer writes 40 values to consecutive control buses:
+//   [0–30]  31-band 1/3-octave spectrum (ISO 266, 20 Hz – 20 kHz)
+//   [31–36] Stereo field: L rms, R rms, mid rms, side rms, correlation, width
+//   [37–39] Loudness: K-weighted momentary (400ms), short-term (3s), true peak
+export const ANALYSIS_VALUES_PER_TRACK = 40;
+
+export const ANALYSIS_CTL_BUSES = {
+  DRONE:         200,  // 200–239
+  LEAD:          240,  // 240–279
+  TEXTURE:       280,  // 280–319
+  ARCHIVE:       320,  // 320–359
+  FREESOUND:     360,  // 360–399
+  PEDAL_PAD:     400,  // 400–439
+  BASS_SUPPORT:  440,  // 440–479
+  LEAD_REVERSED: 480,  // 480–519
+  MASTER:        520,  // 520–559
+};
+
+export const ANALYSIS_CTL_START = 200;
+export const ANALYSIS_CTL_COUNT = 360;  // 9 tracks × 40 values

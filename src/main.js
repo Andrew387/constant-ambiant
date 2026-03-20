@@ -230,6 +230,9 @@ function stopEngine() {
 let lastDiagnosticLog = 0;
 const DIAGNOSTIC_INTERVAL = 30000; // log bus levels every 30s
 
+let analysisPollTimer = null;
+let cachedAnalysis = null;
+
 function startLevelPolling() {
   if (levelPollTimer) return;
   levelPollTimer = setInterval(async () => {
@@ -239,7 +242,7 @@ function startLevelPolling() {
       const automation = getAutomationState();
       const masterFX = mixer.getMasterEffectsState();
       const liveEffects = getLiveEffectParams();
-      broadcast({ type: 'levels', levels, automation, masterFX, liveEffects });
+      broadcast({ type: 'levels', levels, automation, masterFX, liveEffects, analysis: cachedAnalysis });
 
       // Periodic diagnostic: log bus signal levels to console
       const now = Date.now();
@@ -252,6 +255,13 @@ function startLevelPolling() {
       }
     }
   }, 150);
+
+  // Full analysis poll at 500ms (31-band spectrum + stereo + loudness)
+  analysisPollTimer = setInterval(async () => {
+    if (!mixer) return;
+    const analysis = await mixer.pollAnalysis();
+    if (analysis) cachedAnalysis = analysis;
+  }, 500);
 }
 
 function stopLevelPolling() {
@@ -259,6 +269,11 @@ function stopLevelPolling() {
     clearInterval(levelPollTimer);
     levelPollTimer = null;
   }
+  if (analysisPollTimer) {
+    clearInterval(analysisPollTimer);
+    analysisPollTimer = null;
+  }
+  cachedAnalysis = null;
 }
 
 /* ------------------------------------------------------------------ */

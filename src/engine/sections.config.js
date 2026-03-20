@@ -85,7 +85,8 @@ const REFERENCE_CHORD_DURATION = 1.0;
 
 /**
  * Scales section durations inversely with chord duration.
- * Longer chords → fewer loops; short chords stay at base (cap).
+ * Longer chords → fewer loops; shorter chords → more loops.
+ * Keeps total song duration roughly uniform regardless of chord length.
  * Mutates SECTIONS[].duration and SECTION_DURATIONS in place.
  *
  * @param {number} chordDuration — current chord duration in measures
@@ -95,7 +96,7 @@ export function scaleSectionDurations(chordDuration) {
 
   SECTIONS.forEach((section, i) => {
     const base = BASE_DURATIONS[i];
-    const scaled = Math.max(1, Math.min(base, Math.round(base * ratio)));
+    const scaled = Math.max(1, Math.round(base * ratio));
     section.duration = scaled;
     SECTION_DURATIONS[section.type] = scaled;
   });

@@ -39,6 +39,18 @@ const EFFECT_REGISTRY = [
     },
   },
   {
+    type: 'HiShelf',
+    defName: 'fxHiShelf',
+    mapParams(spec) {
+      return {
+        freq: spec.params?.frequency ?? 6000,
+        db: spec.params?.db ?? 3,
+        rs: spec.params?.rs ?? 0.8,
+        lagTime: spec.params?.lagTime ?? 4,
+      };
+    },
+  },
+  {
     type: 'Filter',
     condition: (spec) => !!spec.lfo,
     defName: 'fxLPFLfo',

@@ -463,6 +463,13 @@ SynthDef(\fxHPF, { |bus=0, freq=180|
     ReplaceOut.ar(bus, HPF.ar(In.ar(bus, 2), freq.lag(2)));
 }).add;
 
+// ── HIGH SHELF ──────────────────────────────────────────────
+// Boost or cut above a given frequency. BHiShelf(freq, rs, db).
+// rs = shelf slope (1 = steep). db > 0 = boost, < 0 = cut.
+SynthDef(\fxHiShelf, { |bus=0, freq=6000, db=3, rs=0.8, lagTime=4|
+    ReplaceOut.ar(bus, BHiShelf.ar(In.ar(bus, 2), Lag3.kr(freq, lagTime), rs, Lag3.kr(db, lagTime)));
+}).add;
+
 // ── LOWPASS FILTER (automation target) ──────────────────────
 // Lag3 smooths section automation sweeps with an S-curve shape.
 SynthDef(\fxLPF, { |bus=0, freq=18000, lagTime=3|
@@ -633,6 +640,12 @@ SynthDef(\fxMasterLPFLfo, { |bus=2, centerFreq=8000,
     ReplaceOut.ar(bus, target);
 }).add;
 
+// ── MASTER HIGH SHELF ────────────────────────────────────────
+// Gentle air boost on the master bus. Placed after lofi/filter/delay/reverb.
+SynthDef(\fxMasterHiShelf, { |bus=2, freq=8000, db=3, rs=0.8, lagTime=8|
+    ReplaceOut.ar(bus, BHiShelf.ar(In.ar(bus, 2), Lag3.kr(freq, lagTime), rs, Lag3.kr(db, lagTime)));
+}).add;
+
 
 // ════════════════════════════════════════════════════════════
 //  MASTER OUTPUT
@@ -659,6 +672,57 @@ SynthDef(\busMeter, { |audioBus=0, ctlBus=100|
     var rms = Amplitude.kr(mono, 0.05, 0.2);
     var peak = Peak.kr(mono.abs, Impulse.kr(3)).lag(0.1);
     Out.kr(ctlBus, [rms, peak]);
+}).add;
+
+// ── PROFESSIONAL BUS ANALYZER ─────────────────────────────────────
+// Comprehensive per-bus analysis: 1/3-octave spectrum, stereo field,
+// K-weighted loudness. Writes 40 values to consecutive control buses.
+//
+// Layout (40 values per track):
+//   [0–30]  31-band 1/3-octave spectrum (ISO 266 center freqs, RMS amplitude)
+//   [31]    L channel RMS
+//   [32]    R channel RMS
+//   [33]    Mid (L+R)/2 RMS
+//   [34]    Side (L-R)/2 RMS
+//   [35]    Stereo correlation (+1=mono, 0=decorrelated, -1=out-of-phase)
+//   [36]    Stereo width (side/mid ratio)
+//   [37]    K-weighted momentary loudness (400ms window)
+//   [38]    K-weighted short-term loudness (3s window)
+//   [39]    True peak (sample-accurate, reset at 2 Hz)
+SynthDef(\busAnalyzer, { |audioBus=0, ctlBus=200|
+    var sig = In.ar(audioBus, 2);
+    var l = sig[0], r = sig[1];
+    var mono = (l + r) * 0.5;
+    var side = (l - r) * 0.5;
+
+    // ── 1/3-octave spectrum (31 ISO 266 bands, 20 Hz – 20 kHz) ──
+    // BPF rq for 1/3-octave = 2^(1/6) - 2^(-1/6) ≈ 0.2316
+    var freqs = [20, 25, 31.5, 40, 50, 63, 80, 100, 125, 160, 200, 250, 315,
+                 400, 500, 630, 800, 1000, 1250, 1600, 2000, 2500, 3150,
+                 4000, 5000, 6300, 8000, 10000, 12500, 16000, 20000];
+    var bands = freqs.collect({ |f| Amplitude.kr(BPF.ar(mono, f, 0.2316), 0.05, 0.3) });
+
+    // ── Stereo field analysis ──
+    var lRms = Amplitude.kr(l, 0.05, 0.2);
+    var rRms = Amplitude.kr(r, 0.05, 0.2);
+    var midRms = Amplitude.kr(mono, 0.05, 0.2);
+    var sideRms = Amplitude.kr(side, 0.05, 0.2);
+    // Pearson correlation via smoothed audio-rate products (avoids aliasing)
+    var avgProd = A2K.kr(Lag.ar(l * r, 0.3));
+    var avgLSq  = A2K.kr(Lag.ar(l * l, 0.3));
+    var avgRSq  = A2K.kr(Lag.ar(r * r, 0.3));
+    var corr = avgProd / ((avgLSq * avgRSq).sqrt + 1e-10);
+    var width = sideRms / (midRms + 1e-10);
+
+    // ── K-weighted loudness (ITU-R BS.1770 approximation) ──
+    // Stage 1: +4 dB high shelf at 1681 Hz (head-related transfer function)
+    // Stage 2: 38 Hz high pass (revised low-frequency B-weighting)
+    var kw = HPF.ar(BHiShelf.ar(mono, 1681, 1, 4), 38);
+    var momentary = Amplitude.kr(kw, 0.4, 0.4);   // 400ms window
+    var shortTerm = Amplitude.kr(kw, 3.0, 3.0);   // 3s window
+    var truePeak = Peak.kr(mono.abs, Impulse.kr(2)).lag(0.1);
+
+    Out.kr(ctlBus, bands ++ [lRms, rRms, midRms, sideRms, corr, width, momentary, shortTerm, truePeak]);
 }).add;
 
 "[synthdefs] All SynthDefs compiled and added.".postln;

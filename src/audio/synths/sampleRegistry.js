@@ -31,6 +31,11 @@ export const LEAD_INSTRUMENTS = [
   { id: 'glassSky',         name: 'Glass Sky',        folder: 'Lead/Loopable/glass sky L-L ',       filePrefix: 'Glass sky L-L',        startOctave: 2, endOctave: 4, plucked: false },
   { id: 'pipeAmbiance',     name: 'Pipe Ambiance',    folder: 'Lead/Loopable/pipe ambiance L-L',    filePrefix: 'Pipe ambiance L-L',    startOctave: 2, endOctave: 4, plucked: false },
   { id: 'rockHarpsichord',  name: 'Rock Harpsichord', folder: 'Bass-Lead/Plucked/rock harpsichord B:L-P', filePrefix: 'rockharpsichord B:L-P', startOctave: 2, endOctave: 4, plucked: true },
+  { id: 'vocalPad',           name: 'Vocal Pad',           folder: 'Lead/Loopable/vocal pad L-L',           filePrefix: 'Vocal pad L-L',           startOctave: 2, endOctave: 4, plucked: false },
+  { id: 'wornMotor',          name: 'Worn Motor',          folder: 'Lead/Loopable/Worn motor L-L',          filePrefix: 'Worn motor L-L',          startOctave: 2, endOctave: 4, plucked: false },
+  { id: 'vowelPad',           name: 'Vowel Pad',           folder: 'Lead/Loopable/vowel pad L-L',           filePrefix: 'Vowel Pad L-L',           startOctave: 2, endOctave: 4, plucked: false },
+  { id: 'trillBows',          name: 'Trill Bows',          folder: 'Lead/Loopable/trill bows L-L',          filePrefix: 'Trill bows L-L',          startOctave: 2, endOctave: 4, plucked: false },
+  { id: 'vintageDreamscape',  name: 'Vintage Dreamscape',  folder: 'Lead/Loopable/vintage dreamscape L-L',  filePrefix: 'Vintage dreamscape L-L',  startOctave: 2, endOctave: 4, plucked: false },
 ];
 
 // Pad instruments: octaves 1–3 (bassSupport at oct 1, pedalPad at oct 3)
@@ -56,6 +61,12 @@ export const BASS_INSTRUMENTS = [
   { id: 'heavyHandedbass',  name: 'Heavy Handed',    folder: 'Bass/Plucked/heavyHandedbass',   filePrefix: 'heavyhandedbass',     startOctave: 2, endOctave: 2, plucked: true, gain: 0.5 },
   { id: 'jazzSessBass',     name: 'Jazz Bass',       folder: 'Bass/Plucked/jazzSessBass',      filePrefix: 'JazzSessBass',        startOctave: 2, endOctave: 2, plucked: true },
   { id: 'weightedPluck',    name: 'Weighted Pluck',  folder: 'Bass/Plucked/weighted pluck',    filePrefix: 'wieghted pluck B-P',  startOctave: 2, endOctave: 2, plucked: true },
+  { id: 'deepSynthBass',      name: 'Deep Synth Bass',      folder: 'Bass/Loopable/deep synth bass',       filePrefix: 'deep synth bass B-L',       startOctave: 2, endOctave: 2, plucked: false },
+  { id: 'deepThumpBass',      name: 'Deep Thump Bass',      folder: 'Bass/Loopable/deep thump bass B-L',   filePrefix: 'Deep thump bass B-L',       startOctave: 2, endOctave: 2, plucked: false },
+  { id: 'heavySubBass',       name: 'Heavy Sub Bass',       folder: 'Bass/Loopable/Heavy sub bass B-L',    filePrefix: 'Heavy sub bass B-L',        startOctave: 2, endOctave: 2, plucked: false },
+  { id: 'darkString',         name: 'Dark String',          folder: 'Bass/Plucked/Dark String B-P',        filePrefix: 'Dark string B-P',           startOctave: 2, endOctave: 2, plucked: true },
+  { id: 'heavySynthBass',     name: 'Heavy Synth Bass',     folder: 'Bass/Plucked/heavy synth bass B-P',   filePrefix: 'Heavy synth bass B-P',      startOctave: 2, endOctave: 2, plucked: true },
+  { id: 'mutantAcousticBassP', name: 'Mutant Acoustic Bass', folder: 'Bass/Plucked/mutant acoustic bass B-P', filePrefix: 'mutant acoustic bass B-P', startOctave: 2, endOctave: 2, plucked: true },
 ];
 
 // Bass-Lead instruments: octaves 2–4 (usable in both bass and lead slots)

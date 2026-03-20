@@ -13,7 +13,11 @@
  */
 
 import { synthNew, nodeSet, nodeFree, sync, controlBusGetN } from '../sc/osc.js';
-import { allocNodeId, GROUPS, BUSES, METER_CTL_BUSES, METER_CTL_START, METER_CTL_COUNT } from '../sc/nodeIds.js';
+import {
+  allocNodeId, GROUPS, BUSES,
+  METER_CTL_BUSES, METER_CTL_START, METER_CTL_COUNT,
+  ANALYSIS_CTL_BUSES, ANALYSIS_CTL_START, ANALYSIS_CTL_COUNT, ANALYSIS_VALUES_PER_TRACK,
+} from '../sc/nodeIds.js';
 import { createAllTrackEffects, randomizeTrackEffects } from './effects/trackEffects.js';
 import { initSectionAutomation, disposeSectionAutomation } from './effects/sectionAutomation.js';
 import { initMasterEffects, randomizeMasterEffects, disposeMasterEffects, getMasterEffectsState } from './effects/masterEffects.js';
@@ -51,6 +55,7 @@ let texturePlayer = null;
 let pendingDisposeTimers = [];
 
 let meterNodeIds = [];
+let analyzerNodeIds = [];
 
 /**
  * Initializes the mixer: creates SC synth nodes for gains, effects,
@@ -130,7 +135,7 @@ export async function initMixer(deps = {}) {
   synthNew('masterOut', masterGainNodeId, 1, GROUPS.MASTER, {
     inBus: BUSES.MASTER,
     outBus: 0,
-    gain: 0.8,
+    gain: 1.4,
   });
 
   // ── Per-track bus meters (at tail of effects group for track buses) ──
@@ -154,6 +159,30 @@ export async function initMixer(deps = {}) {
     audioBus: BUSES.MASTER, ctlBus: METER_CTL_BUSES.MASTER,
   });
   meterNodeIds.push(masterMeterId);
+
+  // ── Per-track professional analyzers (31-band spectrum + stereo + loudness) ──
+  analyzerNodeIds = [];
+  const trackAnalyzers = [
+    { audioBus: BUSES.DRONE,         ctlBus: ANALYSIS_CTL_BUSES.DRONE },
+    { audioBus: BUSES.LEAD,          ctlBus: ANALYSIS_CTL_BUSES.LEAD },
+    { audioBus: BUSES.TEXTURE,       ctlBus: ANALYSIS_CTL_BUSES.TEXTURE },
+    { audioBus: BUSES.ARCHIVE,       ctlBus: ANALYSIS_CTL_BUSES.ARCHIVE },
+    { audioBus: BUSES.FREESOUND,     ctlBus: ANALYSIS_CTL_BUSES.FREESOUND },
+    { audioBus: BUSES.PEDAL_PAD,     ctlBus: ANALYSIS_CTL_BUSES.PEDAL_PAD },
+    { audioBus: BUSES.BASS_SUPPORT,  ctlBus: ANALYSIS_CTL_BUSES.BASS_SUPPORT },
+    { audioBus: BUSES.LEAD_REVERSED, ctlBus: ANALYSIS_CTL_BUSES.LEAD_REVERSED },
+  ];
+  for (const { audioBus, ctlBus } of trackAnalyzers) {
+    const nodeId = allocNodeId();
+    synthNew('busAnalyzer', nodeId, 1, GROUPS.EFFECTS, { audioBus, ctlBus });
+    analyzerNodeIds.push(nodeId);
+  }
+  // Master analyzer at tail of master group (after reverbs mixed in)
+  const masterAnalyzerId = allocNodeId();
+  synthNew('busAnalyzer', masterAnalyzerId, 1, GROUPS.MASTER, {
+    audioBus: BUSES.MASTER, ctlBus: ANALYSIS_CTL_BUSES.MASTER,
+  });
+  analyzerNodeIds.push(masterAnalyzerId);
 
   // ── Sync: ensure all effect/reverb/master synths exist on the server ──
   await sync();
@@ -254,6 +283,7 @@ export async function initMixer(deps = {}) {
     swapBassSupportRandom: bassSupportSlot.swapRandom,
     swapLeadReversedRandom: leadReversedSlot.swapRandom,
     pollLevels,
+    pollAnalysis,
     dispose: disposeMixer,
   };
 }
@@ -535,6 +565,72 @@ export async function pollLevels() {
   }
 }
 
+// ── Professional analysis data layout ──
+// Matches busAnalyzer SynthDef output: 40 values per track.
+
+// 31 ISO 266 1/3-octave center frequencies
+const SPECTRUM_BAND_NAMES = [
+  '20', '25', '31.5', '40', '50', '63', '80', '100', '125', '160',
+  '200', '250', '315', '400', '500', '630', '800', '1k', '1.25k', '1.6k',
+  '2k', '2.5k', '3.15k', '4k', '5k', '6.3k', '8k', '10k', '12.5k', '16k', '20k',
+];
+
+const ANALYSIS_LAYOUT = [
+  { name: 'drone',        offset: (ANALYSIS_CTL_BUSES.DRONE         - ANALYSIS_CTL_START) },
+  { name: 'lead',         offset: (ANALYSIS_CTL_BUSES.LEAD          - ANALYSIS_CTL_START) },
+  { name: 'texture',      offset: (ANALYSIS_CTL_BUSES.TEXTURE       - ANALYSIS_CTL_START) },
+  { name: 'archive',      offset: (ANALYSIS_CTL_BUSES.ARCHIVE       - ANALYSIS_CTL_START) },
+  { name: 'freesound',    offset: (ANALYSIS_CTL_BUSES.FREESOUND     - ANALYSIS_CTL_START) },
+  { name: 'pedalPad',     offset: (ANALYSIS_CTL_BUSES.PEDAL_PAD     - ANALYSIS_CTL_START) },
+  { name: 'bassSupport',  offset: (ANALYSIS_CTL_BUSES.BASS_SUPPORT  - ANALYSIS_CTL_START) },
+  { name: 'leadReversed', offset: (ANALYSIS_CTL_BUSES.LEAD_REVERSED - ANALYSIS_CTL_START) },
+  { name: 'master',       offset: (ANALYSIS_CTL_BUSES.MASTER        - ANALYSIS_CTL_START) },
+];
+
+function round5(v) { return Math.round(v * 100000) / 100000; }
+
+/**
+ * Polls all busAnalyzer control buses: 31-band spectrum + stereo + loudness per track.
+ * @returns {Promise<Object<string, { spectrum, stereo, loudness }>>}
+ */
+export async function pollAnalysis() {
+  try {
+    const args = await controlBusGetN(ANALYSIS_CTL_START, ANALYSIS_CTL_COUNT);
+    const values = args.slice(2); // skip busIndex and count
+    const analysis = {};
+
+    for (const { name, offset } of ANALYSIS_LAYOUT) {
+      // [0–30] 31-band 1/3-octave spectrum
+      const spectrum = {};
+      for (let i = 0; i < 31; i++) {
+        spectrum[SPECTRUM_BAND_NAMES[i]] = round5(values[offset + i] || 0);
+      }
+
+      // [31–36] stereo field
+      const stereo = {
+        lRms:        round5(values[offset + 31] || 0),
+        rRms:        round5(values[offset + 32] || 0),
+        midRms:      round5(values[offset + 33] || 0),
+        sideRms:     round5(values[offset + 34] || 0),
+        correlation: round5(values[offset + 35] || 0),
+        width:       round5(values[offset + 36] || 0),
+      };
+
+      // [37–39] loudness
+      const loudness = {
+        momentary: round5(values[offset + 37] || 0),
+        shortTerm: round5(values[offset + 38] || 0),
+        truePeak:  round5(values[offset + 39] || 0),
+      };
+
+      analysis[name] = { spectrum, stereo, loudness };
+    }
+    return analysis;
+  } catch {
+    return null;
+  }
+}
+
 function disposeMixer() {
   for (const tid of pendingDisposeTimers) {
     clearTimeout(tid);
@@ -564,4 +660,5 @@ function disposeMixer() {
   // Track gain nodes and master are freed when SC server is rebooted
   trackGainNodeIds = {};
   masterGainNodeId = null;
+  analyzerNodeIds = [];
 }
